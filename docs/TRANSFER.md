@@ -741,3 +741,60 @@ are the original ones at their original, low buffer resolution, because
 reSOT keeps effect buffers unscaled to avoid misregistered copies, as the
 PC port shows. Rendering them at full resolution is order step 6
 ([effect buffers](#effect-buffers-at-internal-resolution)).
+
+## Jade references the user supplied (2026-10-21)
+
+These may be used freely in this private fork (AGENTS.md). Copies of the
+parts in use are in ignored `research/`.
+
+### PS2 prototype of Sands of Time
+
+`Y:\playstation 2 games\Prince of Persia - The Sands of Time (Aug 19, 2003
+prototype)` holds `SLUS_207.43` and `MAPFILE.MAP`, the CodeWarrior link map
+popsot-fixes used.
+
+**What the map holds.** 8,727 named functions with addresses, built between
+the demo (July) and retail (October). By library:
+
+| Library | Functions |
+| --- | --- |
+| AIinterp | 4,465 |
+| DARE sound | 1,258 |
+| ENGine | 1,207 |
+| GraphicDK | 467 |
+| Ps2Graphic | 313 |
+
+Among them are `GDI_*`, `WATER3D_*` (22), `GFX_*` effects (136), `CAM_*`
+and `WOR_*`.
+
+**Names already transferred.** `tools/ps2-ai-names.py` reads the
+prototype's `AI2C_gat_fctdefs` (Jade key → compiled AI function) and finds
+the same table in an XBE by its keys:
+
+| Target | Table at | Names | Output |
+| --- | --- | --- | --- |
+| Retail | `0x0043B178`, right after `RESOT_JADE_COMPILED_BF` | 872 | `source/xbox-retail/ai2c_names.tsv` |
+| Demo, from the PAL demo copy with the same code | `0x00340100` | 610 | `source/xbox-demo/ai2c_names.tsv` |
+
+Every named address is a lifted function. One example is
+`Prince_Bhv_BeforeMainTrack` at `0x00110930`, the hook point popsot-fixes
+used for cheats. Retail has 1,448 keys the prototype lacks: content added
+after August.
+
+**Still to do.** The engine and GraphicDK names (about 1,700 functions)
+have no shared key table. They need structural matching: call graphs and
+constants, starting from anchors such as the AI table, the GDI table and
+`CAM_Engine_ComputePlans`.
+
+### Jade engine source (Rayman 4 prototype, about 2006)
+
+The GDI interface and the GX8 Xbox back end are described in
+`docs/HLE-RENDERER-STUDY.md` §6. It also holds `GX8_Menus.c` and
+`GX8_CheatFlags.h` for the debug-menu wish, and `Gx8water.c` for the water.
+
+### Later prototypes
+
+| Prototype | What it is | Value |
+| --- | --- | --- |
+| Warrior Within, PS2 review build, 2004-10-25 | no symbol table | intermediate engine version for cross-matching |
+| The Two Thrones, Xbox devkit build `EmeaMag_v001`, 2005-10-02 | no Jade identifiers | intermediate engine version for cross-matching |

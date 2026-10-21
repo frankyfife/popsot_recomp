@@ -440,7 +440,8 @@ weakest ("Checked against the console ⚪").
 
 ### xemu reference comparison
 
-FuturamaPC tools: `F:tools/xemu_capture.py`, `F:tools/m3_check.py:95-112,134-203`.
+Not planned for reSOT as a general method (user, 2026-10-21): only for
+special cases. FuturamaPC tools: `F:tools/xemu_capture.py`, `F:tools/m3_check.py:95-112,134-203`.
 
 - **Capture.** Start xemu without touching its config. Grab the client area
   every N s with `PrintWindow(PW_RENDERFULLCONTENT)`, falling back to a screen
@@ -544,66 +545,154 @@ that it is the function described.
 | `0x002CAE60` / `0x002C95B0` | Save script, save-list fill |
 | `0x007584F0` (data) | Menu manager pointer |
 
+## Goals of this fork (user, 2026-10-21)
+
+- **German speech.** The finished port should speak German: the user rates
+  the German dubbing clearly above the English one in tone and timbre. Only
+  the speech comes from the European release; everything else stays NTSC
+  (the `xbox-retail` USA executable, its text, timing and data).
+- **Game logic at 60 Hz.**
+- **Cut content, lost levels, features missing from retail, differences and
+  easter eggs** become launcher options, off by default, as in FuturamaPC:
+  with every option off the game is the original.
+- **No xemu comparison** as a general method; only for special cases.
+  FuturamaPC did not need it either.
+
+## German speech on the NTSC executable
+
+What the user's discs show (2026-10-21; copies of the index files and the
+European XBE in ignored `research/sound-usa/`, `research/sound-pal/`,
+`research/pal-retail/`).
+
+**Both discs use the same archive scheme.** `SOUND/<name>.fat` is a
+directory of 20-byte headers, each followed by a path:
+
+| Offset | Field |
+| --- | --- |
+| `+0x04` | Offset into `<name>.big` |
+| `+0x08` | Size |
+| `+0x10` | Path length |
+
+**The speech data is the same set, packed differently:**
+
+| | USA retail (`xbox-retail`) | European retail |
+| --- | --- | --- |
+| Executable | 4,603,904 bytes, 2003-10-20 | 4,141,056 bytes, 2004-01-12, entry `0x00311045`, 31 sections: a different build |
+| Language banks | `SOUNDX.big`: 274 `sound/<lang>/*.sb2` each for english, french, spanish, plus 98 shared | `soundx0`–`SOUNDX4`: 274 banks plus `stream.ls2` each for english, french, spanish, italian, **german**; `SOUNDX` holds only the 98 shared |
+| Streamed speech | `soundx0`–`soundx2.big`: `sound/<lang>/stream.ls2` only | inside each language archive |
+
+**What was compared:**
+
+- **English bank sizes.** All 274 English banks have the same size on both
+  discs.
+- **German bank names.** The German names are exactly the English ones.
+- **Bank contents.** They are not byte-identical: g11_01 differs in 28 bytes,
+  g12_01 in 45, all within the first `0x200` bytes. The bank header version
+  (`04000a00…`) is the same on both discs and in German.
+- **Reading.** The differing fields are probably references into the
+  matching `stream.ls2`. This is not yet decoded.
+
+**Approach.** Replace the whole English set with the German one: the 274
+`sound/english/*.sb2` entries of `SOUNDX` and `sound/english/stream.ls2` of
+`soundx0`, all taken from `SOUNDX4` of the user's European disc. They go
+together, so that bank headers and stream match.
+
+Two ways to do it:
+
+- **An installer step** that writes a German `SOUND/` beside the NTSC data,
+  derived from the user's disc and never committed (like FuturamaPC's packs).
+- **A redirection** in the kernel's file layer.
+
+The language stays English for the game, so menus and subtitles stay NTSC
+English.
+
+**To verify:**
+
+- The USA executable accepts the European banks and stream; the same format
+  version suggests so.
+- The cinematics have five variants on the European disc
+  (`VIDEO/30fps/CINE_90x0`–`90x4`) and three on the USA disc. That `90x4` is
+  German is assumed from the archive order (0 en, 1 fr, 2 es, 3 it, 4 de) and
+  unchecked.
+- Lip-sync and timing in cinematics.
+- The 275th European entry.
+
+## Game logic at 60 Hz
+
+reSOT's own analysis (RECOMP.md:559-568, VALIDATION.md:3076-3100):
+
+- **Original.** The retail frame clock `sub_000DB740` computes a fixed
+  timestep 1,000,000 / (int(refresh) >> 1) µs. At NTSC 60 Hz that is
+  33,333 µs: the console's game logic runs at 30 Hz.
+- **reSOT.** The refresh field is zero in reSOT, so the target hook replaces
+  that step with the measured frame interval. Logic therefore runs at the
+  picture rate, for example 120 Hz at 120 fps, with the original 1 ms minimum
+  and 160 ms cap.
+- **Demo.** The demo has no such hook. Its speed above 60 fps was not
+  measured (VALIDATION.md:2744).
+
+**For a fixed 60 Hz,** the step becomes 16,667 µs per tick. Then decide
+between two options:
+
+- **Picture limited to 60.** Simple.
+- **Picture above 60 with interpolation.** This is FuturamaPC's approach
+  (F:docs/m3d_report.md). At NV2A level it needs object-level hooks in the
+  Jade engine, so it is a project of its own.
+
+FuturamaPC's lesson applies first: list the code that counts ticks rather
+than time (fades, damping, script waits), because a different tick rate
+changes its speed (LD:863,897). Whether the European build runs PAL60 is
+irrelevant here: logic and data stay NTSC.
+
+## Cut content and differences as launcher options
+
+FuturamaPC's method (F:docs/tote_enden.md) applies to the lifted Jade code in
+`gen/ai` and `gen/scripts`. It looks for:
+
+- flags only ever written with 0;
+- conditions that are always 0;
+- names referenced but absent from the data;
+- stub natives.
+
+Sources for reSOT:
+
+- the PS2 prototype SLUS_207.43 with its `MAPFILE.MAP` symbols (popsot-fixes,
+  T:474-536);
+- the demo against retail: the demo's hidden Load Map page and its levels;
+- the European build against the USA build: same game, three months later;
+- popsot-fixes' findings (T:188-205; the PC level select is a PC page).
+
+Each finding is marked proven or assumed. Each becomes an option, off by
+default, that the launcher offers on Windows and Android alike (AGENTS.md).
+FuturamaPC's schema contract (see [Launcher and options](#launcher-and-options))
+is the model.
+
 ## Suggested order
 
-Ranked by benefit for effort. Each step ends with a VALIDATION.md entry.
+Each step ends with a VALIDATION.md entry.
 
-1. **Byte tests for every address in `target.h` and `target_hooks.c`**, both
-   targets, skipped without the XBE. They are cheap and protect everything
-   that follows. Done 2026-10-21 as `tools/test-xbe-sites.py` with
-   `source/<target>/xbe_sites.txt`. Retail is fully checked; 62 demo claims
-   wait for the demo XBE (VALIDATION.md).
-2. **xemu reference captures of a few fixed scenes**, with a static-pixel
-   mask and per-scene limits. This turns "looks right" into numbers and fills
-   the empty "Checked against the console" row.
-3. **Effect buffers at internal resolution**, following the pixel-unit versus
-   texture-space rule. Start from the retail water draw (known constants) and
-   the glow chain; add soft-focus options once its Xbox pass is found.
-4. **Rumble check** with the retail anchors, then the PS2 shoulder layout as
+1. **Address checks** for `target.h` and `target_hooks.c`. Done 2026-10-21:
+   `tools/test-xbe-sites.py`, `source/<target>/xbe_sites.txt`. Retail is
+   fully checked against its XBE. The demo is checked against the generated
+   code, and against the user's PAL demo disc (same code, different hash;
+   VALIDATION.md).
+2. **German speech** on `xbox-retail`, as above: decode the differing bank
+   header fields, swap the English set for the German one, check in game,
+   then make it an installer/launcher option.
+3. **60 Hz game logic**: list the tick-bound code, fix the step, decide the
+   picture limit; then the same for the demo.
+4. **Dead-ends scan and first launcher options.**
+5. **Rumble check** with the retail anchors, then the PS2 shoulder layout as
    an optional preset.
-5. **Condition waits for `RECOMP_PAD_SCRIPT`** and a log checker, so that
+6. **Effect buffers at internal resolution**, following the pixel-unit versus
+   texture-space rule (water, glow, then soft focus).
+7. **Condition waits for `RECOMP_PAD_SCRIPT`** and a log checker, so that
    crash reports such as the garden lever and the second ladder can be
    replayed.
-6. **Audio measurements** with `RECOMP_APU_WAV` against the disc originals
-   for the retail dropouts.
-7. **Save verify/resign tool and real signature keys**, then a full
+8. **Audio measurements** with `RECOMP_APU_WAV` against the disc originals
+   for the retail dropouts; also useful for the German speech.
+9. **Save verify/resign tool and real signature keys**, then a full
    save/load cycle.
-8. **Retail main-menu camera at 16:9**, then the free camera.
-9. **MSAA/alpha-to-coverage and anisotropic filtering** in the native
-   backends.
-10. **Texture dump and packs**, then movie packs.
-
-## Goal of this fork: German speech
-
-The user's goal for the finished port is the German voice track, whose
-dubbing they consider clearly better than the English one in tone and
-timbre. What the user's discs show (2026-10-21):
-
-- **The USA retail disc** (`xbox-retail`) has three speech banks,
-  `SOUND/soundx0`–`soundx2` (En, Fr, Es). Each `.fat` index is 44–45 bytes.
-  Cinematics come in three language variants (`CINE_9010`–`9012`, …).
-  There is no German.
-- **The European retail disc** (En, Fr, De, Es, It) has a different
-  executable:
-  - `default.xbe` is 4,141,056 bytes, built 2004-01-12, with entry
-    `0x00311045`, 31 sections and SHA-256 `F15584C5…`;
-  - there are five speech banks (`soundx0`–`SOUNDX4`) with 12 KB indices, and
-    `SOUNDX.fat` is 3,758 bytes against 40,927 on the USA disc, so the sound
-    data is laid out differently;
-  - cinematics have five language variants (`CINE_9010`–`9014`), with 25 and
-    30 fps folders.
-
-  Copied to ignored `research/pal-retail/`.
-- **The demo**, NTSC and PAL alike, is English only.
-
-German speech therefore needs the European XBE. Moving the German files
-onto the USA executable would mean converting between two different sound
-layouts and would still leave the text in the USA `prince.bf`. A third target
-for the European build needs:
-
-- a full lift;
-- its own `target.h`, `target_hooks.c` and `xbe_sites.txt`, with every
-  retail claim found again in that XBE;
-- a check of PAL timing (50 Hz, the 25 fps folder).
-
-`tools/test-xbe-sites.py` makes the second part checkable claim by claim.
+10. **Retail main-menu camera at 16:9**, then the free camera.
+11. **MSAA/alpha-to-coverage and anisotropic filtering**, then texture and
+    movie packs.

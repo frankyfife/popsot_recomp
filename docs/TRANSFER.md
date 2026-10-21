@@ -557,6 +557,11 @@ that it is the function described.
   with every option off the game is the original.
 - **No xemu comparison** as a general method; only for special cases.
   FuturamaPC did not need it either.
+- **Further wishes:**
+  - a native renderer, if it is faster (see the wish list below);
+  - a free camera;
+  - vector (SVG) fonts and controller-button glyphs;
+  - a debug menu.
 
 ## German speech on the NTSC executable
 
@@ -591,6 +596,13 @@ directory of 20-byte headers, each followed by a path:
   (`04000a00…`) is the same on both discs and in German.
 - **Reading.** The differing fields are probably references into the
   matching `stream.ls2`. This is not yet decoded.
+
+**Status (2026-10-21).** Done for banks and stream by `tools/german-speech.py`.
+A scripted run played a German stream line and no English one, confirmed
+by an English control run (VALIDATION.md). Still open:
+- the cinematics, which are still English;
+- listening by the user;
+- making it a launcher option instead of a script.
 
 **Approach.** Replace the whole English set with the German one: the 274
 `sound/english/*.sb2` entries of `SOUNDX` and `sound/english/stream.ls2` of
@@ -676,9 +688,9 @@ Each step ends with a VALIDATION.md entry.
    fully checked against its XBE. The demo is checked against the generated
    code, and against the user's PAL demo disc (same code, different hash;
    VALIDATION.md).
-2. **German speech** on `xbox-retail`, as above: decode the differing bank
-   header fields, swap the English set for the German one, check in game,
-   then make it an installer/launcher option.
+2. **German speech** on `xbox-retail`. Banks and stream are done
+   (`tools/german-speech.py`). Next: the German cinematics (`CINE_90x4`,
+   to be checked), then an installer/launcher option.
 3. **60 Hz game logic**: list the tick-bound code, fix the step, decide the
    picture limit; then the same for the demo.
 4. **Dead-ends scan and first launcher options.**
@@ -696,3 +708,36 @@ Each step ends with a VALIDATION.md entry.
 10. **Retail main-menu camera at 16:9**, then the free camera.
 11. **MSAA/alpha-to-coverage and anisotropic filtering**, then texture and
     movie packs.
+
+## Wish list (user, 2026-10-21)
+
+Not yet ranked into the order above.
+
+- **Native renderer, if it is faster.** reSOT already has optional native
+  D3D12 and Vulkan back ends through SDL GPU, chosen in F7 with a restart
+  (README status: 🟡). Retail Vulkan measured a menu executor of 4.6–6.7 ms
+  against 16.2–16.6 ms for the CPU vertex interpreter, and 66–124 FPS in the
+  courtyard (VALIDATION.md). The next step is to measure D3D11 against D3D12
+  and Vulkan in the same scenes. Then make the fastest one the default once
+  it renders the same.
+- **Free camera.** See [Extras](#extras): camera struct, speed and pause flag
+  from popsot-fixes, and FuturamaPC's L3+R3 chord. The Xbox addresses still
+  need finding.
+- **Vector (SVG) fonts and controller buttons.** Text and button prompts are
+  bitmap fonts at 640×480: font 5 holds the button glyphs, `\p5\<c>`
+  (T:294-308). At high internal resolution they would be drawn from vector
+  outlines instead, keyed by the glyph. A shoulder-button layout (PS2
+  preset) needs new glyph art anyway.
+- **Debug menu.** Look for the developers' menus in the XBE and the lifted
+  scripts as part of the dead-ends scan. Candidates are hidden pages in the
+  menu library (the demo's Load Map was one) and the PS2 prototype's
+  `MAPFILE.MAP` symbols. Offer them as a launcher option, off by default.
+
+**Post-processing look.** The defaults since 0.1.2 are `TextureGlowEffect=0`
+and `PostProcessingQuality=1` (Low), so the final glow composite is off and
+blur/bloom run at half their original buffer size. The user noticed the
+missing post-processing (2026-10-21). With glow on and High, the effects
+are the original ones at their original, low buffer resolution, because
+reSOT keeps effect buffers unscaled to avoid misregistered copies, as the
+PC port shows. Rendering them at full resolution is order step 6
+([effect buffers](#effect-buffers-at-internal-resolution)).

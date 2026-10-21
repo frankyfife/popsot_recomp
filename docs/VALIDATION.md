@@ -1,5 +1,59 @@
 # Validation log
 
+## 2026-10-21: German speech on xbox-retail
+
+`tools/german-speech.py --eu-iso <European disc> --game Assets/xbox-retail`
+replaces the English speech set of the USA disc with the German set of the
+user's European disc (En, Fr, De, Es, It). It writes the 274 banks and
+`stream.ls2` from `SOUND/SOUNDX4` under the English paths of `SOUND/SOUNDX`
+and `SOUND/soundx0`. The English archives move to
+`SOUND/original-english/`, and `--restore` moves them back. Menus and text
+stay NTSC.
+
+Format findings:
+- Both discs use `.fat` directories of `{u32 entry offset, u32 big offset,
+  u32 size, u32 0, u32 name length with NUL, name}` over back-to-back `.big`
+  data.
+- English banks are the same size on both discs. They differ only in a few
+  header bytes: flags, single volume values (−9 against −8) and what looks
+  like uninitialised memory.
+- English streams differ only in a float in each segment header; the audio
+  is byte-identical.
+- German has the same names, bank version (`04000a00`) and stream count
+  (979 decoded streams in each language, vgmstream, Xbox IMA ADPCM
+  24 kHz).
+
+Built with `tools/recomp.ps1 -Target xbox-retail -BuildOnly -Generator
+'Visual Studio 17 2022'` (VS 2022 Build Tools; dependencies from
+`tools/setup-shader-compiler.ps1` and `tools/setup-native-gpu.ps1`).
+
+Run twice, German and then the restored English, both with:
+
+```powershell
+./tools/run.ps1 -Target xbox-retail -Seconds 130 -Windowed -Set @{
+  RECOMP_PAD_SCRIPT='15000:start:400,25000:start:400,35000:a:400,45000:start:400,60000:a:400,75000:a:400,90000:start:400,100000:a:400,110000:a:400'
+  RECOMP_APU_WAV='logs/german-run.wav' }   # english-run.wav for the second
+```
+
+Both reached the first courtyard: title, profile, menu, the balcony
+introduction, then the tutorial text.
+
+Each capture was compared with every decoded speech stream of both
+languages by normalised cross-correlation at 8 kHz:
+
+| Run | German stream line (`voingstm_28`/`29`, 14.7 s) | English line |
+| --- | --- | --- |
+| German set | **0.329** at 77.6 s | 0.032 (noise) |
+| English set | 0.033 (noise) | **0.254** (`voingstm_29`) at 92.5 s |
+
+Language-independent sounds (`gp01_02_*`, 0.96) and a 26 s
+language-independent stream (`voingstm_58`/`59`, 0.21) appear in both runs.
+No error about sound files was logged. Listening excerpts:
+`logs/excerpt-german.wav`, `logs/excerpt-english.wav`.
+
+Not checked: the rest of the game, in-bank lines beyond these 130 s, and
+the cinematics (`VIDEO/`, still English). Nobody has listened to it yet.
+
 ## 2026-10-21: every target address checked against its XBE
 
 `tools/test-xbe-sites.py` checks each address that `target.h` and

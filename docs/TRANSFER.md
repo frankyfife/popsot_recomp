@@ -572,3 +572,38 @@ Ranked by benefit for effort. Each step ends with a VALIDATION.md entry.
 9. **MSAA/alpha-to-coverage and anisotropic filtering** in the native
    backends.
 10. **Texture dump and packs**, then movie packs.
+
+## Goal of this fork: German speech
+
+The user's goal for the finished port is the German voice track, whose
+dubbing they consider clearly better than the English one in tone and
+timbre. What the user's discs show (2026-10-21):
+
+- **The USA retail disc** (`xbox-retail`) has three speech banks,
+  `SOUND/soundx0`–`soundx2` (En, Fr, Es). Each `.fat` index is 44–45 bytes.
+  Cinematics come in three language variants (`CINE_9010`–`9012`, …).
+  There is no German.
+- **The European retail disc** (En, Fr, De, Es, It) has a different
+  executable:
+  - `default.xbe` is 4,141,056 bytes, built 2004-01-12, with entry
+    `0x00311045`, 31 sections and SHA-256 `F15584C5…`;
+  - there are five speech banks (`soundx0`–`SOUNDX4`) with 12 KB indices, and
+    `SOUNDX.fat` is 3,758 bytes against 40,927 on the USA disc, so the sound
+    data is laid out differently;
+  - cinematics have five language variants (`CINE_9010`–`9014`), with 25 and
+    30 fps folders.
+
+  Copied to ignored `research/pal-retail/`.
+- **The demo**, NTSC and PAL alike, is English only.
+
+German speech therefore needs the European XBE. Moving the German files
+onto the USA executable would mean converting between two different sound
+layouts and would still leave the text in the USA `prince.bf`. A third target
+for the European build needs:
+
+- a full lift;
+- its own `target.h`, `target_hooks.c` and `xbe_sites.txt`, with every
+  retail claim found again in that XBE;
+- a check of PAL timing (50 Hz, the 25 fps folder).
+
+`tools/test-xbe-sites.py` makes the second part checkable claim by claim.

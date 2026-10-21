@@ -60,10 +60,10 @@ ref 0x0002DF1B 0x003400FC           # compiled BF
 
 # Camera field of view (target.h, target_hooks.c)
 func 0x0008A820                     # camera set-up
-insn 0x0008A94C fptan               # target.h
-insn 0x0008A95E fptan               # target_hooks.c, sub_0008A820_enter
+ref 0x0008A94C 0xC                  # target.h: reads the field of view
+insn 0x0008A95E fptan               # target_hooks.c: the fptan that follows
 func 0x000EF340                     # projection
-insn 0x000EF429 fptan
+ref 0x000EF429 0xC                  # reads the field of view
 
 # DSOUND (target.h; 118,148 bytes = 0x1CD84)
 section 0x002E9F00 0x1CD84 0x00306C84

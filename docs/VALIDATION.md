@@ -38,9 +38,26 @@ the generated code (function starts, spans, cross-target functions, and
 `ret` claims through the return addresses the generated calls push), 62
 skipped, 0 failed. A comment wrote `0x0033 37D8` for `0x003337D8`, so no check
 could see it; it is now one literal. `0x00013EB0`, "the dispatcher", is a
-block inside `sub_00013DD9`, not a function start. target.h and the
-`sub_0008A820_enter` comment name two different `fptan` sites (`0x0008A94C`,
-`0x0008A95E`); both are claims and wait for the XBE.
+block inside `sub_00013DD9`, not a function start.
+
+PAL demo disc (later the same day): the user's PAL Xbox demo disc carries
+`POP4/DEFAULT.XBE`, 3,526,656 bytes, built 2003-07-18, title ID `0x494D001D`,
+game region 4, the same entry point `0x0027FC6C` and 29 sections, but SHA-256
+`C9D79CA5…` and MD5 `1202c981…` (the analysis notes record MD5 `93db5c87…`
+for the reference). It is therefore not accepted as `xbox-demo`; it is kept
+in ignored `research/demo-disc/` for comparison only.
+
+Compared with the reference through the generated code: all 38,409
+return-address/callee pairs that `source/xbox-demo/gen` pushes are the same
+call instructions in this file. The same comparison on the retail XBE
+matches all 53,491 pairs, as a control. The SHA-1 digest of each of its 29
+sections matches its contents. Running the 135 demo claims against it, with
+the hash check bypassed, passes 133. The two failures were wrong claims:
+target.h says the field of view is *read* at `0x0008A94C` and `0x000EF429`.
+Those are `fld dword ptr [ecx + 0xc]`; the `fptan` follows at `0x0008A95E`.
+They are now `ref … 0xC` claims, and the two comments do not contradict each
+other. Data sections were not compared: there is no reference copy here.
+The demo disc has only an `English` sound folder.
 
 Negative checks on retail, each restored afterwards:
 - a wrong `ret` callee, a `ref` with the wrong value, a return address that

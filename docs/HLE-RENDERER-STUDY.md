@@ -185,6 +185,74 @@ combiners and vertex programs. A Direct3D-level renderer for it is
 therefore larger than FuturamaPC's, and its 7 hours to first image plus
 about 9 days to features is a floor, not an estimate.
 
+### 6. The Jade engine source and the GDI boundary (added 2026-10-21)
+
+The user supplied the Jade engine source and editor of the Rayman 4
+prototype (Raving Rabbids phase, about 2006) and two Prince of Persia
+prototypes (`G:\popopopopopopo`; usable freely in this private fork,
+AGENTS.md). Selected parts are extracted to ignored `research/jade-src/`.
+
+- **`GraphicDK/Sources/GDInterface/GDInterface.h`.** This is Jade's
+  boundary between engine and renderer. Each back end fills a table
+  `st_GDI` of about 20 function pointers:
+  - display init and open/close;
+  - `Clear`, `Flip`;
+  - view and projection matrix;
+  - `DrawIndexedTriangles`, `DrawIndexedSprites`;
+  - texture and palette load/store/unload;
+  - `SetTextureBlending`;
+  - `SetTextureTarget` and `SetViewMatrix_SDW` (shadows);
+  - `Request` (generic requests, `GDIrequest.h`).
+
+  This is the counterpart of FuturamaPC's `NiRenderer` vtable.
+- **Back ends in the source.** `Libraries/GX8` (Xbox), `Libraries/OpenGL`
+  (PC) and `Libraries/XenonGraphics` (Xbox 360), plus `Main/MainPsx2`.
+- **GX8, the Xbox back end,** has:
+  - `AfterFX` (post effects);
+  - `Gx8water`, `Gx8ShadowBuffer`, `Gx8flare`;
+  - `GX8PixelShaders` (the combiner set-ups, in source) and
+    `GX8VertexShaders` with 16 `.vsh` sources;
+  - `GX8renderstate`, `GX8request`, `GX8tex`, `Gx8video`, `bink`;
+  - `RASter/GX8_Menus.c` and `GX8_CheatFlags.h` (debug menus).
+- **The same table exists in Sands of Time.** `sub_002F9EC0` stores 18
+  render-block functions into one table (`+0x0C`…`+0x5C`). The slots match
+  GDI roles:
+
+  | Slot | Function | Role | Why |
+  | --- | --- | --- | --- |
+  | `+0x14` | `0x000CFB90` | Clear | calls `D3DDevice_Clear` |
+  | `+0x1C` | `0x000CFBF0` | Flip | calls `D3DDevice_Swap` |
+  | `+0x24` | `0x000CFC10` | SetProjectionMatrix | the projection reSOT hooks for Hor+ |
+  | `+0x28` | `0x000D0090` | DrawIndexedTriangles | calls `DrawIndexedVertices` |
+  | `+0x34` | `0x000D05A0` | probably DrawIndexedSprites | writes through `BeginPush` |
+  | `+0x58` | `0x000D04B0` | probably SetTextureTarget (shadows) | sets a render target, clears, gets a surface level |
+
+  The order differs slightly from 2006, so every slot has to be confirmed
+  in this XBE.
+- **No debug strings.** The retail XBE has none of the source's string
+  literals (1 of 281 found), so matching is structural: tables, call
+  patterns, constants.
+- **The prototypes.**
+  - The Warrior Within PS2 review build (`SLUS_210.22`, 2004-10-25) has no
+    symbol table, only a few type names in text.
+  - The Two Thrones Xbox prototype (`default.xbe`, 2005-10-02, devkit key,
+    `EmeaMag_v001`) carries no Jade identifiers.
+
+  Both are intermediate GX8 versions for cross-matching, not name sources.
+
+This turns option D from "unknown" into a concrete one:
+- **The interface.** Replace GX8 behind the GDI table (18 slots in this
+  build) plus the GX8 entry points the engine calls directly. The render
+  block has 57 such entry points, among them the effect modules, water and
+  shadows.
+- **What the replacement gets.** It receives Jade geometry (`GEO_`
+  elements, vertices, UVs), materials and camera matrices: what each draw
+  *is*.
+- **What the source provides.** It describes what GX8 does with them,
+  including the combiner set-ups and vertex shaders in readable form. The
+  vertex shader `.vsh` sources and `GX8PixelShaders.c` can be rewritten as
+  HLSL directly instead of translating NV2A state.
+
 ## Options
 
 | | What | Keeps | Cost (calendar, at FuturamaPC's pace) | Solves |
@@ -192,7 +260,7 @@ about 9 days to features is a floor, not an estimate.
 | A | Keep polishing the NV2A renderer | everything | ongoing | slowly, by more heuristics |
 | B | **Annotated NV2A**: hook the named D3D calls (`SetRenderTarget`, `CreateTexture2`, `GetSurfaceLevel2`, `Clear`, `SetViewport`, the effect modules, `DrawVerticesUP`) only to tell the existing renderer what each surface and draw is | the whole renderer, Android | about 1 week | effect buffers at full resolution (the pixel-unit vs. texture-space rule from popsot-fixes), the water frame copy, 2D/HUD classification; the basis for C |
 | C | **HLE Direct3D**: replace the 84 called functions (plus the 6 push writers and 5 replay sites) with an API-level renderer on SDL GPU (D3D12/Vulkan, Android too), reusing reSOT's combiner/vertex translation, texture formats and swizzling | game logic, kernel, audio, input, saves, tests, German speech | first image: several days; parity with today: about 2–3 weeks; then features | all of the above at the root, plus MSAA, texture packs, vector fonts, interpolation later |
-| D | Engine level (Jade's render module as one unit, like FuturamaPC's `NiRenderer`) | as C | unknown: the module's interface (57 entries, 41 table slots) is not decoded | as C, possibly simpler drawing |
+| D | **Engine level**: a new GX8 behind Jade's GDI table (18 slots here) and the directly called GX8 entry points, on SDL GPU, using the 2006 GX8 source as the description and starting point | as C | comparable to FuturamaPC's engine-level renderer, plus confirming each slot and structure against the 2003 build | as C, with draws that carry their meaning; no generic combiner translation needed |
 | E | Restart like FuturamaPC (native XBE, own loader) | nothing of reSOT | months | nothing that C does not, and Android is lost |
 
 Culling errors are separate. reSOT widens the frustum side planes for Hor+
@@ -231,9 +299,20 @@ API-level renderer:
    2D draws. Then fix the effect buffers at full resolution, the water and
    the HUD on that knowledge. It is about a week, keeps Android, and
    everything learned (which call means what) is needed for C anyway.
-2. **Decide on C with B's results.** If B reaches the quality goal, stop
-   there. If the heuristics still limit it, as they likely will for
-   interpolation and texture packs, build C on SDL GPU.
+2. **Decide between C and D with B's results.** If B reaches the quality
+   goal, stop there. If the heuristics still limit it, as they likely will
+   for interpolation and texture packs, build a new renderer on SDL GPU.
+   With the Jade source, D (engine level, like FuturamaPC) is now the
+   likelier target:
+   - a smaller interface with real meaning;
+   - readable shaders;
+   - the source as a starting point.
 
-The effect-module map (which table is which effect) and the culling cause
-are the first two measurements of stage B.
+   C stays the fallback where the 2003 GX8 differs too much from the 2006
+   source.
+
+The first measurements of stage B:
+- the effect-module map (which table is which effect, now with `AfterFX`
+  as the reference);
+- the GDI slot roles (each confirmed in `xbe_sites.txt`);
+- the culling cause.

@@ -23,6 +23,8 @@ replaces the console, and the tools. Start with [README.md](README.md).
 
 ## Rules
 
+- **This checkout is the user's private fork** (user, 2026-10-21). Commit locally only. Never push to `origin` (the public GitHub fork `frankyfife/rePOP_ff`) or `upstream`; both push URLs are disabled on purpose. A private repository may be set up later, only when the user asks for it.
+- In this private fork the Jade engine source and editor of the Rayman 4 prototype and the Prince of Persia prototypes in `G:\popopopopopopo` may be used freely, code included (user, 2026-10-21). This replaces, for this fork, the rule below about the other PoP tools. Say in the commit message what was taken from where.
 - The project recompiles the **Xbox** builds of Prince of Persia: The Sands of Time only: `xbox-demo` and `xbox-retail`. They are different executables: keep their addresses, seed lists and evidence apart (`source/<target>/`, `research/<target>/`). Nothing learned on one is true of the other until it is checked in that XBE.
 - Never commit game files, executables, extracted assets, Ghidra databases, disassembly listings. `Assets/`, `research/`, `bin/`, `build*/` and `logs/` are ignored for that reason. The generated source in `source/<target>/gen/` must be published; this exception does not include game data, executables or extracted assets.
 - `source/<target>/gen` is produced by `tools/recomp.ps1` from the user's XBE. Never edit it by hand. Change behaviour in `port/windows` (host), `port/game` (hand-written overrides), in the target's `target.h`, `target_hooks.c` and `seed_functions.json`, or in the shared runtime, `port/third_party/xboxrecomp` (mark every change there with `RE-SoT` and say why in the comment).
@@ -32,7 +34,7 @@ replaces the console, and the tools. Start with [README.md](README.md).
 - Every address that `target.h` or `target_hooks.c` names, in code or in a comment, has a claim in `source/<target>/xbe_sites.txt`. Run `python tools/test-xbe-sites.py` after changing any of these files; it checks the claims against `Assets/<target>/default.xbe` and fails on an address without a claim.
 - Rebuild the seed list only with `tools/recomp.ps1 -Seeds` (unseeded baseline) or add observed targets with `-Observed <log>`. A wrong seed splits a function and corrupts callee-saved registers far from the cause; find that with `-AbiCheck` builds (`run.ps1 -Abi`).
 - Check shaders with `python tools/check-hlsl.py` before rebuilding. Runtime-only edits need `recomp.ps1 -BuildOnly`; lifter or seed changes need the full run.
-- Jade Toolkit and the other PoP tools in the surrounding workspace are comparison references. Do not copy their code into the project.
+- Jade Toolkit and the other PoP tools in the surrounding workspace are comparison references. Do not copy their code into the project. (Upstream rule; in this private fork the user has lifted it, see above.)
 - Say what was observed, not what is hoped. Update the README status table and `docs/VALIDATION.md` when a component changes state, with the command that was run, what was seen and what was not checked. "Builds", "boots", "renders" and "plays correctly" are different claims; a component is not "working" on the strength of a build or of one screenshot.
 - The first scene after the demo's menu is Entree (BF entry 15).
 

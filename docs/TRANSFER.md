@@ -781,11 +781,27 @@ Every named address is a lifted function. One example is
 used for cheats. Retail has 1,448 keys the prototype lacks: content added
 after August.
 
-**Still to do.** The engine and GraphicDK names (about 1,700 functions)
-have no shared key table. They need structural matching: call graphs and
-constants, starting from anchors such as the AI table, the GDI table and
-`CAM_Engine_ComputePlans`.
+**Engine names by structure (2026-10-21).** `tools/ps2-match-names.py`
+writes `source/xbox-retail/ps2_names.tsv`: 1,882 retail functions, 872 by
+key and 1,010 matched. Matching works through call-graph neighbours
+(PS2 `jal` against the generated calls) and shared globals.
 
+| Matched | Count |
+| --- | --- |
+| Script functions | 823 |
+| Native `AI_EvalFunc_*` | 144 (of 507) |
+| Engine, sound, text and maths | about 40, e.g. `STR_*`, `OBJ_*`, `MATH_*`, `ANI_*`, `EVE_*`, `DARE_*`, `TEXT_ChangeLang`, `INO_PafSet`/`INO_PifSet` (the large and small rumble motors popsot-fixes found) |
+
+**Accuracy.** With a quarter of the seeds held out, 96.4 % of those
+re-found were right. Matched names are a strong hint, not proof.
+
+**Why it stops at the engine.** MSVC inlines much of what CodeWarrior
+calls, so the engine core has too few shared neighbours. The renderer
+(GDI/GX8) is platform code with no PS2 counterpart in the map.
+
+**Still to do.** Better anchors for the engine core: the AI native table
+on the Xbox side, more globals, constants. The demo has the key names
+only. 
 ### Jade engine source (Rayman 4 prototype, about 2006)
 
 The GDI interface and the GX8 Xbox back end are described in

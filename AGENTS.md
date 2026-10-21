@@ -45,4 +45,5 @@ replaces the console, and the tools. Start with [README.md](README.md).
 | [docs/RECOMP.md](docs/RECOMP.md) | The pipeline, addresses, runtime changes, diagnostics |
 | [docs/VALIDATION.md](docs/VALIDATION.md) | What was run and observed |
 | [docs/LICENSING.md](docs/LICENSING.md) | Licences and what is not covered |
+| [docs/TRANSFER.md](docs/TRANSFER.md) | What popsot-fixes and FuturamaPC already established, mapped to reSOT; read before investigating effects, input, saves, audio or verification |
 | [port/third_party/xboxrecomp/README.md](port/third_party/xboxrecomp/README.md) | The vendored toolkit and runtime |

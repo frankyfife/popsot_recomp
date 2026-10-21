@@ -1,5 +1,60 @@
 # Validation log
 
+## 2026-10-21: every target address checked against its XBE
+
+`tools/test-xbe-sites.py` checks each address that `target.h` and
+`target_hooks.c` name against `source/<target>/xbe_sites.txt`, one claim per
+line, written from what the code and its comments say. The kinds are:
+
+- **func**: a lifted function start, outside `.data` and `.rdata`.
+- **ret**: the instruction ending at the address is a call to the named
+  function.
+- **call**: the instruction at the address is a call to the named function or
+  through the named pointer.
+- **ref**: the instruction at the address has the value as an immediate or a
+  displacement.
+- **insn**: the instruction at the address starts with the given text.
+- **span**: the second address lies inside the function at the first.
+- **section, entry, title, u32, f32**: header and data values.
+- **other**: an address of the other target's XBE.
+- **value**: not an address.
+
+The test fails when a claim does not hold, when a named address has no
+claim, or when an `sub_X_enter` hook is never called by the generated code.
+Decoding uses capstone. The XBE is only read, and its SHA-256 must match
+`target.h`.
+
+Retail: `default.xbe` extracted from the user's USA disc image into
+`Assets/xbox-retail/`, SHA-256 `753C58B1...1EE379`.
+`python tools/test-xbe-sites.py xbox-retail` reports 170 claims, all checked
+against the XBE, 0 failed. Writing the claims found one lifter artifact: a
+function at `0x00370035`, inside the hand-written KickOff `0x00370010`,
+directly after its `sfence`. Only the dispatch table lists it and no
+generated code calls it. It is recorded as `split`.
+
+Demo: the demo XBE is not available here.
+`python tools/test-xbe-sites.py xbox-demo` reports 135 claims: 73 checked in
+the generated code (function starts, spans, cross-target functions, and
+`ret` claims through the return addresses the generated calls push), 62
+skipped, 0 failed. A comment wrote `0x0033 37D8` for `0x003337D8`, so no check
+could see it; it is now one literal. `0x00013EB0`, "the dispatcher", is a
+block inside `sub_00013DD9`, not a function start. target.h and the
+`sub_0008A820_enter` comment name two different `fptan` sites (`0x0008A94C`,
+`0x0008A95E`); both are claims and wait for the XBE.
+
+Negative checks on retail, each restored afterwards:
+- a wrong `ret` callee, a `ref` with the wrong value, a return address that
+  follows no call, a non-function, a wrong float, and a removed claim each
+  fail with the cause;
+- an XBE with one changed byte fails on SHA-256;
+- a missing XBE skips the XBE claims, and `--require-xbe` turns that into a
+  failure;
+- an entry hook for a non-function fails as "never called".
+
+Not checked: what the addressed code does at run time. A claim proves that
+the address is what the comment says it is, not that the hook is correct.
+No build was run; no source other than one comment changed.
+
 ## 2026-10-21: clear the Android upper-left HUD and FPS panel
 
 The user approves the gold/blue artwork on device. Their 2712x1220 retail

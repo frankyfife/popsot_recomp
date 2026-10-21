@@ -1,0 +1,195 @@
+# Claims about the retail XBE (SHA-256 753C58B1...1EE379), checked by
+# tools/test-xbe-sites.py. One line per claim, written from what target.h and
+# target_hooks.c say; every address those files name must be covered here.
+
+# The executable
+entry 0x00335753                    # RESOT_ENTRY_POINT
+title 0x5553001D                    # target.h header
+value 0x00010000                    # 0x10000u: NV_PFB_WC_FLUSH bit, not an address
+
+# D3D fences and KickOff (target.h, target_hooks.c "Retail XDK KickOff")
+func 0x00370080                     # issues a fence
+ref 0x003700BD 0x00041D70           # writes method 0x00041D70
+value 0x00041D70                    # NV2A method, not an address
+func 0x00370140                     # waits for a fence
+ref 0x00370141 0x0037B648           # reads the device pointer
+ref 0x00370081 0x0037B648
+ref 0x0036FF79 0x0037B648           # KickOff: [dev] +0x1C28 register base
+ref 0x00370027 0x0037B648
+span 0x0036FF60 0x0037000F          # KickOff 1
+insn 0x0037000F ret
+span 0x00370010 0x0037007A          # KickOff 2
+insn 0x0037007A ret
+split 0x00370035                    # after the sfence; sub_00370010 is hand-written
+insn 0x0036FFD6 mov eax, dword ptr [esi]   # flags & 0x2000 path
+ref 0x0036FFA0 0x00100410           # the WC-flush spin
+ref 0x00370050 0x00100410
+value 0x00100410                    # NV_PFB_WC_FLUSH register offset
+value 0x0FFFFFFF                    # put mask
+func 0x0036AE70                     # busy query
+ref 0x0036AE70 0x0037B648
+ret 0x0036FFC9 sub_0036AE70
+ret 0x00370075 sub_0036AE70
+ref 0x0036FFBB 0x0037B1A0           # sync flag
+ref 0x0036FFD8 0x0037B190           # dummy DMA
+
+# Jade world bookkeeping (target.h)
+func 0x0001F7E0
+other xbox-demo 0x00019890          # "the demo's 0x00019890"
+ref 0x0001F7EE 0x0044AA20           # stores the current world
+ref 0x0001F847 0x007584F4           # reads the state object
+ref 0x0001F84C 0x50                 # its state at +0x50
+func 0x0001F990
+other xbox-demo 0x00019A40          # "the demo's 0x00019A40"
+ref 0x0001FA01 0x0044AA2C           # active list end
+ref 0x0001FA07 0x0044AA38           # active list begin
+ref 0x000112F1 0x0044AA44           # pending mode byte gets 0xFE
+ref 0x000160C6 0x0044A514           # main loaded world, read
+ref 0x00031E11 0x0044A514           # set after load
+ref 0x0006EC3F 0x1D8                # WOW loader: name at world+0x1D8
+ref 0x0006EC57 0x3B                 # terminating byte 59
+ref 0x000319E4 0x00451B48           # primary WOW resolution starts
+ref 0x000319EB 0x00470148           # key -> BF index table
+ref 0x00031A34 0x0046EFE8           # loaded registry tables
+call 0x00031A3A sub_000DFF90        # pair-table lookup, ends the resolution
+func 0x000DFF90
+ref 0x00031A58 0x00451B48           # primary key load
+call 0x00031A73 sub_00030FB0        # primary WOW merge
+ret 0x00031A78 sub_00030FB0
+ref 0x00032061 0x00451B4C           # stream worker published
+ref 0x0003326A 0x400C               # root WOW return stored at +0x400C
+ref 0x000332A7 0x400C
+func 0x000341C0                     # streaming root WOW accessor
+ref 0x000341D5 0x00758BBC           # dynamic load
+ref 0x000341E2 0x00758CD4           # load mode
+ref 0x000341EB 0x0043B174           # compiled BF
+
+# DSOUND (target.h)
+section 0x003E53A0 0x1CD84 0x00402124
+value 0x0001CD84                    # section size
+u32 0x00418210 0x800000AD           # kernel import 173, MmGetPhysicalAddress
+call 0x003EA0C6 0x00418210
+call 0x003ED53A 0x00418210
+call 0x003EDC9F 0x00418210
+call 0x003EDCE5 0x00418210
+call 0x003EDD7B 0x00418210
+call 0x003EE788 0x00418210
+
+# Frame clock and timestep (target_hooks.c)
+func 0x000DB740
+func 0x00011A10                     # calibrated RDTSC clock
+ref 0x000DB741 0x007654C8           # new timestamp
+ref 0x000DB746 0x007654CC
+ref 0x000DB752 0x007654D0           # old timestamp
+ref 0x000DB757 0x007654D4
+ref 0x000DB780 0x007654A4           # refresh field
+ref 0x000DB7CD 0x007654A4
+insn 0x000DB7A7 fdivr               # divides by the refresh
+func 0x00348128                     # _ftol
+ret 0x000DB7B8 sub_00348128         # the hooked _ftol call
+insn 0x000DB7EA cmp dword ptr [0x7654e4], esi   # 1000-us minimum
+
+# Scene loaded and movies (target_hooks.c)
+func 0x00030FB0
+func 0x0001E970                     # Bink status routine
+ref 0x0001E970 0x0044AA1C           # Bink handle
+call 0x0002F5FC sub_0001E970        # caller
+ref 0x0002F629 0x00758544           # loop flag
+call 0x0002F63B sub_0001ED10        # closes Bink
+func 0x0001ED10
+
+# Widescreen projection and culling (target_hooks.c, target.h)
+func 0x000CFC10
+other xbox-demo 0x000EF340          # "the demo's sub_000EF340"
+insn 0x000CFD14 fptan
+ref 0x000CFE0B 0x007682B0           # builds the projection (x scale)
+ref 0x000CFE75 0x007682B0           # copy source
+ref 0x000CFE7A 0x00440C00           # copy destination = holder + 0x60
+insn 0x000CFE7F rep movsd
+ref 0x000CFE81 0x00440BA0           # esi = holder
+func 0x000CD970
+ret 0x000CFE8B sub_000CD970
+func 0x002FD810                     # CAM_Engine_ComputePlans
+other xbox-demo 0x0008A500          # "the demo's sub_0008A500"
+ref 0x002FD821 0x00429354           # half the field of view
+f32 0x00429354 0.5
+func 0x000452F0                     # cosine
+func 0x00045340                     # sine
+ret 0x002FD835 sub_000452F0         # side planes
+ret 0x002FD85C sub_00045340
+ret 0x002FD87C sub_000452F0         # up/down planes
+ret 0x002FD896 sub_00045340
+
+# XAPI pad (target_hooks.c header)
+func 0x0041172B                     # XGetDevices
+func 0x0041174D                     # XGetDeviceChanges
+func 0x00417D4B                     # XInputOpen
+func 0x00417DA1                     # XInputClose
+func 0x00417DAD                     # XInputGetCapabilities
+func 0x00417F85                     # XInputGetState
+func 0x00417FF8                     # XInputSetState
+func 0x000DBB50
+call 0x000DBB5C sub_0041172B
+call 0x000DBBD5 sub_00417D4B
+call 0x000DBBE2 sub_00417DAD
+call 0x000DBBEF sub_00417F85
+func 0x000DBC60
+call 0x000DBC76 sub_0041174D
+call 0x000DBCAA sub_00417DA1
+call 0x000DC2AC sub_00417FF8        # the game sends rumble again
+value 0x52455330                    # "RES0": pad handle
+
+# Look sensitivity (target_hooks.c)
+func 0x000DBDE0
+ret 0x000DC0B3 sub_000DBDE0         # left stick
+ret 0x000DC0C2 sub_000DBDE0         # right stick
+
+# Menu library and reSOT Options (target_hooks.c)
+func 0x002A2B20                     # page open
+func 0x002A3910                     # add choice
+func 0x002A2670                     # close
+func 0x000F84A0                     # text reference -> string
+ref 0x000F84A8 0x0041F4A8           # "no text"
+u32 0x0041F4A8 0
+func 0x00018310                     # message action
+func 0x00116660                     # bind
+func 0x000182A0                     # open page action
+func 0x00039B20                     # message execute
+u32 0x0041F88C sub_00039B20         # vtable 0x0041F888 slot 1
+data 0x0041F888
+other xbox-demo 0x00061470          # "as the demo's 0x00061470"
+func 0x00038DD0                     # text refresh
+func 0x00038190
+call 0x00038FE4 sub_00038DD0
+func 0x00038760
+u32 0x0041F83C sub_00038760         # text action vtable 0x0041F838 slot 1
+data 0x0041F838
+ref 0x00039CE3 0x007584F0           # text manager
+f32 0x00429478 0.4                  # page column x
+call 0x001A3564 sub_002A2B20        # Options sub-page (Sound)
+call 0x001A17CE sub_00116660
+ref 0x00234DCD 0x00758D6C           # current menu
+func 0x002345D0                     # main menu init
+ref 0x00234B32 0x00767530           # eax = [0x00767530]
+call 0x00234B3D sub_002A2B20        # main page open
+ret 0x00234B42 sub_002A2B20
+call 0x00234D86 sub_002A2670        # main page close
+ret 0x00234D8B sub_002A2670
+call 0x00234DC8 sub_002A2B20        # next page open
+ret 0x00234DCD sub_002A2B20
+value 0x0B00FE00                    # injected text group, no key of the retail BF
+value 0xFFFFFFFF                    # unset text reference
+value 0xA7F52955                    # fault address from a log
+
+# Xbox Live choice (target_hooks.c)
+call 0x00234D35 sub_002A3910
+ret 0x00234D3A sub_002A3910
+call 0x00235406 sub_00116660
+ret 0x0023540B sub_00116660
+span 0x00116660 0x00116799
+ref 0x00116784 0x00758D64           # restores eax
+ref 0x00116789 0x00758D68           # restores ecx
+ref 0x0011678F 0x00758D6C           # restores edx
+insn 0x00116765 mov ecx, dword ptr [esp + 0x28]
+insn 0x00116799 ret
+ret 0x001A33F6 sub_002A3910         # pause menu's Xbox Live choice

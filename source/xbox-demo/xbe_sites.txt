@@ -1,0 +1,160 @@
+# Claims about the demo XBE (SHA-256 79C1A478...E79D4F5), checked by
+# tools/test-xbe-sites.py. One line per claim, written from what target.h and
+# target_hooks.c say; every address those files name must be covered here.
+# Written 2026-10-21 without the demo XBE: the func/span/other/ret claims were
+# checked against the generated code, the others still wait for the XBE.
+
+# The executable
+entry 0x0027FC6C                    # RESOT_ENTRY_POINT (XAPI start-up)
+func 0x000110B0                     # the game's own main
+value 0x00010000                    # write-combine flush bit
+value 0x00100410                    # NV_PFB_WC_FLUSH register offset
+value 0x0FFFFFFF                    # put mask
+value 0x52455330                    # "RES0": pad handle
+value 0x0B00FE00                    # injected text group, not a key of the demo's BF
+value 0x0B00432B                    # compiled .ofc key of the menu AI
+value 0x0B00449C                    # text group of "Load Map" and the levels
+value 0x0E000142                    # key of the menu binding function
+
+# D3D fences and KickOff (target.h, target_hooks.c)
+data 0x002A8498                     # device pointer global
+func 0x0029D1E0                     # issues a fence
+func 0x0029D290                     # waits
+span 0x0029D290 0x0029D3C0          # spins on the GPU time
+span 0x0029D0C0 0x0029D16F          # KickOff 1
+span 0x0029D170 0x0029D1DA          # KickOff 2
+code 0x0029D136                     # flags & 0x2000 path
+ref 0x0029D100 0x00100410           # the WC-flush spin
+ref 0x0029D1B0 0x00100410
+func 0x002983A0                     # busy query
+ret 0x0029D129 sub_002983A0
+ret 0x0029D1D5 sub_002983A0
+data 0x002A7FF0                     # sync flag
+data 0x002A7FE0                     # dummy DMA
+
+# Jade world bookkeeping (target.h)
+func 0x00019890
+func 0x00019A40
+data 0x0034AC38                     # current world
+data 0x0034AC50                     # active list begin
+data 0x0034AC44                     # active list end
+data 0x0034AC5C                     # pending mode
+data 0x0064D1DC                     # state object
+ref 0x000198F8 0x3C                 # its state at +0x3C
+ref 0x00012782 0x0034A75C           # main loaded world, read
+ref 0x0002A4D6 0x0034A75C           # set after load
+code 0x000656D0                     # WOW loader copies the name to world+0x184
+code 0x000656F0
+code 0x0002A0D0                     # primary WOW resolution
+code 0x0002A126
+data 0x00350D48                     # primary WOW key
+data 0x00493610                     # key -> BF index table
+data 0x0047EC30                     # loaded registry tables
+func 0x000C0F60                     # sorted pair tables
+func 0x0002DEF0                     # streaming root WOW accessor
+ref 0x0002A6C1 0x00350D4C           # stream worker published
+ref 0x0002D372 0x400C               # root WOW key written
+ref 0x0002DF05 0x0064D33C           # dynamic load
+ref 0x0002DF12 0x0064D3A4           # load mode
+ref 0x0002DF1B 0x003400FC           # compiled BF
+
+# Camera field of view (target.h, target_hooks.c)
+func 0x0008A820                     # camera set-up
+insn 0x0008A94C fptan               # target.h
+insn 0x0008A95E fptan               # target_hooks.c, sub_0008A820_enter
+func 0x000EF340                     # projection
+insn 0x000EF429 fptan
+
+# DSOUND (target.h; 118,148 bytes = 0x1CD84)
+section 0x002E9F00 0x1CD84 0x00306C84
+data 0x0031C8D4                     # MmGetPhysicalAddress thunk
+call 0x002EEC2B 0x0031C8D4
+call 0x002F209A 0x0031C8D4
+call 0x002F27FF 0x0031C8D4
+call 0x002F2845 0x0031C8D4
+call 0x002F28DB 0x0031C8D4
+call 0x002F32E8 0x0031C8D4
+func 0x002E9F30                     # IRQL scope constructor
+func 0x002E9F52                     # IRQL scope destructor
+
+# Scene loaded and movies (target_hooks.c)
+func 0x000295F0                     # primary WOW merge
+call 0x0002A15D sub_000295F0
+ret 0x0002A162 sub_000295F0
+func 0x00018EA0                     # Bink status routine
+ref 0x00018EA0 0x0034AC34           # Bink handle
+code 0x00013EB0                     # in the dispatcher (a block of sub_00013DD9)
+ref 0x00013EC1 0x0064D02C           # loop flag
+func 0x00019000                     # Bink/overlay cleanup
+
+# Widescreen projection and culling (target_hooks.c, target.h)
+func 0x000EF140
+data 0x00650C20                     # the projection
+ret 0x000EF5AA sub_000EF140
+func 0x0008A500                     # CAM_Engine_ComputePlans
+f32 0x003337D8 0.5                  # half the field of view
+func 0x000319B0                     # cosine
+func 0x00031A00                     # sine
+ret 0x0008A525 sub_000319B0         # side planes
+ret 0x0008A54C sub_00031A00
+ret 0x0008A56C *                    # up/down planes
+ret 0x0008A586 *
+
+# XAPI pad (target_hooks.c)
+func 0x00315FD6                     # XGetDevices
+func 0x00315FF8                     # XGetDeviceChanges
+func 0x0031C450                     # XInputOpen
+func 0x0031C4A6                     # XInputClose
+func 0x0031C4B2                     # XInputGetCapabilities
+func 0x0031C68A                     # XInputGetState
+func 0x0031C6FD                     # XInputSetState
+func 0x000C0280                     # pad start-up
+func 0x000BE3F0                     # pad poll and rumble
+
+# Look sensitivity (target_hooks.c)
+func 0x000C05D0
+code 0x000C08A3                     # the left pair
+ret 0x000C08B2 sub_000C05D0         # the right pair
+
+# Menu library, Load Map and reSOT Options (target_hooks.c)
+func 0x001C5790                     # main menu AI
+func 0x0023F110                     # page open
+func 0x0023F040                     # add choice
+func 0x0023FCA0                     # page close
+func 0x0023EB10                     # choice builder
+code 0x0023EB7B                     # language table
+code 0x0023ED5B                     # choice object +0x9C stored
+ret 0x0015E854 sub_0023F110         # building the Load Map page
+ret 0x0015EB37 sub_0023F110         # opening the title page
+func 0x0015D3B0                     # menu AI init
+func 0x0015B3B0                     # menu binding function
+ret 0x0015E9E8 sub_0023F040         # E3 "Quit"
+func 0x00117580                     # bind
+ret 0x0015B752 sub_00117580         # options Sound -> +0x158
+code 0x0015B71E                     # the Sound binding starts
+func 0x0001CAD0
+ret 0x0015C9DA sub_0001CAD0         # after the level bindings
+data 0x0064D880                     # menu object passed to builders
+func 0x00018100                     # open-page action
+data 0x00323860                     # its vtable
+func 0x000613E0                     # its execute
+func 0x0005E7C0                     # page open
+func 0x00138DD0                     # E3 page message loop
+func 0x00018170                     # message action
+code 0x0015B681                     # options binder's message action
+code 0x0015B6D8
+func 0x00061470                     # message execute
+data 0x00323854
+u32 0x00323858 sub_00061470         # vtable 0x00323854 slot 1
+func 0x001104E0                     # text reference -> string
+data 0x00325305                     # its "no text" result
+f32 0x003339EC 0.4                  # page column x
+ref 0x0015E81D 0x003339EC           # movss
+func 0x00060770                     # text action
+func 0x00060160
+data 0x0032380C                     # text action vtable
+u32 0x00323810 sub_00060210         # slot 1
+func 0x00060210
+func 0x000605C0                     # runs a text object
+func 0x00017D10                     # runs every text object
+data 0x0064D1E4                     # text manager

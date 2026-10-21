@@ -470,9 +470,9 @@ environment variable and asserts the exact bytes at every hook and probe site,
 vtable slots, string operands and `ret N`. It is skipped when the XBE is
 absent. 18 test files use the pattern.
 
-reSOT's only protection today is the SHA-256 gate in `tools/recomp.ps1`. The
-same kind of test against `Assets/<target>/default.xbe` would protect every
-address in `target.h` and `target_hooks.c`. It fits the existing native CTest.
+reSOT now has this as `tools/test-xbe-sites.py` (2026-10-21). It checks
+claims (call targets, operands, function starts) rather than raw bytes, so
+no game code is written into the repository.
 
 ### Input scripts that wait on conditions
 
@@ -550,7 +550,9 @@ Ranked by benefit for effort. Each step ends with a VALIDATION.md entry.
 
 1. **Byte tests for every address in `target.h` and `target_hooks.c`**, both
    targets, skipped without the XBE. They are cheap and protect everything
-   that follows.
+   that follows. Done 2026-10-21 as `tools/test-xbe-sites.py` with
+   `source/<target>/xbe_sites.txt`. Retail is fully checked; 62 demo claims
+   wait for the demo XBE (VALIDATION.md).
 2. **xemu reference captures of a few fixed scenes**, with a static-pixel
    mask and per-scene limits. This turns "looks right" into numbers and fills
    the empty "Checked against the console" row.

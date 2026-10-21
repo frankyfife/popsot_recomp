@@ -210,6 +210,7 @@ see [VALIDATION.md](docs/VALIDATION.md).
 | --- | --- | --- |
 | Shared effect-quality selector (Windows/Android) | 🟡 expanded to auxiliary buffers and projected shadows; builds and support tests pass; user confirms the option works (2026-10-20, target unspecified); [all-effects audit remains partial](docs/POST-PROCESSING.md) | 🟡 independent shadow/bloom trace evidence, shared implementation builds; broader water/time-effect identification remains incomplete |
 | Lift and build | 🟢 11,215 functions (2 of them written by hand: the D3D KickOff), 0 failed | 🟢 14,418 functions (2 by hand: the D3D KickOff), 0 failed |
+| Addresses in `target.h` / `target_hooks.c` checked (`tools/test-xbe-sites.py`) | 🟡 135 claims; 73 checked in the generated code, 62 wait for the demo XBE (2026-10-21) | 🟢 170 claims, all checked against the XBE (2026-10-21) |
 | Boot to first frame | 🟢 | 🟢 |
 | Portable launch / F5 overlay / video skip | 🟢 verified by the user (2026-10-18) | 🟢 verified by the user (2026-10-18) |
 | External game folder / options / F6 diagnostics (F7 panel restored: both builds pass, in-game check pending) | 🟢 verified by the user (2026-10-18), including Load Map; launcher with ISO installation run once by the user (demo ISO, 2026-10-18) | 🟢 verified by the user (2026-10-18); no hidden level select exists in this XBE |

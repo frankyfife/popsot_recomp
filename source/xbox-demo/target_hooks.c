@@ -123,7 +123,7 @@ void sub_0008A820_enter(void)
 
 /* Culling planes. sub_0008A500 is Jade's CAM_Engine_ComputePlans: with esi
  * the camera, it takes half the field of view (cam +0x0C times 0.5 at
- * 0x0033 37D8) and stores the frustum's side planes as (cos h, 0, sin h) at
+ * 0x003337D8) and stores the frustum's side planes as (cos h, 0, sin h) at
  * +0x70 (left) and (-cos h, 0, sin h) at +0x64 (right), then the same angle
  * for up/down at +0x4C/+0x58. The objects outside those planes are not drawn,
  * so with a widened projection whatever lay only in the new side strips was

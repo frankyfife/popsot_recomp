@@ -9,7 +9,7 @@ limited, at 450 % (2880x2160) with Ultra.
   `FPSLimit=60`.
 - The user's local `bin/resot-options.ini` (not in the repository) was set
   to 60 as well.
-- Android is left unchanged: only the Windows build is developed further.
+- Android keeps its own default; further work targets the Windows build.
 
 **Check.** A 20-s retail run logs `[FBWIN] FPS limit: 60`.
 
@@ -48,6 +48,7 @@ grey double image around edges and lights.
 - The glow's blurs (same size) and every other draw are unchanged.
 - Option `[Graphics] SoftFocus` is 1 (Sharp, the default) or 0 (Xbox width).
   - Windows: F7 menu "Soft focus: Sharp / Xbox".
+  - Android: INI only.
   - `RECOMP_HW_SOFT_FOCUS=0` overrides it for one run.
 
 **Checks.**

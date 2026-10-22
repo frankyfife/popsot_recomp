@@ -81,21 +81,64 @@ void sub_00348128_enter(void)
  * flat. Step once per 1/30 s of game time instead: the frame is identified by
  * the new timestamp 0x007654C8, since a scene may hold several water objects.
  * On a skipped frame only the guard and the done flag (+0xA0) are kept, as
- * the original sets it. RESOT_RAW_WATER=1 restores the per-frame step. */
+ * the original sets it. RESOT_RAW_WATER=1 restores the per-frame step.
+ * RESOT_WATER_DIAG=1 reports, every 2 s per object, the largest field
+ * amplitude (+0x128) and how many fields are frozen (+0x13C bit 1); a field
+ * whose amplitude falls under 1e-5 (0x00429428) is cleared and frozen. */
 extern void sub_000525A0_gen(void);
+
+static void resot_water_diag(uint32_t object, int stepped)
+{
+    static struct { uint32_t object, calls, steps; uint64_t since; } seen[8];
+    uint32_t grid, cols, rows, fields = 0, frozen = 0, i, slot;
+    float peak = 0.0f;
+    if (!object)
+        return;
+    for (slot = 0; slot < 8 && seen[slot].object && seen[slot].object != object; slot++)
+        ;
+    if (slot == 8)
+        return;
+    seen[slot].object = object;
+    seen[slot].calls++;
+    seen[slot].steps += stepped;
+    seen[slot].since += ((uint64_t)GMEM32(0x007654E4u) << 32) | GMEM32(0x007654E0u);
+    if (seen[slot].since < 2000000u)
+        return;
+    grid = GMEM32(object + 0x34u);
+    cols = GMEM32(object + 0x38u);
+    rows = GMEM32(object + 0x3Cu);
+    for (i = 0; grid && cols * rows < 4096u && i < cols * rows; i++) {
+        uint32_t field = GMEM32(grid + 4u * i);
+        if (!field)
+            continue;
+        fields++;
+        frozen += (GMEM32(field + 0x13Cu) & 2u) != 0;
+        if (GMEMF(field + 0x128u) > peak)
+            peak = GMEMF(field + 0x128u);
+    }
+    fprintf(stderr, "[WATER] object %08X: %u fields, %u frozen, peak %.6g;"
+                    " %u steps in %u calls\n", object, fields, frozen, peak,
+            seen[slot].steps, seen[slot].calls);
+    seen[slot].calls = seen[slot].steps = 0;
+    seen[slot].since = 0;
+}
 
 void sub_000525A0(void)
 {
-    static int configured, raw, step;
+    static int configured, raw, diag, step;
     static uint32_t frame_lo, frame_hi;
     static uint64_t pending;
     uint32_t object = GMEM32(g_esp + 4), saved_lo, saved_hi;
     if (!configured) {
         const char *e = getenv("RESOT_RAW_WATER");
         raw = e && *e && *e != '0';
+        e = getenv("RESOT_WATER_DIAG");
+        diag = e && *e && *e != '0';
         configured = 1;
     }
     if (raw) {
+        if (diag)
+            resot_water_diag(object, 1);
         sub_000525A0_gen();
         return;
     }
@@ -107,6 +150,8 @@ void sub_000525A0(void)
         if (step)
             pending = pending - 33333u > 33333u ? 0 : pending - 33333u;
     }
+    if (diag)
+        resot_water_diag(object, step);
     if (!step) {
         if (object && !GMEM32(object + 0xA0u) && !GMEM32(object + 0xA4u))
             GMEM32(object + 0xA0u) = 1;

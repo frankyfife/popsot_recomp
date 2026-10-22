@@ -32,8 +32,37 @@ twice as fast as on the Xbox, and the surface stays flat.
 - `tools/test-xbe-sites.py xbox-retail`: 202 claims, 0 failed.
 - The retail Release build succeeds.
 
-**Not yet checked:** in the game, at the pool. Refraction (GPU, water vertex
-shader with projective `oT1..oT3`) is a separate issue.
+**Refraction has the same cause.** The water vertex shader (source text in
+the XBE at 0x00423018) takes everything from the vertex normal:
+- `oT0 = 1 - n.z^8` is the Fresnel factor, passed through by texture stage 0
+  (PASS_THROUGH).
+- The refraction offset (`refract` with `REFRACT`, scaled by eye depth up to
+  `C_ZMAX`) moves `oT2`/`oT3` away from the screen position in `oT1`.
+- Stages 1..3 read the frame copy `805B4000` (640x480) projectively.
+
+The normals come only from the height field. The water draw `sub_00053190`
+writes the vertex heights. `sub_00051A70` then builds each normal as
+(dh * k, dh * k, 1) from neighbouring heights. A frozen field is drawn as one
+flat quad with normal (0,0,1).
+
+In the user's captures (flips 35835, 36588), the water shader draws 40 strips
+and 2 flat quads, and the largest `t0` is 0.0017. That means n.z = 0.9998,
+a slope of about 1 degree: the surface is almost flat, so the refraction
+offset is nearly the same everywhere and shows as no refraction. The renderer
+side (projective lookup in guest texels, PASS_THROUGH, 3 taps) works as
+written. No separate GPU change is needed.
+
+**Diagnostics.** `RESOT_WATER_DIAG=1` prints, every 2 s per water object:
+- the number of fields and how many of them are frozen;
+- the peak amplitude;
+- steps per calls.
+
+A 150-s run of the retail pad timeline (new game) has no water object, so it
+gave no output. The demo XBE has neither this water shader nor the driver.
+
+**Not yet checked:** in the game, at the pool, with and without
+`RESOT_RAW_WATER=1`. The surface now changes at 30 Hz, as on the Xbox;
+interpolating between steps for 60-Hz display is possible later.
 
 ## 2026-10-22: F9 frame capture; 2160p internal resolution; ghosting measured
 

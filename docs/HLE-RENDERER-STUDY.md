@@ -253,6 +253,47 @@ This turns option D from "unknown" into a concrete one:
   vertex shader `.vsh` sources and `GX8PixelShaders.c` can be rewritten as
   HLSL directly instead of translating NV2A state.
 
+### 7. GDI slots, the quad helper and the effect modules (2026-10-22)
+
+Decompiled with Ghidra 12.1.2 and ghidra-xbe, with the XDK and PS2-prototype
+names applied (`research/ghidra/`).
+
+**GDI table.** `sub_002F9EC0` fills 24 slots. Their order is the 2006
+`st_GDI` order with one slot added after Clear and two before
+SetTextureTarget:
+
+| Slot | Function | Role |
+| --- | --- | --- |
+| 5 | `0CFB90` | Clear |
+| 6 | `0D0CF0` | new in 2003 (an immediate-mode quad) |
+| 7 | `0CFBF0` | Flip |
+| 8 and 23 | `0D0530` | SetViewMatrix and SetViewMatrix_SDW: copies 16 floats to `0x00440BC0`, then the matrix upload `0CD970` |
+| 9 | `0CFC10` | SetProjectionMatrix |
+| 10 | `0D0090` | DrawIndexedTriangles |
+| 11 | `0D0320` | Request |
+| 12 | `0D0570` | SetTextureBlending |
+| 13 | `0D05A0` | DrawIndexedSprites: builds four corners per sprite through `BeginPush` |
+| 14–19 | `0D03A0` … | texture load/palette slots |
+| 22 | `0D04B0` | SetTextureTarget: render target = a shadow texture from `0x00764CCC` or the main surface |
+
+**Quad helper.** `0x000CBDE0` draws a pre-transformed quad: FVF `0x444`,
+XYZRHW + diffuse + 4 texture coordinate sets, positions minus 0.5 px. It
+uses immediate mode (`Begin`/`SetVertexData*`/`End`). Every effect draws
+through it with positions in target pixels and texel coordinates.
+
+**Effect modules** (`0x00428C1C`, four entries each, the last one renders):
+- They share one context object: frame copy texture `+0x80`/`+0x94`/`+0xBC`,
+  render targets `+0xCC`/`+0xC0`, full size `+0x6C/+0x70`, half size
+  `+0x74/+0x78`.
+- `0D2500`: two tinted passes and a reduction; not identified.
+- `0D2A50`: up to six ping-pong passes whose offset follows the camera
+  motion, so **motion blur**.
+- `0D3300`: four passes with the texture scale halving each time, so
+  **zoom blur**.
+- `0D37D0` and `0D4390`: decompiled, not identified yet.
+- The 2006 GX8 `AfterFX` is one monolithic module, so these 2003 classes have
+  no one-to-one counterpart there.
+
 ## Options
 
 | | What | Keeps | Cost (calendar, at FuturamaPC's pace) | Solves |

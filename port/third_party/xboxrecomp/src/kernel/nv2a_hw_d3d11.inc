@@ -863,9 +863,9 @@ static volatile LONG s_render_percent;
 static volatile LONG s_post_quality=3;
 void xbox_SetPostProcessingQuality(int quality)
 {
-    if(quality<0 || quality>3)quality=3;
+    if(quality<0 || quality>RESOT_EFFECT_ULTRA)quality=3;
     if(InterlockedExchange(&s_post_quality,quality)!=quality)
-        fprintf(stderr,"[VIDEO] post processing quality %d (0 off, 1 low, 2 mid, 3 high)\n",quality);
+        fprintf(stderr,"[VIDEO] post processing quality %d (0 off, 1 low, 2 mid, 3 high, 4 ultra)\n",quality);
 }
 static int hw_post_quality(void) { return (int)InterlockedCompareExchange(&s_post_quality,0,0); }
 /* RE-SoT: only proven fullscreen chains may be omitted as screen effects.
@@ -927,6 +927,11 @@ static uint32_t hw_surface_scale(uint32_t w)
         unsigned fx = resot_effect_percent(hw_post_quality(),s_gpu.clip_w,s_gpu.clip_h);
         if (fx != 100) return HW_PERCENT_SCALE | fx;
     }
+    /* RE-SoT: Ultra: auxiliary targets (effect chains, frame copies, shadow
+     * maps) follow the internal resolution like the display. Checked in
+     * retail with RECOMP_HW_FX_SCALE=2: the glow stays in register. */
+    if (hw_post_quality() >= RESOT_EFFECT_ULTRA)
+        return percent ? HW_PERCENT_SCALE | (uint32_t)percent : (uint32_t)s_hw.scale;
     if(w>=640 && percent) return HW_PERCENT_SCALE | (uint32_t)percent;
     return w >= 640 ? (uint32_t)s_hw.scale : (uint32_t)s_hw.fx_scale;
 }

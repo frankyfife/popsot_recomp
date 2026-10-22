@@ -1,6 +1,6 @@
 # Effect quality
 
-The existing `Graphics/PostProcessingQuality` selector remains Off/Low/Mid/High.
+The `Graphics/PostProcessingQuality` selector is Off/Low/Mid/High/Ultra (Ultra added 2026-10-22).
 Release 0.1.2 defaults to Low on Windows and Off on Android, as supplied by
 the user; existing INIs take precedence.
 No new setting was added. The policy is shared by Windows D3D11, Windows native
@@ -10,13 +10,20 @@ a target, backend, scene or individual effect.
 
 ## What the selector controls
 
-| Rendering work | Off | Low | Mid | High |
-| --- | --- | --- | --- | --- |
-| Recognized screen-space blur/bloom chains and their fullscreen composites | Omitted | 50% auxiliary width/height | 75% auxiliary width/height | Original auxiliary resolution |
-| Recognized projected character shadows | Caster and dependent receiver draws omitted | 128×128 maps | 192×192 maps | 256×256 maps |
-| Other auxiliary targets, from 40×30 through 512×512 | 25% width/height; material draws retained | 50% | 75% | Original resolution |
-| Tiny pyramid levels, including retail 20×15 and 10×7 | Recognized chain draws omitted | Original resolution | Original resolution | Original resolution |
-| Full-width display/history buffers, HUD and base scene geometry | Preserved | Preserved | Preserved | Preserved |
+| Rendering work | Off | Low | Mid | High | Ultra |
+| --- | --- | --- | --- | --- | --- |
+| Recognized screen-space blur/bloom chains and their fullscreen composites | Omitted | 50% auxiliary width/height | 75% auxiliary width/height | Original auxiliary resolution | Internal resolution |
+| Recognized projected character shadows | Caster and dependent receiver draws omitted | 128×128 maps | 192×192 maps | 256×256 maps | Internal resolution (384×384 at 150%) |
+| Other auxiliary targets, from 40×30 through 512×512 | 25% width/height; material draws retained | 50% | 75% | Original resolution | Internal resolution |
+| Tiny pyramid levels, including retail 20×15 and 10×7 | Recognized chain draws omitted | Original resolution | Original resolution | Original resolution | Internal resolution |
+| Full-width display/history buffers, HUD and base scene geometry | Preserved | Preserved | Preserved | Preserved | Preserved |
+
+Ultra is safe to scale because the renderer normalises screen positions by
+the guest surface size (`hdr[0] = 2/w`) and texel coordinates by the guest
+texture size (`tscale`), so a larger host target is covered and sampled in
+register. Filter taps keep their guest-texel spacing: the original look,
+finer. The "layers out of register" seen earlier (RECOMP.md) did not recur
+in retail (VALIDATION.md, 2026-10-22).
 
 The last row follows the separate internal-resolution setting. The existing
 texture-glow switch still gates the independently identified final glow

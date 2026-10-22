@@ -1,5 +1,62 @@
 # Validation log
 
+## 2026-10-22: Ultra post-processing (auxiliary buffers at internal resolution)
+
+**Why it is safe to scale.** Reading the renderer showed:
+- pre-transformed positions are normalised by the guest surface size
+  (`hdr[0] = 2/w`, `nv2a_hw_d3d11.inc`);
+- texel coordinates of linear textures are normalised by the guest texture
+  size (`tscale = 1/width`).
+
+A larger host target should therefore be covered and sampled in register.
+Retail run with the existing developer switch `RECOMP_HW_FX_SCALE=2`
+against 1×, both at High with glow on. Frame traces at 55 and 85 s
+(`tools/fx-capture.py`, `RECOMP_FRAME_TRACE` + `RECOMP_HW_GLOW_DUMP`,
+balcony introduction) show the window and torch glow in register at 2×,
+smoother, without the shifted copies RECOMP.md records from an earlier
+build.
+
+**The change.** New level 4, Ultra (`RESOT_EFFECT_ULTRA`,
+`resot_effect_quality.h`). `hw_surface_scale` returns the internal
+resolution for every auxiliary target. This is the one function the
+D3D11, D3D12 and Vulkan back ends share.
+- **Hosts.** Windows F7 shows five buttons (Off … Ultra), and the in-game
+  cycle goes Low → Ultra on Windows and Android. The INI accepts 0–4.
+- **Defaults.** Windows defaults are now glow on and Ultra. Android keeps
+  Low and glow off.
+
+**Measured at 150 %** (`logs/fx-ultra/`):
+
+| Buffer | High | Ultra |
+| --- | --- | --- |
+| 320 | 427×240 | 641×360 |
+| 80 | 107×60 | 161×90 |
+| 256 shadow | 341×256 | 512×384 |
+| Display | 1280×720 | 1280×720 |
+
+The log shows `post processing quality 4 … ultra`, and the glow stays in
+register (`logs/fx-crop-ultra.png`). Vulkan and D3D12, 60 s each at Ultra:
+the balcony scene is rendered with glow, with no crash or back-end
+fallback in the log.
+
+**Checks.**
+- `python tools/check-hlsl.py`.
+- `tools/recomp.ps1 -Target xbox-retail -BuildOnly -Generator 'Visual
+  Studio 17 2022'`.
+- The native GPU CTest, 10/10 passed, including `shared_effect_quality`
+  with the new level.
+
+**Not checked:**
+- the demo build (no demo XBE with the expected hash here);
+- the Android build;
+- motion blur, zoom blur, water and soft focus in scenes that use them;
+- performance at 225 % and 300 %;
+- anyone looking at it in play.
+
+Effect modules and the GDI table were identified with Ghidra (ghidra-xbe)
+and the Jade source; see `docs/HLE-RENDERER-STUDY.md`. 18 new claims in
+`source/xbox-retail/xbe_sites.txt` pass.
+
 ## 2026-10-21: German speech on xbox-retail
 
 `tools/german-speech.py --eu-iso <European disc> --game Assets/xbox-retail`

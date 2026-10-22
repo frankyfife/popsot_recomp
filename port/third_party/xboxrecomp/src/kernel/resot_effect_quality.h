@@ -7,6 +7,13 @@
 #define RESOT_EFFECT_QUALITY_H
 #include <stdint.h>
 
+/* RE-SoT: Ultra (4) renders every auxiliary target at the internal
+ * resolution instead of the guest's. Positions and texel coordinates are
+ * normalised by guest sizes (hdr[0], tscale), so the scaled targets stay in
+ * register; filter taps keep their guest-texel spacing (VALIDATION.md,
+ * 2026-10-22). */
+#define RESOT_EFFECT_ULTRA 4
+
 static unsigned resot_effect_percent(int quality, uint32_t width, uint32_t height)
 {
     /* RE-SoT: protect display/history buffers and tiny bloom pyramid levels.

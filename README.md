@@ -38,7 +38,7 @@ not a person.*
 The existing post-processing quality selector now budgets auxiliary effect
 buffers and projected shadows as well as recognized blur/bloom chains, on
 both hosts and targets. The user confirms that it works (2026-10-20).
-The in-game selector offers Low/Mid/High; Off remains accessible via the INI
+The in-game selector offers Low/Mid/High/Ultra; Off remains accessible via the INI
 and Windows F7. Both hosts now default to Low (2026-10-21); compilation
 and runtime validation of this menu/default change are recorded below.
 The [effect study](docs/POST-PROCESSING.md) records the remaining water,

@@ -272,9 +272,12 @@ rasteriser, for comparison), `-Seconds N`, `-SnapshotEvery S` (frame dumps in
 
 ### Post processing quality and texture glow
 
-`Texture glow effect` uses `[Graphics] TextureGlowEffect=0` by default.
-`Post processing` is separate: `PostProcessingQuality=0/1/2/3` selects
-Off/Low/Mid/High (Windows default Low). Low and Mid now budget auxiliary buffers,
+`Texture glow effect` uses `[Graphics] TextureGlowEffect=1` by default on
+Windows (this fork, 2026-10-22). `Post processing` is separate:
+`PostProcessingQuality=0/1/2/3/4` selects Off/Low/Mid/High/Ultra (Windows
+default Ultra). Ultra renders every auxiliary buffer (effect chains, frame
+copies, shadow maps) at the internal resolution; filter taps keep their
+original spacing, so the look is the original one, only finer. Low and Mid now budget auxiliary buffers,
 including projected-shadow maps, at 50% and 75% width/height. High retains
 original effect resolution. Off omits recognized blur/bloom chains, their
 fullscreen consumers, the final glow composite and recognized projected
@@ -295,7 +298,7 @@ The F7-only `Console logs` switch is saved as `[Diagnostics] ConsoleLogs=1`.
 Error messages are red; warnings are yellow. The original file logs remain
 in `logs/<target>-err.txt` and `logs/<target>-out.txt`.
 
-The in-game reSOT Options post-processing selector offers Low/Mid/High.
+The in-game reSOT Options post-processing selector offers Low/Mid/High/Ultra.
 Off remains available through `[Graphics] PostProcessingQuality=0` in the INI
 and, on Windows, through F7. An existing Off setting is shown as Custom in
 the in-game menu and is preserved until the quality selector is changed.

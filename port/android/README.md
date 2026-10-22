@@ -243,7 +243,7 @@ The selected dimensions and aspect are logged at startup. An explicit
 this automatic choice follows the Android device's drawable at game startup.
 Windows now exposes the same internal resolution choices in the main menu
 and F7; F11 alone changes fullscreen/window mode.
-Both hosts default to `PostProcessingQuality=1` (Low) in `[Graphics]`. Both default to `TextureGlowEffect=0`. Existing
+Android defaults to `PostProcessingQuality=1` (Low) and `TextureGlowEffect=0` in `[Graphics]`; Windows now defaults to Ultra with glow on (2026-10-22). Existing
 saved values take precedence; `PostProcessing` is an obsolete key.
 Retail's option-label refresh now reads its text-object metadata on Android;
 previously that metadata probe was implemented only on Windows, so values
@@ -376,8 +376,9 @@ storage path has not received this retail-specific change.
 ### Post processing quality and texture glow
 
 `Texture glow effect` uses `[Graphics] TextureGlowEffect=0` by default.
-`Post processing` is separate: `PostProcessingQuality=0/1/2/3` selects
-Off/Low/Mid/High (Android default Off). Low and Mid now budget auxiliary buffers,
+`Post processing` is separate: `PostProcessingQuality=0/1/2/3/4` selects
+Off/Low/Mid/High/Ultra (Android default Off). Ultra renders auxiliary buffers
+at the internal resolution and costs fill rate. Low and Mid now budget auxiliary buffers,
 including projected-shadow maps, at 50% and 75% width/height. High retains
 original effect resolution. Off omits recognized blur/bloom chains, their
 fullscreen consumers, the final glow composite and recognized projected
@@ -402,7 +403,7 @@ The overlay reads `logs/xbox-demo-err.txt` and `logs/xbox-demo-out.txt`, or
 the retail equivalents, inside the same app files folder. Errors are red,
 warnings yellow; recent rows scroll and fade. Normal file logging is retained.
 
-The in-game reSOT Options post-processing selector offers Low/Mid/High.
+The in-game reSOT Options post-processing selector offers Low/Mid/High/Ultra.
 Off remains available through `[Graphics] PostProcessingQuality=0` in the INI
 and, on Windows, through F7. An existing Off setting is shown as Custom in
 the in-game menu and is preserved until the quality selector is changed.

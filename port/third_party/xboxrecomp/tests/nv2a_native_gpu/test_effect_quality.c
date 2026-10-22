@@ -5,8 +5,8 @@
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"failed line %d: %s\n",__LINE__,#x);return 1; } } while(0)
 int main(void)
 {
-    const unsigned percent[]={25,50,75,100};
-    for(int q=0;q<4;q++) {
+    const unsigned percent[]={25,50,75,100,100};
+    for(int q=0;q<=RESOT_EFFECT_ULTRA;q++) {
         CHECK(resot_effect_percent(q,256,256)==percent[q]);
         CHECK(resot_effect_percent(q,320,240)==percent[q]);
         CHECK(resot_effect_percent(q,40,30)==percent[q]);

@@ -193,3 +193,23 @@ ref 0x0011678F 0x00758D6C           # restores edx
 insn 0x00116765 mov ecx, dword ptr [esp + 0x28]
 insn 0x00116799 ret
 ret 0x001A33F6 sub_002A3910         # pause menu's Xbox Live choice
+
+# Jade GDI table and effect modules (docs/HLE-RENDERER-STUDY.md; not yet used by code)
+func 0x002F9EC0                     # fills the GDI table (Jade GDInterface st_GDI)
+ref 0x002F9EE2 0x000CFB90           # slot 5 Clear
+ref 0x002F9EE9 0x000CFBF0           # slot 7 Flip
+ref 0x002F9EF7 0x000D0530           # slot 8 SetViewMatrix
+ref 0x002F9EFE 0x000CFC10           # slot 9 SetProjectionMatrix
+ref 0x002F9F05 0x000D0090           # slot 10 DrawIndexedTriangles
+ref 0x002F9F0C 0x000D05A0           # slot 13 DrawIndexedSprites
+ref 0x002F9F59 0x000D04B0           # slot 22 SetTextureTarget
+func 0x000D0090
+func 0x000D05A0
+func 0x000D04B0
+func 0x000D0530
+func 0x000CBDE0                     # screen-space quad helper (XYZRHW, 4 texcoord sets, -0.5 px)
+func 0x000D2500                     # effect module 1 render
+func 0x000D2A50                     # effect module 2 render: motion blur
+func 0x000D3300                     # effect module 3 render: zoom blur
+func 0x000D37D0                     # effect module 4 render
+func 0x000D4390                     # effect module 5 render

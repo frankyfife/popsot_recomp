@@ -48,7 +48,7 @@ static const char *const s_joy_names[25] = {
     "D-pad left", "D-pad right", "Left stick up", "Left stick down", "Left stick left",
     "Left stick right", "Right stick up", "Right stick down", "Right stick left", "Right stick right"
 };
-static const int s_scales[] = {50,75,100,150,225,300};
+static const int s_scales[] = {50,75,100,150,225,300,450};
 /* The game's menu font has no hyphen or brackets, and a page is one column
  * that starts right of centre: short names for the native pages. */
 static const char *const s_native_actions[ACTIONS] = {
@@ -57,13 +57,13 @@ static const char *const s_native_actions[ACTIONS] = {
     "Menu up", "Menu down", "Menu left", "Menu right", "Cam up", "Cam down",
     "Cam left", "Cam right", "Stick click"
 };
-static const char *const s_native_sizes[] = {"240p 0.5x","360p 0.75x","480p 1x","720p 1.5x","1080p 2.25x","1440p 3x"};
+static const char *const s_native_sizes[] = {"240p 0.5x","360p 0.75x","480p 1x","720p 1.5x","1080p 2.25x","1440p 3x","2160p 4.5x"};
 static const char *const s_native_joy[25] = {
     "None", "A", "B", "X", "Y", "Black", "White", "L trigger", "R trigger", "Start", "Back",
     "L stick", "R stick", "Pad up", "Pad down", "Pad left", "Pad right", "L up", "L down",
     "L left", "L right", "R up", "R down", "R left", "R right"
 };
-static const char *const s_size_names[] = {"240p (50%)","360p (75%)","480p (100%)","720p (150%)","1080p (225%)","1440p (300%)"};
+static const char *const s_size_names[] = {"240p (50%)","360p (75%)","480p (100%)","720p (150%)","1080p (225%)","1440p (300%)","2160p (450%)"};
 static const int s_caps[] = {30,60,120,0};
 static const char *const s_cap_names[] = {"30","60","120","None"};
 static SRWLOCK s_lock = SRWLOCK_INIT;
@@ -343,7 +343,7 @@ static int event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
         else if(x>=PW-20 && x<PW-5 && y>=BODY_TOP && y<BODY_BOTTOM) {
             s_drag=1; SetCapture(window);
             scroll_to((y-BODY_TOP-22)*max_scroll()/(BODY_BOTTOM-BODY_TOP-44));
-        } else if (s_graphics_expanded && s_dropdown && x>=245 && x<480 && body>=272 && body<272+6*29) {
+        } else if (s_graphics_expanded && s_dropdown && x>=245 && x<480 && body>=272 && body<272+7*29) {
             s_resolution=(body-272)/29; s_dropdown=0; save_config();
             PostMessageA(window,APPLY_SIZE,0,0);
         } else if(x>=20 && x<490 && y>=BODY_TOP && y<BODY_BOTTOM) {
@@ -500,7 +500,7 @@ static int panel(const uint32_t **pixels,uint32_t *width,uint32_t *height)
             text(253,y,225,s_capture==i&&s_capture_tab==s_tab?"Press input...":label,RGB(166,201,237));
         }
         }
-        if(s_graphics_expanded && s_dropdown)for(i=0;i<6;i++) {box(245,Y(272+i*29),235,29,RGB(42,57,78));
+        if(s_graphics_expanded && s_dropdown)for(i=0;i<7;i++) {box(245,Y(272+i*29),235,29,RGB(42,57,78));
             text(255,Y(272+i*29),220,s_size_names[i],RGB(235,242,251));}
         RestoreDC(s_dc,-1);
         box(PW-17,BODY_TOP,7,BODY_BOTTOM-BODY_TOP,RGB(34,45,61));
@@ -661,7 +661,7 @@ void resot_native_activate(int page, int item)
         case 0: s_fps=s_fps==30?60:s_fps==60?120:s_fps==120?0:30; xbox_SetFrameLimit(s_fps); break;
         case 1: s_vsync=!s_vsync; xbox_SetVSync(s_vsync); break;
         case 2: s_texture_glow=!s_texture_glow; xbox_SetPostProcessing(s_texture_glow); break;
-        case 3: s_resolution=(s_resolution+1)%6; resize=1; break;
+        case 3: s_resolution=(s_resolution+1)%7; resize=1; break;
         case 4: s_post_quality=s_post_quality>=4?1:s_post_quality+1; xbox_SetPostProcessingQuality(s_post_quality); break;
         }
         save_config();
@@ -735,7 +735,7 @@ void resot_options_init(void)
     if(s_fps!=0 && s_fps!=30 && s_fps!=60 && s_fps!=120)s_fps=0;
     s_resolution=3;
     { int percent=(int)GetPrivateProfileIntA("Graphics","InternalResolutionPercent",150,s_path);
-      for(i=0;i<6;i++)if(s_scales[i]==percent)s_resolution=i; }
+      for(i=0;i<7;i++)if(s_scales[i]==percent)s_resolution=i; }
     xbox_SetRenderScalePercent(s_scales[s_resolution]);
     env=getenv("RECOMP_HW_VSYNC");
     s_vsync=GetPrivateProfileIntA("Graphics","VSync",env && *env!='0',s_path)!=0;

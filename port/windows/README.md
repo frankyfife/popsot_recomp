@@ -68,6 +68,11 @@ original skip permission is disabled. F5 opens/closes the compact translucent to
 with game FPS, `Current WOW` (the loaded BF world's own name, `None`
 when no world is loaded), and `Renderer:` showing the active Direct3D 11,
 Direct3D 12, Vulkan or software renderer. F11 changes window mode; Alt+F4 exits.
+F9 (this fork) traces the next frame into the error log and, with the
+Direct3D 11 renderer, writes it and every smaller render target as BMPs at
+host resolution to `logs/capture/` beside the EXE (`c_flip<n>_after.bmp`
+and one file per target); press it where something looks wrong.
+Internal resolution now goes up to 2160p (450%).
 Android's FPS touch button hides while its panel is open and keeps the same
 touch area to close it; Windows uses F5 and has no on-screen FPS button.
 F6 opens the translucent diagnostics panel. Like F5 it leaves the game

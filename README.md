@@ -141,7 +141,8 @@ Keep your game data beside it (demo and retail in separate folders), or
 select the data folder when asked. `default.xbe` is a build input and is
 embedded in the compiled EXE; it is not required beside the player EXE.
 Space / controller A skips videos; F5 toggles the FPS / Current WOW panel;
-F6 toggles the diagnostics panel (copyable with Ctrl+Shift+C); F7 opens
+F6 toggles the diagnostics panel (copyable with Ctrl+Shift+C); F9 captures
+the next frame for diagnosis (`logs/capture/`, Direct3D 11); F7 opens
 `reSOT Options` for graphics and controls, also available in the game's main menu. See the [Windows instructions](port/windows/README.md#play-portable-folder)
 for the folder contents and packaging from a local build.
 

@@ -50,8 +50,8 @@ static const char *const s_native_joy[25] = {
     "L left", "L right", "R up", "R down", "R left", "R right"
 };
 static const char *const s_cap_names[] = {"30", "60", "120", "None"};
-static const int s_render_scales[] = {50,75,100,150,225,300};
-static const char *const s_render_names[] = {"240p (0.5x)","360p (0.75x)","480p (1x)","720p (1.5x)","1080p (2.25x)","1440p (3x)"};
+static const int s_render_scales[] = {50,75,100,150,225,300,450};
+static const char *const s_render_names[] = {"240p (0.5x)","360p (0.75x)","480p (1x)","720p (1.5x)","1080p (2.25x)","1440p (3x)","2160p (4.5x)"};
 static int s_resolution = 2; /* Android default: guest-sized main targets. */
 
 static SRWLOCK s_lock = SRWLOCK_INIT;
@@ -340,7 +340,7 @@ void resot_native_activate(int page, int item)
         case 1: s_vsync = !s_vsync; xbox_SetVSync(s_vsync); break;
         case 2: s_texture_glow = !s_texture_glow; xbox_SetPostProcessing(s_texture_glow); break;
         case 4: s_post_quality=s_post_quality>=4?1:s_post_quality+1; xbox_SetPostProcessingQuality(s_post_quality); break;
-        case 3: s_resolution=(s_resolution+1)%6; xbox_SetRenderScalePercent(s_render_scales[s_resolution]); break;
+        case 3: s_resolution=(s_resolution+1)%7; xbox_SetRenderScalePercent(s_render_scales[s_resolution]); break;
         default: break;
         }
         save_config();
@@ -391,7 +391,7 @@ void resot_options_init(void)
     {
         int percent=ini_get("Graphics","InternalResolutionPercent",100);
         s_resolution=2;
-        for (int r=0;r<6;r++) if (s_render_scales[r]==percent) s_resolution=r;
+        for (int r=0;r<7;r++) if (s_render_scales[r]==percent) s_resolution=r;
         xbox_SetRenderScalePercent(s_render_scales[s_resolution]);
     }
     for (i = 0; i < ACTIONS; i++) {

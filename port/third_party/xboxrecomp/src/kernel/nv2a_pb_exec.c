@@ -1569,6 +1569,11 @@ static void raster_indexed(uint32_t i0, uint32_t i1, uint32_t i2, uint32_t argb)
 #define NV_ZBUF_H 1024
 static struct { uint32_t offset; float *z; } s_zbufs[4];
 static int s_ftrace;            /* frame trace: 0 idle, 2 tracing, 3 done */
+/* RE-SoT: a frame trace requested from the host (Windows F9), no flag file
+ * needed; repeatable. s_capture_key marks traces started that way. */
+static volatile LONG s_capture_request;
+static int s_capture_key;
+void xbox_RequestFrameCapture(void) { InterlockedExchange(&s_capture_request, 1); }
 static int s_zbuf_next;
 
 static float zclear_value(void)
@@ -2605,12 +2610,10 @@ static void frame_trace_flip(void)
     static const char *flag = (const char *)-1;
     if (flag == (const char *)-1)
         flag = getenv("RECOMP_FRAME_TRACE");
-    if (!flag)
-        return;
     if (s_ftrace == 3) {
         /* Deleting the flag file re-arms the trace for the next time it
          * appears, so one run can trace several moments. */
-        FILE *f = fopen(flag, "rb");
+        FILE *f = flag ? fopen(flag, "rb") : NULL;
         if (f)
             fclose(f);
         else
@@ -2623,12 +2626,15 @@ static void frame_trace_flip(void)
         return;
     }
     if (s_ftrace == 0) {
-        FILE *f = fopen(flag, "rb");
-        if (!f)
+        int key = InterlockedExchange(&s_capture_request, 0) != 0;
+        FILE *f = !key && flag ? fopen(flag, "rb") : NULL;
+        if (!key && !f)
             return;
-        fclose(f);
+        if (f)
+            fclose(f);
+        s_capture_key = key;
         s_ftrace = 2;
-        fprintf(stderr, "[FTRACE] frame begins (flip %u)\n", s_gpu.flips);
+        fprintf(stderr, "[FTRACE] frame begins (flip %u)%s\n", s_gpu.flips, key ? " by key" : "");
         /* RE-SoT: snapshot prior state once; later raw uploads reconstruct
          * exact matrices even if a constant is not written in this frame. */
         if (getenv("RECOMP_FRAME_TRACE_METHODS")) {

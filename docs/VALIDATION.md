@@ -1,5 +1,54 @@
 # Validation log
 
+## 2026-10-22: F9 frame capture; 2160p internal resolution; ghosting measured
+
+The user's 4K recording of retail play shows three things:
+- **Geometry and textures.** Some appear and disappear with the camera
+  angle, for example the hall windows.
+- **Water.** The water in the hall after the first fight shows a ripple ring
+  and pale veils, but no waves and no refraction.
+- **Ghosting.** A strong halo around the Prince and lights.
+
+The user points to xemu issues #2174 (screen-space rounding, 0.5 offset,
+upscaled) and #2747 (this game's bloom ghosts when upscaled; closed as its
+duplicate).
+
+**F9 capture** (`fb_present.c`, `nv2a_pb_exec.c`, `nv2a_hw_d3d11.inc`).
+F9 asks for a frame trace without a flag file, repeatable. With the D3D11
+renderer and no `RECOMP_HW_GLOW_DUMP`, the dumps go to `logs/capture/c_*`
+in the EXE's folder. Test: retail, `bin/resot-options.ini` at 450 %, and F9
+posted to the game window at 55 s. The log shows
+`[CAPTURE] F9 … requested` and `frame begins (flip 6830) by key`. The
+capture has `c_flip6830_after.bmp` at 3839×2160 and the 320 target at
+1922×1080 (Ultra).
+
+**2160p.** `xbox_SetRenderScalePercent` accepts 450. Windows (F7 list, menu
+cycle) and Android (menu cycle) offer "2160p (450%)".
+
+**Ghosting, measured.** The scene before post-processing (`*_before.bmp`)
+was phase-correlated with the first effect target (`805B4000`, 320) at 1×,
+2× (`RECOMP_HW_FX_SCALE`) and Ultra. In all six captures the offset is
+within 0.04 guest pixels. The copy into the chain is in register at every
+scale, so reSOT does not show the misregistration xemu #2174 describes for
+this copy. The `805FF000` (160) target reads −2 of its own rows in every
+mode, scale-independent; the blurred 160 targets give no reliable peak.
+
+**Working explanation.** It matches popsot-fixes:
+- the soft-focus overlay is a wide, slightly up-left halo by design (an
+  asymmetric 3-tap kernel stepped in guest texels);
+- its copy is taken before the glow, which leaves a grey ghost;
+- at 4K it lies over a sharp image.
+
+Ultra keeps the guest-texel step, so the halo keeps its original width.
+The fixes popsot-fixes offers would be options here once the soft-focus
+module is identified: a tight step in enlarged texels, and the copy taken
+after the glow.
+
+Not done: water, culling, and identifying the soft-focus module. Each
+needs an F9 capture at the place in question.
+`tools/recomp.ps1 -Target xbox-retail -BuildOnly` built; one escape mistake
+in the first build (`"logs\capture"`, warning C4129) was corrected.
+
 ## 2026-10-22: Ultra post-processing (auxiliary buffers at internal resolution)
 
 **Why it is safe to scale.** Reading the renderer showed:

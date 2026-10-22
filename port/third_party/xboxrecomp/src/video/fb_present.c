@@ -585,6 +585,16 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
                 InterlockedExchange(&s_debug_panel, !s_debug_panel);
             return 0;
         }
+        /* RE-SoT: F9 traces the next frame and dumps its render targets
+         * (logs/capture/, D3D11 renderer), for reports from play. */
+        if (w == VK_F9) {
+            extern void xbox_RequestFrameCapture(void);
+            if (!(l & (1L << 30))) {
+                xbox_RequestFrameCapture();
+                fprintf(stderr, "  [CAPTURE] F9: frame trace and render-target dump requested\n");
+            }
+            return 0;
+        }
         w = fb_vk_sided(w, l);
         if ((unsigned)w < 256)
             s_key_down[w] = 1;

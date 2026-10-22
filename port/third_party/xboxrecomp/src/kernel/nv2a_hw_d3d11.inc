@@ -894,7 +894,7 @@ static void hw_post_mark(uint32_t offset,uint32_t w,uint32_t h)
 void xbox_SetRenderScalePercent(int percent)
 {
     if (percent!=50 && percent!=75 && percent!=100 && percent!=150 &&
-        percent!=225 && percent!=300) percent=100;
+        percent!=225 && percent!=300 && percent!=450) percent=100;
     InterlockedExchange(&s_render_percent,percent);
 }
 static uint32_t hw_py(uint32_t y,uint32_t sc)
@@ -1922,6 +1922,14 @@ static void hw_glow_dump_check(const HwSurface *s, int at_flip)
 
     if (prefix == (const char *)-1)
         prefix = getenv("RECOMP_HW_GLOW_DUMP");
+    /* RE-SoT: F9 captures go to logs/capture/ without RECOMP_HW_GLOW_DUMP. */
+    if (!prefix && s_capture_key) {
+#ifdef _WIN32
+        CreateDirectoryA("logs", NULL);
+        CreateDirectoryA("logs/capture", NULL);
+#endif
+        prefix = "logs/capture/c";
+    }
     if (!prefix || !s)
         return;
     if (at_flip) {

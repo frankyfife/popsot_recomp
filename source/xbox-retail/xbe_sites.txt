@@ -229,3 +229,52 @@ f32 0x0042958C 1e-6
 f32 0x00429740 0.033334             # 1/30 s cap
 ref 0x000DB7B8 0x007654E0           # the frame clock writes it
 ref 0x000DB7BD 0x007654E4
+
+# German text and movies (target_hooks.c)
+func 0x00369310                     # maps XGetLanguage to 0x00758F24
+call 0x00369310 sub_00332E48        # XGetLanguage
+insn 0x00369325 mov dword ptr [0x758f24], 2
+func 0x00332E48                     # XGetLanguage
+func 0x000152F0                     # start-up: text language from 0x00758F24
+func 0x00069D50                     # TEXT_ChangeLang: 0x0044A9D8 within 0..4
+func 0x00069660                     # text bank loader, picks entry 0x0044A9D8
+func 0x000F8790                     # AI reads the text language
+ref 0x000F8796 0x0044A9D8
+func 0x000D7C20                     # speech archive sound/soundx%d
+func 0x0001E5F0                     # Bink open, track group 0x00758F24 * 4
+ref 0x0001E6D0 0x00758F24
+ref 0x0001E807 0x00758F24
+func 0x003A6570                     # BinkSetSoundTrack
+func 0x003A8340                     # BinkSetMixBins
+call 0x0001E736 sub_003A6570
+ret 0x0001E73B sub_003A6570
+call 0x0001E812 sub_003A8340
+ret 0x0001E817 sub_003A8340
+call 0x0001E830 sub_003A8340
+ret 0x0001E835 sub_003A8340
+call 0x0001E84E sub_003A8340
+ret 0x0001E853 sub_003A8340
+call 0x0001E87A sub_003A8340
+ret 0x0001E87F sub_003A8340
+ref 0x0001E6B9 0x0044AA1C           # probe handle stored
+value 0xF0                          # Bink track count offset
+func 0x00347456                     # _sprintf
+func 0x000CA460                     # loading%i.int
+func 0x000CA680                     # pop_in%i / poplogo%i / pop_out%i
+ref 0x000CA4C8 0x00758F24
+call 0x000CA4D9 sub_00347456
+ret 0x000CA4DE sub_00347456
+ref 0x000CA68C 0x00758F24
+call 0x000CA6A5 sub_00347456
+ret 0x000CA6AA sub_00347456
+call 0x000CA6B5 sub_00347456
+ret 0x000CA6BA sub_00347456
+call 0x000CA6C5 sub_00347456
+ret 0x000CA6CA sub_00347456
+f32 0x00429428 1e-5                 # water: below this amplitude a field is cleared
+func 0x0002F450                     # movie name by kind: Vis/Cine/Inter/Cine_%04d
+call 0x0002F4AD sub_00347456        # Cine_%04d (bonus films)
+ret 0x0002F4B2 sub_00347456
+ref 0x0002F4A3 0x0041F6B4           # "Cine_%04d.int"
+ref 0x0002F4B2 0x0044A9D8           # text language stored with the name
+func 0x0001EA40                     # overlay rectangle, special for CINE_90n0..90n2

@@ -1,5 +1,73 @@
 # Validation log
 
+## 2026-10-22: German movies on xbox-retail; the text question
+
+The user: the films are still in English, and so are the fonts and button
+labels.
+
+**Languages in the retail XBE.** There are two indices, both in the order
+0 English, 1 French, 2 Spanish, 3 Italian, 4 German:
+- **`0x00758F24`**, set once by `sub_00369310` from `XGetLanguage`. The USA
+  build maps only English, French and Spanish. It selects:
+  - `sound/soundx%d` (`sub_000D7C20`);
+  - the Bink track group (`sub_0001E5F0`: `index * 4 .. +3`);
+  - `loading%i` / `pop_in%i` / `poplogo%i` / `pop_out%i`;
+  - the uix font language.
+- **`0x0044A9D8`**, the text language:
+  - copied from the first at start-up (`sub_000152F0`);
+  - set by TEXT_ChangeLang `sub_00069D50` (PS2 symbol), limited to 0..4;
+  - read by the text bank loader `sub_00069660`, which picks the n-th
+    valid key of each text group;
+  - read by the AI (`sub_000F8790`), for example for the bonus film number.
+
+The order is proven three ways:
+- `loading4.int` reads "LADE..." where `loading0.int` reads "LOADING...";
+- the European `SOUNDX4` is the German speech;
+- the bonus films `CINE_90n0..4` carry English, French, Spanish, Italian
+  and German subtitles.
+
+**Discs compared.** 81 of the 84 films in `VIDEO/30fps` of the European disc
+are byte-identical to the USA ones. The cinematics (`CINE_010`, `CINE_110`,
+...) hold 20 audio tracks, 4 for each of the 5 languages, so the German
+cinematic sound is already on the USA disc. Only the European disc has the
+bonus films 90n3 and 90n4.
+
+**Fix** (`target_hooks.c`; `RESOT_MOVIE_LANGUAGE=german`, from
+`[Language] Movies=german`, the Windows default):
+- Entry hooks move the track ids at `BinkSetSoundTrack` (`sub_003A6570`,
+  called at 0x0001E736) and `BinkSetMixBins` (`sub_003A8340`, four calls)
+  to group 4. Only files with 20 or more tracks are changed.
+- The `%i` of the loading and logo films in `_sprintf` (`sub_00347456`,
+  four calls in `sub_000CA460`/`sub_000CA680`) becomes 4.
+- `Cine_%04d` (call at 0x0002F4AD): 90n0 becomes 90n4 when
+  `RESOT_GERMAN_BONUS` is set. `main.c` sets it when `video\CINE_9014.INT`
+  exists.
+- `tools/german-speech.py --films` copies `CINE_90n4` (n = 1, 3, 4, 5, 6)
+  from the European disc; `--remove-films` removes them.
+- `0x00758F24` itself is unchanged, so the speech set and the font stay as
+  they are.
+
+**Checks.**
+- `test-xbe-sites.py`: 249 claims, 0 failed.
+- Re-lift: only the four entry-hook calls are added.
+- Retail build succeeds.
+- Logo films: the log shows `pop_in4.int`, `poplogo4.int` and `pop_out4.int`.
+- A run with `CINE_010` played in place of `intro.int` (the file was put
+  back afterwards; hash checked) logs `[LANG] movie tracks 16-19`. The
+  recorded game sound (`RECOMP_APU_WAV`) matches the centre track of group 4
+  (correlation 0.78), not the English one (0.47).
+- `CINE_9014` shows German subtitles ("Der Prinz kann mit ...").
+
+**Text.** Index 4 is not enough. `RESOT_TEXT_LANGUAGE=german` (hook
+`sub_00069660_enter`, off by default: `[Language] Text=english`) leaves
+every menu empty. Both `prince.bf` files have the same 3308 keys (FAT
+version 0x25, one FAT). 3010 of them differ: the European build is three
+months later, and the entries are packed world blocks. The German text
+banks therefore need the logical-key table first (`sub_000DFF90`, pair
+table), before they can be taken from the European file. The Jade bigfile
+source (`BIGfat.c`) shows the engine reads several chained FATs, so files
+can be appended without moving the existing data.
+
 ## 2026-10-22: Windows FPS limiter defaults to 60
 
 The user saw the GPU at 99 % with about 300 frames per second. Their

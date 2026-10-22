@@ -950,6 +950,8 @@ loc_003A655E: ;
  */
 void sub_003A6570(void)
 {
+    extern void sub_003A6570_enter(void);
+    sub_003A6570_enter();
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -5497,6 +5499,8 @@ loc_003A8332: ;
  */
 void sub_003A8340(void)
 {
+    extern void sub_003A8340_enter(void);
+    sub_003A8340_enter();
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;

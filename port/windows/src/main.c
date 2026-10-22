@@ -779,6 +779,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         }
     }
 
+    /* RE-SoT: the German bonus films (CINE_90n4, tools/german-speech.py
+     * from the European disc) are only asked for when they are installed. */
+    {
+        char path[MAX_PATH];
+        snprintf(path, sizeof path, "%s\\video\\CINE_9014.INT", resot_game_dir());
+        if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES && !getenv("RESOT_GERMAN_BONUS"))
+            _putenv_s("RESOT_GERMAN_BONUS", "1");
+    }
+
     /* A packaged executable has the same working defaults as run.ps1.
      * The developer launcher supplies its own full configuration. */
     if (!getenv("RESOT_LAUNCHER_CONFIGURED")) {

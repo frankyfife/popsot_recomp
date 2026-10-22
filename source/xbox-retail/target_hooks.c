@@ -167,6 +167,117 @@ void sub_000525A0(void)
     GMEM32(0x007654E4u) = saved_hi;
 }
 
+/* German text and movies on the USA executable.
+ *
+ * The retail XBE has two language indices, both in the order of the
+ * European disc: 0 English, 1 French, 2 Spanish, 3 Italian, 4 German.
+ * (Proven: loading4.int shows "LADE...", the European SOUNDX4 is the German
+ * speech, and the bonus films CINE_90n4 carry German subtitles.)
+ * - 0x00758F24, set once by sub_00369310 from XGetLanguage. The USA build
+ *   maps only English, French and Spanish (0..2). It picks the speech
+ *   archive (sub_000D7C20), the Bink audio track group (sub_0001E5F0), the
+ *   loading and logo films (sub_000CA460, sub_000CA680) and the uix font.
+ * - 0x0044A9D8, the text language: copied from 0x00758F24 at start-up
+ *   (sub_000152F0), changed by TEXT_ChangeLang sub_00069D50, and read by
+ *   the text bank loader sub_00069660 for every text group. The AI reads it
+ *   too (sub_000F8790), e.g. for the bonus film number (Cine_%04d).
+ * 0x00758F24 stays as it is, so the speech set (tools/german-speech.py)
+ * and the font are unchanged. Instead:
+ * - RESOT_TEXT_LANGUAGE=german sets 0x0044A9D8 to 4 before each text bank.
+ * - RESOT_MOVIE_LANGUAGE=german moves the movie calls to index 4:
+ *   - the four-track group passed to BinkSetSoundTrack (sub_003A6570,
+ *     called at 0x0001E736) and to BinkSetMixBins (sub_003A8340, called at
+ *     0x0001E812, 0x0001E830, 0x0001E84E, 0x0001E87A). Only films with
+ *     five language groups (20 tracks, e.g. CINE_010) are changed.
+ *   - the %i of loading%i / pop_in%i / poplogo%i / pop_out%i in _sprintf
+ *     (sub_00347456, called at 0x000CA4D9, 0x000CA6A5, 0x000CA6B5,
+ *     0x000CA6C5). The USA disc already has all five sets.
+ *   - the bonus films: Cine_%04d in sub_0002F450 (_sprintf called at
+ *     0x0002F4AD) gets 90n0 + 0x0044A9D8. With English text, 90n0 becomes
+ *     90n4 (German subtitles), when RESOT_GERMAN_BONUS says the European
+ *     files are installed (port/windows/src/main.c). The overlay rectangle
+ *     of sub_0001EA40 knows only 90n0..90n2, in the European XBE as well.
+ * Other values (english, or unset) keep the original behaviour. */
+static int resot_language_index(const char *name)
+{
+    const char *e = getenv(name);
+    return e && (!strcmp(e, "german") || !strcmp(e, "de") || !strcmp(e, "4")) ? 4 : -1;
+}
+
+void sub_00069660_enter(void)
+{
+    static int lang = -2;
+    if (lang == -2) {
+        lang = resot_language_index("RESOT_TEXT_LANGUAGE");
+        if (lang >= 0)
+            fprintf(stderr, "[LANG] text language %d (German)\n", lang);
+    }
+    if (lang >= 0)
+        GMEM32(0x0044A9D8u) = (uint32_t)lang;
+}
+
+static int resot_movie_language(void)
+{
+    static int lang = -2;
+    if (lang == -2) {
+        lang = resot_language_index("RESOT_MOVIE_LANGUAGE");
+        if (lang >= 0)
+            fprintf(stderr, "[LANG] movie language %d (German)\n", lang);
+    }
+    return lang;
+}
+
+/* The movie's track ids from the original index to the requested one, when
+ * the open Bink file (handle at 0x0044AA1C, track count at +0xF0) has the
+ * requested group. */
+static uint32_t resot_movie_track(uint32_t id)
+{
+    int lang = resot_movie_language();
+    uint32_t bink = GMEM32(0x0044AA1Cu), from = GMEM32(0x00758F24u);
+    if (lang < 0 || !bink || (int32_t)GMEM32(bink + 0xF0u) < 4 * (lang + 1)
+        || id < 4 * from || id >= 4 * from + 4)
+        return id;
+    return id - 4 * from + 4 * (uint32_t)lang;
+}
+
+void sub_003A6570_enter(void)
+{
+    uint32_t list, i;
+    if (GMEM32(g_esp) != 0x0001E73Bu || GMEM32(g_esp + 4) != 4)
+        return;
+    list = GMEM32(g_esp + 8);
+    for (i = 0; i < 4; i++)
+        GMEM32(list + 4 * i) = resot_movie_track(GMEM32(list + 4 * i));
+    if (GMEM32(list) >= 4)
+        fprintf(stderr, "[LANG] movie tracks %u-%u\n", GMEM32(list), GMEM32(list) + 3);
+}
+
+void sub_003A8340_enter(void)
+{
+    uint32_t ret = GMEM32(g_esp);
+    if (ret == 0x0001E817u || ret == 0x0001E835u || ret == 0x0001E853u || ret == 0x0001E87Fu)
+        GMEM32(g_esp + 8) = resot_movie_track(GMEM32(g_esp + 8));
+}
+
+void sub_00347456_enter(void)
+{
+    uint32_t ret = GMEM32(g_esp);
+    int lang;
+    if (ret == 0x0002F4B2u) {
+        uint32_t n = GMEM32(g_esp + 12);
+        const char *bonus = getenv("RESOT_GERMAN_BONUS");
+        if (resot_movie_language() == 4 && bonus && *bonus == '1'
+            && n >= 9010u && n <= 9069u && n % 10u == 0)
+            GMEM32(g_esp + 12) = n + 4u;
+        return;
+    }
+    if (ret != 0x000CA4DEu && ret != 0x000CA6AAu && ret != 0x000CA6BAu && ret != 0x000CA6CAu)
+        return;
+    lang = resot_movie_language();
+    if (lang >= 0)
+        GMEM32(g_esp + 12) = (uint32_t)lang;
+}
+
 /* Retail primary WOW merge at 0x00031A73: source in EAX, aggregate
  * destination at stack +4. This caller follows the primary key load at
  * 0x00031A58; dependency merges use other callers. */

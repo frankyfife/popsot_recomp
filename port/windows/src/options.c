@@ -758,6 +758,14 @@ void resot_options_init(void)
     env=getenv("RECOMP_HW_SOFT_FOCUS");
     s_soft_focus=GetPrivateProfileIntA("Graphics","SoftFocus",1,s_path)!=0;
     xbox_SetSoftFocus(env&&*env?*env!='0':s_soft_focus);
+    /* RE-SoT: [Language] Text / Movies: german or english (Text defaults to
+     * english until the German text banks are found, Movies to german). The
+     * retail hooks read RESOT_TEXT_LANGUAGE / RESOT_MOVIE_LANGUAGE; an
+     * environment value already set for this run wins. */
+    { static const char *const keys[2][2]={{"Text","RESOT_TEXT_LANGUAGE"},{"Movies","RESOT_MOVIE_LANGUAGE"}};
+      for(i=0;i<2;i++) { char value[16];
+        GetPrivateProfileStringA("Language",keys[i][0],i?"german":"english",value,sizeof value,s_path);
+        env=getenv(keys[i][1]); if(!env||!*env) _putenv_s(keys[i][1],value); } }
     s_pending_size=0; /* Internal resolution never changes the window. */
     for(i=0;i<ACTIONS;i++) {
         snprintf(name,sizeof name,"Action%d",i);

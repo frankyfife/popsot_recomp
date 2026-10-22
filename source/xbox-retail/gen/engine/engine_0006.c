@@ -8264,6 +8264,8 @@ loc_0006965D: ;
  */
 void sub_00069660(void)
 {
+    extern void sub_00069660_enter(void);
+    sub_00069660_enter();
     uint32_t ebp = 0;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */

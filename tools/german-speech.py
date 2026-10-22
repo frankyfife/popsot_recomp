@@ -2,6 +2,8 @@
 
     python tools/german-speech.py --eu-iso "<European disc>.iso" --game Assets/xbox-retail
     python tools/german-speech.py --game Assets/xbox-retail --restore
+    python tools/german-speech.py --eu-iso "<European disc>.iso" --game Assets/xbox-retail --films
+    python tools/german-speech.py --game Assets/xbox-retail --remove-films
 
 The USA executable plays the English speech set: the 274 banks
 sound/english/*.sb2 in SOUND/SOUNDX.big and the stream
@@ -12,6 +14,13 @@ This rewrites the two USA archives with the German banks and stream under
 the English names, as one set (banks and stream belong together). Menus,
 text and everything else stay NTSC. The English archives are moved to
 SOUND/original-english/ first; --restore moves them back.
+
+--films copies the German bonus films (CINE_9014, 9034, 9044, 9054, 9064:
+the extras with German subtitles) from the European disc into VIDEO/. The
+USA disc has only the English, French and Spanish ones (CINE_90n0..90n2);
+the retail hook asks for 90n4 when RESOT_MOVIE_LANGUAGE is German and the
+files are there (source/xbox-retail/target_hooks.c). The cinematics need
+nothing: their German sound track is already in the USA files.
 
 Each .fat is a run of entries: u32 offset of the entry in the .fat, u32
 offset in the .big, u32 size, u32 0, u32 name length including its NUL,
@@ -133,13 +142,50 @@ def restore(game):
     print("English speech restored")
 
 
+FILMS = ["CINE_90%d4.INT" % n for n in (1, 3, 4, 5, 6)]
+
+
+def install_films(game, iso):
+    video = game / "VIDEO"
+    if not video.is_dir():
+        raise SystemExit("%s has no VIDEO folder" % game)
+    with xdvdfs.Xiso(str(iso)) as img:
+        found = {e.name.upper(): e for d, e in img.walk() if d.upper() == "VIDEO/30FPS"}
+        for name in FILMS:
+            if name not in found:
+                raise SystemExit("%s has no VIDEO/30fps/%s" % (iso, name))
+            target = video / name
+            if target.exists() and target.stat().st_size == found[name].size:
+                continue
+            tmp = video / (name + ".tmp")
+            tmp.write_bytes(img.read(found[name]))
+            os.replace(tmp, target)
+    print("German bonus films installed: %s" % ", ".join(FILMS))
+
+
+def remove_films(game):
+    for name in FILMS:
+        path = game / "VIDEO" / name
+        if path.exists():
+            path.unlink()
+    print("German bonus films removed")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--game", required=True, type=Path, help="xbox-retail game folder (with SOUND/)")
     p.add_argument("--eu-iso", type=Path, help="image of the user's European disc")
     p.add_argument("--restore", action="store_true", help="put the English speech back")
+    p.add_argument("--films", action="store_true", help="copy the German bonus films only")
+    p.add_argument("--remove-films", action="store_true", help="remove the German bonus films")
     a = p.parse_args()
-    if a.restore:
+    if a.remove_films:
+        remove_films(a.game)
+    elif a.films:
+        if not a.eu_iso:
+            p.error("--films needs --eu-iso")
+        install_films(a.game, a.eu_iso)
+    elif a.restore:
         restore(a.game)
     elif a.eu_iso:
         install(a.game, a.eu_iso)

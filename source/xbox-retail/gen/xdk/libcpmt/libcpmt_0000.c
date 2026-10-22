@@ -1899,6 +1899,8 @@ loc_00347453: ;
  */
 void sub_00347456(void)
 {
+    extern void sub_00347456_enter(void);
+    sub_00347456_enter();
     uint32_t ebp = 0;
     ebp = g_ebp;  /* prologue saves caller's frame */
     int _flags = 0; /* fallback flag var */

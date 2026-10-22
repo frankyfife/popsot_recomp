@@ -63,6 +63,25 @@ static const char *const s_native_joy[25] = {
     "L stick", "R stick", "Pad up", "Pad down", "Pad left", "Pad right", "L up", "L down",
     "L left", "L right", "R up", "R down", "R left", "R right"
 };
+/* RE-SoT: German labels for the game's own reSOT pages when its text is
+ * German (RESOT_TEXT_LANGUAGE, from [Language] Text), in the font's Latin-1. */
+static const char *const s_native_actions_de[ACTIONS] = {
+    "Vorw" "\xE4" "rts", "R" "\xFC" "ckw" "\xE4" "rts", "Links", "Rechts", "Gehen", "Springen", "Schwert", "Dolch",
+    "Spezial", "Abbrechen", "Zeit zur" "\xFC" "ck", "Umsehen", "Andere Ansicht", "Kamera zur" "\xFC" "ck", "Pause", "Zur" "\xFC" "ck",
+    "Men" "\xFC" " hoch", "Men" "\xFC" " runter", "Men" "\xFC" " links", "Men" "\xFC" " rechts", "Kamera hoch", "Kamera runter",
+    "Kamera links", "Kamera rechts", "Stick dr" "\xFC" "cken"
+};
+static const char *const s_native_joy_de[25] = {
+    "Keine", "A", "B", "X", "Y", "Schwarz", "Wei" "\xDF" "", "L-Trigger", "R-Trigger", "Start", "Back",
+    "L-Stick", "R-Stick", "Kreuz hoch", "Kreuz runter", "Kreuz links", "Kreuz rechts", "L hoch", "L runter",
+    "L links", "L rechts", "R hoch", "R runter", "R links", "R rechts"
+};
+static const char *const s_quality_names_de[]={"Aus","Niedrig","Mittel","Hoch","Ultra"};
+static int native_german(void)
+{
+    const char *e=getenv("RESOT_TEXT_LANGUAGE");
+    return e && (!strcmp(e,"german") || !strcmp(e,"de") || !strcmp(e,"4"));
+}
 static const char *const s_size_names[] = {"240p (50%)","360p (75%)","480p (100%)","720p (150%)","1080p (225%)","1440p (300%)","2160p (450%)"};
 static const int s_caps[] = {30,60,120,0};
 static const char *const s_cap_names[] = {"30","60","120","None"};
@@ -631,8 +650,20 @@ void resot_scale_look(float *axes)
 void resot_native_label(int page, int item, char *out, unsigned size)
 {
     char value[100];
+    int de=native_german();
     AcquireSRWLockExclusive(&s_lock);
-    if (page==RESOT_NATIVE_GRAPHICS) {
+    if (page==RESOT_NATIVE_GRAPHICS && de) {
+        int cap=s_fps==30?0:s_fps==60?1:s_fps==120?2:3;
+        switch (item) {
+        case 0: snprintf(out,size,"FPS-Limit: %s",cap==3?"Keins":s_cap_names[cap]); break;
+        case 1: snprintf(out,size,"VSync: %s",s_vsync?"An":"Aus"); break;
+        case 2: snprintf(out,size,"Textur-Gl" "\xFC" "hen: %s",s_texture_glow?"An":"Aus"); break;
+        case 4: snprintf(out,size,"Nachbearbeitung: %s",s_post_quality?s_quality_names_de[s_post_quality]:"Eigene"); break;
+        default: snprintf(out,size,"Aufl" "\xF6" "sung: %s",s_native_sizes[s_resolution]); break;
+        }
+    } else if (page==RESOT_NATIVE_CONTROLS && item==0 && de) {
+        snprintf(out,size,"Blickempfindlichkeit: %d%%",s_look_sensitivity);
+    } else if (page==RESOT_NATIVE_GRAPHICS) {
         switch (item) {
         case 0: snprintf(out,size,"FPS limit: %s",s_cap_names[s_fps==30?0:s_fps==60?1:s_fps==120?2:3]); break;
         case 1: snprintf(out,size,"VSync: %s",s_vsync?"On":"Off"); break;
@@ -645,8 +676,8 @@ void resot_native_label(int page, int item, char *out, unsigned size)
     } else if (item>=0 && item<ACTIONS) {
         int joy=page==RESOT_NATIVE_JOY;
         if (s_capture==item && s_capture_tab==joy && s_native_capture)
-            snprintf(value,sizeof value,joy?"press a button":"press a key");
-        else if (joy) snprintf(value,sizeof value,"%s",s_native_joy[s_joy[item]>=0 && s_joy[item]<=24 ? s_joy[item] : 0]);
+            snprintf(value,sizeof value,de?"Taste dr" "\xFC" "cken":joy?"press a button":"press a key");
+        else if (joy) snprintf(value,sizeof value,"%s",(de?s_native_joy_de:s_native_joy)[s_joy[item]>=0 && s_joy[item]<=24 ? s_joy[item] : 0]);
         else {
             binding_name(s_keys[item],0,value,sizeof value);
             if (s_keys[item]==VK_SPACE) strcpy(value,"Space");
@@ -658,7 +689,15 @@ void resot_native_label(int page, int item, char *out, unsigned size)
             else if (s_keys[item]==VK_BACK) strcpy(value,"Backspace");
             value[12]=0;
         }
-        snprintf(out,size,"%s: %s",s_native_actions[item],value);
+        if (de) {
+            if (s_keys[item]==VK_SPACE && !joy) strcpy(value,"Leertaste");
+            else if (s_keys[item]==VK_LBUTTON && !joy) strcpy(value,"Maus L");
+            else if (s_keys[item]==VK_RBUTTON && !joy) strcpy(value,"Maus R");
+            else if (s_keys[item]==VK_MBUTTON && !joy) strcpy(value,"Maus M");
+            else if ((s_keys[item]==VK_LSHIFT || s_keys[item]==VK_RSHIFT) && !joy) strcpy(value,"Umschalt");
+            else if (s_keys[item]==VK_BACK && !joy) strcpy(value,"R" "\xFC" "cktaste");
+        }
+        snprintf(out,size,"%s: %s",(de?s_native_actions_de:s_native_actions)[item],value);
     } else if (size) out[0]=0;
     ReleaseSRWLockExclusive(&s_lock);
 }

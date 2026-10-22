@@ -851,12 +851,21 @@ static const char *const s_static_texts[] = {
     "Joystick: move and fight", "Joystick: actions", "Joystick: menus and camera",
     "Reset all bindings",
 };
+/* RE-SoT: the same pages in German when the game's text is German
+ * (RESOT_TEXT_LANGUAGE), in the font's Latin-1. */
+static const char *const s_static_texts_de[] = {
+    "reSOT-Optionen", "Grafik", "Steuerung",
+    "Tastatur: Bewegen und K" "\xE4" "mpfen", "Tastatur: Aktionen", "Tastatur: Men" "\xFC" "s und Kamera",
+    "Controller: Bewegen und K" "\xE4" "mpfen", "Controller: Aktionen", "Controller: Men" "\xFC" "s und Kamera",
+    "Alle Belegungen zur" "\xFC" "cksetzen",
+};
 static uint32_t s_text_va;
 
 static void resot_text(uint32_t index, char *out, unsigned size)
 {
     if (index < sizeof s_static_texts / sizeof s_static_texts[0])
-        snprintf(out, size, "%s", s_static_texts[index]);
+        snprintf(out, size, "%s", resot_text_language() == 4 ? s_static_texts_de[index]
+                                                             : s_static_texts[index]);
     else if (index >= T_GFX && index < T_GFX + RESOT_NATIVE_GRAPHICS_ITEMS)
         resot_native_label(RESOT_NATIVE_GRAPHICS, (int)(index - T_GFX), out, size);
     else if (index == T_LOOK)

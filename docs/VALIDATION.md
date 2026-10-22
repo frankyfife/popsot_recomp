@@ -55,8 +55,13 @@ original. `RESOT_TEXT_LANGUAGE` also takes a raw index 0..4, for tests.
   - umlauts drawn by the game's own font.
 - The game then starts and plays as with English.
 
-**Not yet:** reSOT's own menu entries ("reSOT Options" and its pages) are
-still English. In-game subtitles and the HUD are not checked beyond the
+reSOT's own pages follow the text language (`s_static_texts_de` in
+`target_hooks.c`; `native_german()` labels in `options.c`, Latin-1 for the
+game font). Checked: "reSOT-Optionen", "Grafik", "Steuerung", "FPS-Limit:
+60", "VSync: Aus", "Textur-Gluehen" as drawn, "Aufloesung",
+"Nachbearbeitung: Ultra". The F7 panel stays English.
+
+**Not yet:** In-game subtitles and the HUD are not checked beyond the
 start.
 
 ## 2026-10-22: German movies on xbox-retail; the text question

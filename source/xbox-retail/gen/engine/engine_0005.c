@@ -10926,13 +10926,13 @@ loc_00052545: ;
 }
 
 /**
- * sub_000525A0
+ * sub_000525A0_gen
  * Original: 0x000525A0 - 0x00053188 (3048 bytes, 796 insns)
  * Folder: engine (between: 0x00051A70 and 0x00056730)
  * CC: cdecl, 0 params, returns int_or_void
  * Frame: fpo_leaf
  */
-void sub_000525A0(void)
+void sub_000525A0_gen(void)
 {
     uint32_t ebp = 0;
     ebp = g_ebp;  /* frameless: caller's frame */

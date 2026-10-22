@@ -213,3 +213,19 @@ func 0x000D2A50                     # effect module 2 render: motion blur
 func 0x000D3300                     # effect module 3 render: zoom blur
 func 0x000D37D0                     # effect module 4 render
 func 0x000D4390                     # effect module 5 render
+
+# Water simulation step (target_hooks.c)
+func 0x000525A0                     # water driver, steps every height field
+func 0x00051C00                     # height-field step, constant damping per call
+insn 0x00053A7D push ebp                # single caller pushes the object
+call 0x00053A7E sub_000525A0        # and calls
+ret 0x00053A83 sub_000525A0         # add esp, 4 (cdecl)
+ref 0x000525A0 0x4                  # water object at stack +4
+ref 0x000525AF 0xA0                 # done flag
+ref 0x000525BD 0xA4                 # second guard
+ref 0x000525CB 0x007654E0           # frame time in us (64-bit fild)
+ref 0x000525D1 0x0042958C           # times 1e-6
+f32 0x0042958C 1e-6
+f32 0x00429740 0.033334             # 1/30 s cap
+ref 0x000DB7B8 0x007654E0           # the frame clock writes it
+ref 0x000DB7BD 0x007654E4

@@ -73,6 +73,55 @@ void sub_00348128_enter(void)
         g_fp_stack[(unsigned)g_fp_top & 7u] = (double)elapsed;
 }
 
+/* Retail water simulation at 30 Hz. sub_000525A0 (single caller 0x00053A7D,
+ * cdecl, water object at stack +4) converts the 64-bit frame time
+ * 0x007654E0 (us) to seconds, caps it at 1/30 s (0x00429740) and steps every
+ * height field with sub_00051C00. That step damps by a constant per call, so
+ * at 60 frames per second the waves die out twice as fast and the pool looks
+ * flat. Step once per 1/30 s of game time instead: the frame is identified by
+ * the new timestamp 0x007654C8, since a scene may hold several water objects.
+ * On a skipped frame only the guard and the done flag (+0xA0) are kept, as
+ * the original sets it. RESOT_RAW_WATER=1 restores the per-frame step. */
+extern void sub_000525A0_gen(void);
+
+void sub_000525A0(void)
+{
+    static int configured, raw, step;
+    static uint32_t frame_lo, frame_hi;
+    static uint64_t pending;
+    uint32_t object = GMEM32(g_esp + 4), saved_lo, saved_hi;
+    if (!configured) {
+        const char *e = getenv("RESOT_RAW_WATER");
+        raw = e && *e && *e != '0';
+        configured = 1;
+    }
+    if (raw) {
+        sub_000525A0_gen();
+        return;
+    }
+    if (GMEM32(0x007654C8u) != frame_lo || GMEM32(0x007654CCu) != frame_hi) {
+        frame_lo = GMEM32(0x007654C8u);
+        frame_hi = GMEM32(0x007654CCu);
+        pending += ((uint64_t)GMEM32(0x007654E4u) << 32) | GMEM32(0x007654E0u);
+        step = pending >= 33333u;
+        if (step)
+            pending = pending - 33333u > 33333u ? 0 : pending - 33333u;
+    }
+    if (!step) {
+        if (object && !GMEM32(object + 0xA0u) && !GMEM32(object + 0xA4u))
+            GMEM32(object + 0xA0u) = 1;
+        g_esp += 4;                          /* ret (cdecl) */
+        return;
+    }
+    saved_lo = GMEM32(0x007654E0u);
+    saved_hi = GMEM32(0x007654E4u);
+    GMEM32(0x007654E0u) = 33333u;
+    GMEM32(0x007654E4u) = 0;
+    sub_000525A0_gen();
+    GMEM32(0x007654E0u) = saved_lo;
+    GMEM32(0x007654E4u) = saved_hi;
+}
+
 /* Retail primary WOW merge at 0x00031A73: source in EAX, aggregate
  * destination at stack +4. This caller follows the primary key load at
  * 0x00031A58; dependency merges use other callers. */

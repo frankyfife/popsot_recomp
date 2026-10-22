@@ -1,5 +1,64 @@
 # Validation log
 
+## 2026-10-22: German text on xbox-retail
+
+Following the German movies (next entry), the menus and texts.
+
+**The text is already on the USA disc.** In `prince.bf` the FAT has
+566 main streams `FF0xxxxx` and 342 world keys with eight language streams
+`FDnxxxxx` each (n = 1..8). The data is LZO-compressed in 8188-byte blocks.
+The literals of the main-menu streams read:
+- n=1 "Start New Game";
+- n=2 "Nouvelle partie";
+- n=3 "Nueva partida";
+- n=4 "Nuova partita";
+- n=5 "Neues Spiel".
+
+So n = text language + 1, all five languages present. (The European disc
+has the same key set, with different data, from a later build.)
+
+**Why the first attempt left the menus empty.** The retail data is
+binarized:
+- the world text load `sub_00069B10` (world key in ESI) and TEXT_ChangeLang
+  `sub_00069D50` build the stream key as
+  `0xFD000000 | (0x0044A9D8 + 1) << 20 | world` (0x00069B25..0x00069B47,
+  0x00069D80..0x00069D96);
+- they open that stream with `sub_000D8590`;
+- they read the text groups from it in order (`sub_00069A20` ->
+  `sub_00069660`).
+
+The bank loader picks the n-th entry of each group. Its chosen key is the
+group key + 2 for English, and is not in the key table `0x00470148`: the
+data comes from the open stream. Setting the language in the bank loader
+(the earlier hook) opened the English stream but picked the German entry,
+and the menus came out empty.
+
+**Fix.** The hook is now `sub_00069B10_enter`: it sets `0x0044A9D8` to 4
+before the stream key is built. `0x00758F24` stays as it is, so:
+- the speech set is unchanged (`sub_0001F660`, the sound-language switch,
+  runs only from TEXT_ChangeLang);
+- the uix font is unchanged.
+
+`[Language] Text=german` is now the Windows default; `english` keeps the
+original. `RESOT_TEXT_LANGUAGE` also takes a raw index 0..4, for tests.
+`RESOT_TEXT_DIAG=1` logs each text group key and the language.
+
+**Checks.**
+- `test-xbe-sites.py`: 259 claims, 0 failed. The re-lift adds only the hook
+  call.
+- Retail pad timeline with the default options (`logs/text-de/grid.png`):
+  - "Druecken Sie START-Taste, um das Spiel zu starten";
+  - "Waehlen Sie Ihr Profil", with "Profil anlegen / Loeschen / Auswaehlen
+    / Zurueck";
+  - "Neues Spiel / Spiel laden / Optionen / Zugaben";
+  - the pause menu "Weiter / Optionen / Xbox Live / Verlassen";
+  - umlauts drawn by the game's own font.
+- The game then starts and plays as with English.
+
+**Not yet:** reSOT's own menu entries ("reSOT Options" and its pages) are
+still English. In-game subtitles and the HUD are not checked beyond the
+start.
+
 ## 2026-10-22: German movies on xbox-retail; the text question
 
 The user: the films are still in English, and so are the fonts and button
@@ -58,7 +117,7 @@ bonus films 90n3 and 90n4.
   (correlation 0.78), not the English one (0.47).
 - `CINE_9014` shows German subtitles ("Der Prinz kann mit ...").
 
-**Text.** Index 4 is not enough. `RESOT_TEXT_LANGUAGE=german` (hook
+**Text** (solved in the entry above). Index 4 is not enough. `RESOT_TEXT_LANGUAGE=german` (hook
 `sub_00069660_enter`, off by default: `[Language] Text=english`) leaves
 every menu empty. Both `prince.bf` files have the same 3308 keys (FAT
 version 0x25, one FAT). 3010 of them differ: the European build is three

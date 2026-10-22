@@ -201,19 +201,45 @@ void sub_000525A0(void)
 static int resot_language_index(const char *name)
 {
     const char *e = getenv(name);
-    return e && (!strcmp(e, "german") || !strcmp(e, "de") || !strcmp(e, "4")) ? 4 : -1;
+    if (e && e[0] >= '0' && e[0] <= '4' && !e[1])
+        return e[0] - '0';           /* a raw index, for tests */
+    return e && (!strcmp(e, "german") || !strcmp(e, "de")) ? 4 : -1;
 }
 
-void sub_00069660_enter(void)
+/* In the binarized retail data every world has its text in eight language
+ * streams FDnxxxxx (n = language + 1; prince.bf holds all five languages, n
+ * 1 English ... 5 German). sub_00069B10 (world text load, world key in ESI)
+ * and TEXT_ChangeLang build the stream key from 0x0044A9D8 at 0x00069B25 /
+ * 0x00069D80, open it (sub_000D8590) and read the text groups from it, so
+ * the language must be set before that read, not in the bank loader. */
+static int resot_text_language(void)
 {
     static int lang = -2;
     if (lang == -2) {
         lang = resot_language_index("RESOT_TEXT_LANGUAGE");
         if (lang >= 0)
-            fprintf(stderr, "[LANG] text language %d (German)\n", lang);
+            fprintf(stderr, "[LANG] text language %d\n", lang);
     }
+    return lang;
+}
+
+void sub_00069B10_enter(void)
+{
+    int lang = resot_text_language();
     if (lang >= 0)
         GMEM32(0x0044A9D8u) = (uint32_t)lang;
+}
+
+void sub_00069660_enter(void)
+{
+    static int diag = -1;
+    if (diag < 0) {
+        const char *e = getenv("RESOT_TEXT_DIAG");
+        diag = e && *e && *e != '0';
+    }
+    if (diag)   /* RESOT_TEXT_DIAG=1: the text group's key */
+        fprintf(stderr, "[LANG] text group %08X, language %u\n",
+                GMEM32(g_esp + 4), GMEM32(0x0044A9D8u));
 }
 
 static int resot_movie_language(void)

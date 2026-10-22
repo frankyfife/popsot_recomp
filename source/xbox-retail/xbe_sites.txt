@@ -278,3 +278,13 @@ ret 0x0002F4B2 sub_00347456
 ref 0x0002F4A3 0x0041F6B4           # "Cine_%04d.int"
 ref 0x0002F4B2 0x0044A9D8           # text language stored with the name
 func 0x0001EA40                     # overlay rectangle, special for CINE_90n0..90n2
+call 0x000697A8 sub_000DFF90        # text key lookup
+ret 0x000697AD sub_000DFF90
+ref 0x000697A3 0x00470148           # key table
+ref 0x0006977C 0x18                 # entry index compared with 0x0044A9D8
+data 0x0047014C                     # key table count (0x00470148 + 4)
+func 0x00069B10                     # world text load: language stream FDn
+ref 0x00069B25 0x0044A9D8           # n = text language + 1
+insn 0x00069B47 or eax, 0xfd000000
+ref 0x00069D80 0x0044A9D8           # TEXT_ChangeLang stores the language
+func 0x000D8590                     # opens a binarized stream

@@ -1095,6 +1095,7 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
     int main_view = s->w == 640 && s_gpu.clip_w == 640 && s_gpu.clip_h >= 448;
     memset(vc, 0, sizeof *vc); memset(pc, 0, sizeof *pc);
     vc->vp[0] = 2.0f/s->w; vc->vp[1] = 2.0f/s->h; vc->vp[2] = 1.0f/hw_zmax_bits(); vc->vp[3] = hw_vertex_zclamp() ? 1.0f : 0.0f;
+    vc->pad[0] = hw_soft_focus_step(s->h, ng_py(s->h, s->sc));
     vc->ws[0] = main_view && !s_hw.batch_full_width ? 1.0f/s_hw.widen : 1;
     if (main_view && s_hw.batch_projected_screen) vc->ws[0] = s_hw.widen;
     if (main_view && s_hw.batch_projected_2d) vc->ws[0] = 1; /* RE-SoT: hw_classify_screen */

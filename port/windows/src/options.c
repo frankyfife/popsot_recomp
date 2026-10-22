@@ -104,7 +104,8 @@ extern void xbox_SetRenderScalePercent(int);
 extern void xbox_SetVSync(int);
 extern void xbox_SetPostProcessing(int);
 extern void xbox_SetPostProcessingQuality(int);
-static int s_post_quality=1;
+extern void xbox_SetSoftFocus(int);
+static int s_post_quality=1, s_soft_focus=1;
 static const char *const s_quality_names[]={"Off","Low","Mid","High","Ultra"};
 extern void xbox_FramebufferSetOptionsCallbacks(
     int (*)(const uint32_t **, uint32_t *, uint32_t *),
@@ -150,6 +151,8 @@ static int save_config(void)
     ok &= WritePrivateProfileStringA("Graphics","PostProcessingQuality",value,s_path);
     snprintf(value,sizeof value,"%d",s_texture_glow);
     ok &= WritePrivateProfileStringA("Graphics","TextureGlowEffect",value,s_path);
+    snprintf(value,sizeof value,"%d",s_soft_focus);
+    ok &= WritePrivateProfileStringA("Graphics","SoftFocus",value,s_path);
     snprintf(value,sizeof value,"%d",s_scales[s_resolution]);
     ok &= WritePrivateProfileStringA("Graphics","InternalResolutionPercent",value,s_path);
     snprintf(value,sizeof value,"%d",s_look_sensitivity);
@@ -201,7 +204,7 @@ static void assign_binding(int code)
     save_config();
 }
 
-static int controls_top(void) { return s_graphics_expanded ? 444 : 46; }
+static int controls_top(void) { return s_graphics_expanded ? 494 : 46; }
 static int rows_top(void) { return controls_top()+138; }
 static int max_scroll(void)
 {
@@ -373,6 +376,9 @@ static int event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
                 }
             }
             else if(s_graphics_expanded && body>=380 && body<410 && x>=245) {
+                s_soft_focus=x<360;xbox_SetSoftFocus(s_soft_focus);save_config();
+            }
+            else if(s_graphics_expanded && body>=430 && body<460 && x>=245) {
                 s_console_logs=!s_console_logs;resot_console_logs_set(s_console_logs);save_config();
             }
             else if(s_controls_expanded && body>=controls_top() && body<controls_top()+28 && x>=360) {
@@ -470,9 +476,15 @@ static int panel(const uint32_t **pixels,uint32_t *width,uint32_t *height)
             box(245+i*47,Y(330),43,30,s_post_quality==i?RGB(46,95,135):RGB(36,46,63));
             text(248+i*47,Y(331),40,s_quality_names[i],RGB(235,242,251));
         }
-        text(20,Y(380),220,"Console logs",RGB(220,229,242));
-        box(245,Y(380),235,30,RGB(36,46,63));
-        text(255,Y(381),220,s_console_logs?"On":"Off",RGB(235,242,251));
+        /* RE-SoT: Sharp steps the soft-focus blur in host texels (no
+         * double image at high internal resolution); Xbox keeps its width. */
+        text(20,Y(380),220,"Soft focus",RGB(220,229,242));
+        box(245,Y(380),110,30,s_soft_focus?RGB(46,95,135):RGB(36,46,63));
+        box(365,Y(380),115,30,!s_soft_focus?RGB(46,95,135):RGB(36,46,63));
+        text(257,Y(381),95,"Sharp",RGB(235,242,251));text(377,Y(381),95,"Xbox",RGB(235,242,251));
+        text(20,Y(430),220,"Console logs",RGB(220,229,242));
+        box(245,Y(430),235,30,RGB(36,46,63));
+        text(255,Y(431),220,s_console_logs?"On":"Off",RGB(235,242,251));
         }
         box(16,Y(controls_top()),468,28,RGB(31,43,60));
         text(23,Y(controls_top()),330,s_controls_expanded?"[-] Controls":"[+] Controls",RGB(110,193,249));
@@ -743,6 +755,9 @@ void resot_options_init(void)
     if(s_post_quality<0 || s_post_quality>4)s_post_quality=1;
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow=GetPrivateProfileIntA("Graphics","TextureGlowEffect",0,s_path)!=0;
+    env=getenv("RECOMP_HW_SOFT_FOCUS");
+    s_soft_focus=GetPrivateProfileIntA("Graphics","SoftFocus",1,s_path)!=0;
+    xbox_SetSoftFocus(env&&*env?*env!='0':s_soft_focus);
     s_pending_size=0; /* Internal resolution never changes the window. */
     for(i=0;i<ACTIONS;i++) {
         snprintf(name,sizeof name,"Action%d",i);

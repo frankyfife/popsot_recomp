@@ -1,5 +1,56 @@
 # Validation log
 
+## 2026-10-22: soft focus without the double image (option SoftFocus)
+
+The user reports strong ghosting around the Prince and lights at high
+internal resolution, the same as xemu #2174 and #2747. The user's F9 trace
+of flip 7350 shows the post-processing order, which differs from the PC
+version (popsot-fixes):
+- **Glow** (draws 131..148): the frame is copied to 320 with its alpha as
+  the mask, then reduced 160 -> 80 -> 40 -> 20 -> 10. Each level is blurred
+  separably with taps (-1, 0, +1) at the same size, weights 0x5C. The levels
+  are added to the frame.
+- **Soft focus** (149..153): the frame, with the glow already in it, is
+  copied 640 -> 320 -> 160. From 160 to 80 it uses three taps (-2,-2),
+  (+2,0), (0,+2) in source texels with weights 1/3, then goes back to 160.
+  The result is laid over the frame with blend 302/303, so the copy's
+  alpha sets the strength.
+
+So the copy already includes the glow; popsot-fixes' second fix
+(`blur_after_glow`) is not needed here. What remains is the width. The taps
+stay in guest texels on enlarged targets, so at 4K the overlay is as wide,
+relative to the picture, as at 480p. Over a sharp 4K image it reads as a
+grey double image around edges and lights.
+
+**Fix** (`nv2a_hw_d3d11.inc` `hw_soft_focus_step`, shared `vs_finish`):
+- A draw is recognised by these conditions:
+  - texture stages 0..2 project the same render target (stage program
+    0x421);
+  - that target is twice the viewport in both directions.
+- `vpad.x` then holds guest pixels per host pixel of the destination
+  (1/4.5 at 450 %). `vs_finish` moves the three texture coordinates
+  towards their centre by that factor, so the taps step one host texel.
+  This is what an upscaling emulator does, and what popsot-fixes'
+  `blur_radius=auto` did.
+- The glow's blurs (same size) and every other draw are unchanged.
+- Option `[Graphics] SoftFocus` is 1 (Sharp, the default) or 0 (Xbox width).
+  - Windows: F7 menu "Soft focus: Sharp / Xbox".
+  - Android: INI only.
+  - `RECOMP_HW_SOFT_FOCUS=0` overrides it for one run.
+
+**Checks.**
+- `tools/check-hlsl.py`: all entry points compile.
+- The retail Release build succeeds, including the native shaders.
+- Native GPU CTest: 10/10.
+- `tools/fx-capture.py` at 70 and 118 s, Ultra, 450 %, Sharp against
+  `RECOMP_HW_SOFT_FOCUS=0` (`logs/softfocus-compare.png`, palace exterior):
+  - with Xbox width, a grey veil lies over the torch flame and the window
+    edges;
+  - with Sharp, the flame and the edges are clear, and the glow around
+    them remains.
+
+**Not yet checked:** in the game, during play (the Prince, the hall).
+
 ## 2026-10-22: depth stays linear; host clips at the near plane
 
 The user's captures 63647 and 65119 (`logs/culling-pair.png`) show the ivy

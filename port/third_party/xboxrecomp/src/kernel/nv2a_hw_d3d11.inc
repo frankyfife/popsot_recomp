@@ -342,7 +342,9 @@ static void hw_visibility_method(uint32_t method, uint32_t value, uint64_t stamp
  * cut at the wrong place. Only the far side keeps the old clamp for w > 0,
  * so geometry beyond zmax stays visible as before; w == 1 (2D) is clamped
  * as before. vp.w = 1 (RECOMP_HW_ZCLAMP_VERTEX=1) restores the per-vertex
- * clamp. */
+ * clamp.
+ * RE-SoT: vpad.x > 0 narrows the soft-focus kernel's three taps around their
+ * centre by that factor (hw_soft_focus_step). */
 static int hw_vertex_zclamp(void);
 static const char s_hw_hlsl_vs_common[] =
 "cbuffer VSC : register(b0) { float4 vp; float4 fogp; float4 ws; float4 vpad; float4 cur[16];\n"
@@ -351,6 +353,8 @@ static const char s_hw_hlsl_vs_common[] =
 "            float4 t0:TEXCOORD0; float4 t1:TEXCOORD1; float4 t2:TEXCOORD2; float4 t3:TEXCOORD3; };\n"
 "VO vs_finish(float4 p, float4 d0, float4 d1, float fog, float4 t0, float4 t1, float4 t2, float4 t3) {\n"
 "  VO o; float w = p.w; float x = p.x, y = p.y;\n"
+"  if (vpad.x > 0.0) { float4 m = (t0 + t1 + t2) / 3.0;\n"
+"    t0 = m + (t0 - m) * vpad.x; t1 = m + (t1 - m) * vpad.x; t2 = m + (t2 - m) * vpad.x; }\n"
 "  bool flat = abs(w - 1.0) < 0.0001;\n"
 "  if (ws.x != 1.0 && flat && x > ws.z && x < ws.y - ws.z)\n"
 "    x = (x - 0.5 * ws.y) * ws.x + 0.5 * ws.y;\n"
@@ -879,6 +883,49 @@ void xbox_SetPostProcessingQuality(int quality)
         fprintf(stderr,"[VIDEO] post processing quality %d (0 off, 1 low, 2 mid, 3 high, 4 ultra)\n",quality);
 }
 static int hw_post_quality(void) { return (int)InterlockedCompareExchange(&s_post_quality,0,0); }
+
+/* RE-SoT: the soft focus (retail: frame -> 320 -> 160, then 160 -> 80 with
+ * three taps at (-2,-2), (+2,0), (0,+2) source texels, weights 1/3, back to
+ * 160 and laid over the frame with the frame copy's alpha). Its taps stay in
+ * guest texels on enlarged targets, so at 4K the overlay is as wide as at
+ * 480p and reads as a double image around every edge (xemu #2174, #2747).
+ * Sharp (1, the default) steps the taps in host texels of the enlarged
+ * target, as an upscaling emulator does and as popsot-fixes' blur_radius=auto
+ * did for the PC version; Xbox (0) keeps the original width. The glow's
+ * separable blurs (same size, taps on one line) are not changed. */
+static volatile LONG s_soft_focus = -1;
+void xbox_SetSoftFocus(int sharp)
+{
+    sharp = sharp != 0;
+    if (InterlockedExchange(&s_soft_focus, sharp) != sharp)
+        fprintf(stderr, "[VIDEO] soft focus %s\n", sharp ? "sharp (host texels)" : "Xbox width");
+}
+static int hw_soft_focus_sharp(void)
+{
+    LONG v = InterlockedCompareExchange(&s_soft_focus, 0, 0);
+    if (v < 0) {
+        const char *e = getenv("RECOMP_HW_SOFT_FOCUS");
+        xbox_SetSoftFocus(!(e && *e == '0'));
+        v = InterlockedCompareExchange(&s_soft_focus, 0, 0);
+    }
+    return (int)v;
+}
+/* The tap factor for this draw (vpad.x), or 0: stages 0..2 project the same
+ * render target (stage program 0x421), which is twice the viewport in both
+ * directions. dest_h / host_h is the target's guest-to-host pixel ratio. */
+static float hw_soft_focus_step(uint32_t dest_h, uint32_t host_h)
+{
+    const Texture *t = s_gpu.texs;
+    float f;
+    if (!hw_soft_focus_sharp() || (s_gpu.rc.stage_program & 0xFFFFFu) != 0x421u)
+        return 0.0f;
+    if (!t[0].valid || !t[1].valid || !t[2].valid
+        || t[1].offset != t[0].offset || t[2].offset != t[0].offset
+        || t[0].width != 2 * s_gpu.clip_w || t[0].height != 2 * s_gpu.clip_h)
+        return 0.0f;
+    f = host_h ? (float)dest_h / (float)host_h : 1.0f;
+    return f < 0.999f ? f : 0.0f;
+}
 /* RE-SoT: only proven fullscreen chains may be omitted as screen effects.
  * Auxiliary-target resolution has its own shared budget below; shadows have
  * a separate producer/consumer test and must not enter this chain registry. */
@@ -1830,6 +1877,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
             hdr[11] = hw_hud_shift();
         }
     }
+    hdr[12] = hw_soft_focus_step(s->h, hw_py(s->h, s->sc));
     /* RE-SoT: an attribute with no array reads the value last set with
      * SET_VERTEX_DATA*, as on the NV2A -- not 0,0,0,1. XDK D3D's
      * SetVertexData4ub gives a whole batch one diffuse colour that way; the

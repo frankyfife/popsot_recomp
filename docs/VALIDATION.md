@@ -1,5 +1,40 @@
 # Validation log
 
+## 2026-10-22: retail water simulation stepped at 30 Hz
+
+The user's F9 captures at the pool with the pillar (after the first fight)
+show a ripple ring, but no waves. The user remembers from the PC fixes that
+the CPU builds the water geometry and the GPU does the refraction.
+
+**Cause.** `sub_000525A0` (the Jade water driver, single caller
+`0x00053A7D`) converts the 64-bit frame time `0x007654E0` (us) with
+`1e-6` (`0x0042958C`) and caps it at 1/30 s (`0x00429740`). It then calls the
+height-field step `sub_00051C00` once for every field. That step damps by a
+constant per call, not per second. At 60 frames per second the waves decay
+twice as fast as on the Xbox, and the surface stays flat.
+
+**Fix** (`source/xbox-retail/target_hooks.c`, override of
+`sub_000525A0`):
+- Game time is added up once per frame. The frame is identified by the new
+  timestamp `0x007654C8`, because a scene can hold several water objects.
+- Each object is stepped once for every 1/30 s, with the frame time set to
+  33333 us for that call and restored afterwards.
+- On frames without a step, only the guard and the done flag (+0xA0) are
+  kept, the same as the original.
+- `RESOT_RAW_WATER=1` restores the per-frame step.
+
+**Checks.**
+- `research/relift` run without the change gives exactly the checked-in
+  `gen` code, except two folder comments in `xapi_0000.c`, which were not
+  kept.
+- With the change, the only `gen` differences are the `_gen` rename and the
+  override's declaration.
+- `tools/test-xbe-sites.py xbox-retail`: 202 claims, 0 failed.
+- The retail Release build succeeds.
+
+**Not yet checked:** in the game, at the pool. Refraction (GPU, water vertex
+shader with projective `oT1..oT3`) is a separate issue.
+
 ## 2026-10-22: F9 frame capture; 2160p internal resolution; ghosting measured
 
 The user's 4K recording of retail play shows three things:

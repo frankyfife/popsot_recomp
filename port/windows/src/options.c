@@ -743,7 +743,7 @@ void resot_options_init(void)
      * selection when an unrelated option/binding is saved. */
     i=env&&*env?(!_stricmp(env,"vulkan")?2:!_stricmp(env,"d3d12")?1:0):s_renderer;
     _putenv_s("RESOT_RENDERER",s_renderer_tokens[i]);
-    s_fps=(int)GetPrivateProfileIntA("Graphics","FPSLimit",0,s_path);
+    s_fps=(int)GetPrivateProfileIntA("Graphics","FPSLimit",60,s_path);
     if(s_fps!=0 && s_fps!=30 && s_fps!=60 && s_fps!=120)s_fps=0;
     s_resolution=3;
     { int percent=(int)GetPrivateProfileIntA("Graphics","InternalResolutionPercent",150,s_path);

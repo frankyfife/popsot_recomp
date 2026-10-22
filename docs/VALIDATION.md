@@ -1,5 +1,18 @@
 # Validation log
 
+## 2026-10-22: Windows FPS limiter defaults to 60
+
+The user saw the GPU at 99 % with about 300 frames per second. Their
+`resot-options.ini` had `FPSLimit=0` and `VSync=0`, so frames were not
+limited, at 450 % (2880x2160) with Ultra.
+- `port/windows/default-options.ini` and the fallback in `options.c` are now
+  `FPSLimit=60`.
+- The user's local `bin/resot-options.ini` (not in the repository) was set
+  to 60 as well.
+- Android is left unchanged: only the Windows build is developed further.
+
+**Check.** A 20-s retail run logs `[FBWIN] FPS limit: 60`.
+
 ## 2026-10-22: soft focus without the double image (option SoftFocus)
 
 The user reports strong ghosting around the Prince and lights at high
@@ -35,7 +48,6 @@ grey double image around edges and lights.
 - The glow's blurs (same size) and every other draw are unchanged.
 - Option `[Graphics] SoftFocus` is 1 (Sharp, the default) or 0 (Xbox width).
   - Windows: F7 menu "Soft focus: Sharp / Xbox".
-  - Android: INI only.
   - `RECOMP_HW_SOFT_FOCUS=0` overrides it for one run.
 
 **Checks.**

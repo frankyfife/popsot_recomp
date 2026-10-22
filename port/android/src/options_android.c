@@ -70,8 +70,7 @@ extern void xbox_SetFrameLimit(int);
 extern void xbox_SetVSync(int);
 extern void xbox_SetPostProcessing(int);
 extern void xbox_SetPostProcessingQuality(int);
-static int s_post_quality=1, s_soft_focus=1;
-extern void xbox_SetSoftFocus(int);
+static int s_post_quality=1;
 static const char *const s_quality_names[]={"Off","Low","Mid","High","Ultra"};
 extern void xbox_SetRenderScalePercent(int);
 extern void xbox_InputSetHostFilter(void (*)(void *, unsigned));
@@ -139,7 +138,7 @@ static int save_config(void)
     }
     fprintf(f, "[Graphics]\nRenderer=vulkan\nFPSLimit=%d\nVSync=%d\nTextureGlowEffect=%d\nInternalResolutionPercent=%d\n",
             s_fps, s_vsync, s_texture_glow,s_render_scales[s_resolution]);
-    fprintf(f,"PostProcessingQuality=%d\nSoftFocus=%d\n",s_post_quality,s_soft_focus);
+    fprintf(f,"PostProcessingQuality=%d\n",s_post_quality);
     fprintf(f,"[Diagnostics]\nConsoleLogs=%d\n",s_console_logs);
     fprintf(f, "[Controls]\nLookSensitivityPercent=%d\n",s_look_sensitivity);
     fprintf(f, "[Keyboard]\n");
@@ -389,10 +388,6 @@ void resot_options_init(void)
     if(s_post_quality<0 || s_post_quality>4)s_post_quality=1;
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow = ini_get("Graphics", "TextureGlowEffect", 0) != 0;
-    /* RE-SoT: SoftFocus=1 steps the soft-focus blur in host texels; 0 keeps
-     * the Xbox width (nv2a_hw_d3d11.inc, hw_soft_focus_step). */
-    s_soft_focus = ini_get("Graphics", "SoftFocus", 1) != 0;
-    xbox_SetSoftFocus(s_soft_focus);
     {
         int percent=ini_get("Graphics","InternalResolutionPercent",100);
         s_resolution=2;

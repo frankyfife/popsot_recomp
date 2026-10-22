@@ -93,7 +93,7 @@ scroll to reach the remaining actions. The overlay captures game input
 while open. F6 remains assigned to diagnostics; while options are open,
 the options surface takes display priority. The same settings remain in
 the game's main menu under `reSOT Options`:
- Graphics has the FPS limiter (30/60/120/None), VSync, post-processing
+ Graphics has the FPS limiter (30/60/120/None; 60 by default), VSync, post-processing
 and internal rendering resolution (240p, 360p, 480p, 720p, 1080p, 1440p);
 each choice cycles its value. Resolution changes from either menu or F7 preserve the current
 fullscreen/window state; only F11 toggles it, including while F7 is open.

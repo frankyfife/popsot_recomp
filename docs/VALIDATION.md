@@ -1,5 +1,48 @@
 # Validation log
 
+## 2026-10-22: depth stays linear; host clips at the near plane
+
+The user's captures 63647 and 65119 (`logs/culling-pair.png`) show the ivy
+decal on the hall wall (texture `80EFF000`, DXT5, blended 302/303, z write
+off). In one capture it covers the cornice up to a hard straight edge; in the
+other the cornice shows.
+
+**Cause.** The decal batch (1863 indices, 621 triangles) reaches behind the
+camera: w runs from -30 to 9, screen x from -414166 to 17376. `vs_finish`
+rebuilt clip space with `saturate(p.z * vp.z) * w`. That per-vertex clamp
+makes clip-space z non-linear, so a triangle that crosses the near plane is
+no longer cut where the NV2A cuts it:
+- D3D11 ran with `DepthClipEnable = FALSE`. The part of the decal in front of
+  the near plane was drawn at depth 0, over the scene, which is the hard edge
+  over the cornice.
+- SDL GPU (Vulkan, D3D12) clips, but on the bent z, at the wrong place.
+
+The title sets `SET_ZMIN_MAX_CONTROL` (0x1D78) to 1 in every frame of the
+session: cull near/far, no z clamp.
+
+**Fix** (`nv2a_hw_d3d11.inc`, `nv2a_hw_native.inc`):
+- Clip-space z is `p.z * vp.z * w`, linear in the guest's clip coordinates.
+- For w > 0 it is still capped at 1, so geometry beyond zmax stays visible as
+  before.
+- 2D (w == 1) is clamped as before.
+- D3D11 now clips depth (`DepthClipEnable = TRUE`), the same as SDL GPU
+  already did.
+- `RECOMP_HW_ZCLAMP_VERTEX=1` restores the old clamp, and on D3D11 the old
+  depth clip setting.
+
+**Checks.**
+- `tools/check-hlsl.py`: every entry point compiles, for both targets.
+- Retail Release build, including the regenerated native shaders.
+- Native GPU CTest: 10/10.
+- `tools/fx-capture.py`, retail pad timeline at 70, 95 and 118 s, D3D11, new
+  against `RECOMP_HW_ZCLAMP_VERTEX=1` (`logs/zclip-compare.png`):
+  - the palace exterior, sky, moon, glow and the pause menu are the same;
+  - 0.00 to 1.17 % of pixels differ by more than 40, from the swaying palms
+    (the flips differ by a few frames).
+- Vulkan and D3D12 render the same scenes (`logs/zclip-native.png`).
+
+**Not yet checked:** in the game, at the ivy wall in the hall.
+
 ## 2026-10-22: retail water simulation stepped at 30 Hz
 
 The user's F9 captures at the pool with the pillar (after the first fight)

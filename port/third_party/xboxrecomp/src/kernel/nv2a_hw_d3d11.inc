@@ -333,7 +333,17 @@ static void hw_visibility_method(uint32_t method, uint32_t value, uint64_t stamp
  * interpolating them. With a widened picture (ws.x < 1) a vertex that arrives
  * with w == 1 belongs to the title's 2D: it keeps its 4:3 size around the
  * centre, unless it sits on the surface's edge (full-screen fades and
- * post-processing quads, which must keep covering everything). */
+ * post-processing quads, which must keep covering everything).
+ * RE-SoT: depth stays linear in clip space, so the host clips at the near
+ * plane where the NV2A does (SET_ZMIN_MAX_CONTROL 1: cull near/far, no
+ * clamp). Clamping z per vertex bent the near-plane cut of triangles that
+ * reach behind the camera: on D3D11 (no depth clip) their part in front of
+ * the near plane was drawn at depth 0 over the scene, on SDL GPU they were
+ * cut at the wrong place. Only the far side keeps the old clamp for w > 0,
+ * so geometry beyond zmax stays visible as before; w == 1 (2D) is clamped
+ * as before. vp.w = 1 (RECOMP_HW_ZCLAMP_VERTEX=1) restores the per-vertex
+ * clamp. */
+static int hw_vertex_zclamp(void);
 static const char s_hw_hlsl_vs_common[] =
 "cbuffer VSC : register(b0) { float4 vp; float4 fogp; float4 ws; float4 vpad; float4 cur[16];\n"
 "                             float4 c[192]; };\n"
@@ -348,8 +358,9 @@ static const char s_hw_hlsl_vs_common[] =
  * it towards its side of the screen (hw_hud_shift); ws.w is zero for other
  * batches. */
 "  if (flat) x += ws.w;\n"
-"  o.pos = float4((x * vp.x - 1.0) * w, (1.0 - y * vp.y) * w,\n"
-"                 saturate(p.z * vp.z) * w, w);\n"
+"  float z = p.z * vp.z;\n"
+"  if (flat || vp.w > 0.5) z = saturate(z); else if (w > 0.0) z = min(z, 1.0);\n"
+"  o.pos = float4((x * vp.x - 1.0) * w, (1.0 - y * vp.y) * w, z * w, w);\n"
 "  o.d0 = saturate(d0); o.d1 = saturate(d1); o.fog = float4(fog, 0, 0, 0);\n"
 "  o.t0 = t0; o.t1 = t1; o.t2 = t2; o.t3 = t3; return o; }\n";
 
@@ -1158,7 +1169,8 @@ static int hw_init(void)
             D3D11_CULL_NONE, D3D11_CULL_BACK, D3D11_CULL_FRONT };
         memset(&rd, 0, sizeof rd);
         rd.FillMode = D3D11_FILL_SOLID;
-        rd.DepthClipEnable = FALSE;
+        /* RE-SoT: clip at near/far like the NV2A; see vs_finish. */
+        rd.DepthClipEnable = hw_vertex_zclamp() ? FALSE : TRUE;
         rd.ScissorEnable = TRUE;
         for (i = 0; i < 3; i++) {
             rd.CullMode = modes[i];
@@ -1235,6 +1247,19 @@ static int hw_active(void)
 static uint32_t hw_zmax_bits(void)
 {
     return ((s_gpu.format >> 4) & 0xF) == 1 ? 0xFFFFu : 0xFFFFFFu;
+}
+
+/* RE-SoT: RECOMP_HW_ZCLAMP_VERTEX=1 restores the old per-vertex depth clamp
+ * (and, on D3D11, no depth clip) for comparison; see vs_finish. */
+static int hw_vertex_zclamp(void)
+{
+    static int value = -1;
+    if (value < 0) {
+        const char *e = getenv("RECOMP_HW_ZCLAMP_VERTEX");
+        value = e && *e && *e != '0';
+        if (value) fprintf(stderr, "[HW] RECOMP_HW_ZCLAMP_VERTEX: per-vertex depth clamp\n");
+    }
+    return value;
 }
 
 #if RESOT_HW_D3D11
@@ -1779,6 +1804,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     memset(hdr, 0, sizeof hdr);
     hdr[0] = 2.0f / (float)s->w; hdr[1] = 2.0f / (float)s->h;
     hdr[2] = 1.0f / (float)hw_zmax_bits();
+    hdr[3] = hw_vertex_zclamp() ? 1.0f : 0.0f;
     hdr[4] = s_gpu.fog_param[0]; hdr[5] = s_gpu.fog_param[1];
     hdr[6] = (float)s_gpu.fog_mode; hdr[7] = s_gpu.fog_enable ? 1.0f : 0.0f;
     {

@@ -1,5 +1,38 @@
 # Validation log
 
+## 2026-10-25: HD HUD on xbox-retail (redrawn from a level dump)
+
+The user suggested taking the HUD from the level runs and redrawing it.
+A run into `6101_couloir` with `RESOT_TEXTURE_DUMP=1` (fight, cheats on)
+listed the HUD in `dump/ui_keys.txt`: health bar frame
+`de18894ce22822b0` and fill `29b1e5be337ecb6d` (64x32), frame end piece
+`4376096df446c350`, sand tank holder `b50489193fc08f85` (64x32, tiled),
+tank glow `cffb399a69f0e145`, ring segment `ef78ce9d3289327a` (16x16, the
+circle drawn as four quarters). A run into `8101_TowerBase` added only
+effects (clouds, sparks, lightning), which the automatic HD interface
+keeps handling.
+
+`tools/hd-ui.py` now redraws these six at 8x. Colour clusters (k-means)
+broke the 1-pixel rings of the tank holder; what works is splitting by
+alpha: silhouette (alpha 0.15) and the strong part (outline, rings, alpha
+0.6 / 0.62) against the translucent body. Each border is the iso-line of
+the cubic alpha field with a one-pixel edge (crisp at any size, like a
+vector edge); colour and alpha inside a region come from that region's
+pixels only (normalised convolution), so the body's gradients stay. A
+region is faded out where none of its pixels are near: without that, cubic
+overshoot left black specks at the ends of the health bar frame (seen in
+the first capture). The cyan fill and the glow stay soft (cubic).
+
+**Checked.** In-game capture at 3840x2160 (`RECOMP_FRAME_TRACE` with an
+absolute flag path, created 82 s after start: a relative one is not found,
+the game runs in the asset folder; `RECOMP_HW_GLOW_DUMP` for the picture):
+the frame, ring, end piece and the vertical tank holder are drawn crisp;
+stderr lists `[TEXPACK] 8 replacement(s)`. A second
+capture after the fix (infinite sand on, so the tanks are full) shows no
+specks and the four filled tanks with their glow.
+**Not checked:** HUD elements that only appear later in the game (more
+sand tanks, the sand power circles), the enemy and boss displays.
+
 ## 2026-10-25: free camera on xbox-retail
 
 popsot-fixes' free camera (TECHNICAL.md:345, src/menucam.cpp), rebuilt for

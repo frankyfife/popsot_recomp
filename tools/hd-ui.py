@@ -15,6 +15,15 @@ SCALE times the size, as texture pack files <key>.tga (resot_texpack.h):
   (iso-contours of the cubic-interpolated alpha), so nothing of the game is
   stored in the repository.
 
+- HUD (health bar frame and fill, its end piece, the sand tank holder, the
+  tank glow, the ring segment): redrawn from the user's dump of a level
+  (RESOT_TEXTURE_DUMP=1 in a fight, e.g. with RESOT_START_LEVEL=6101_couloir).
+  Each is split into alpha level sets (silhouette, and the strong outline or
+  rings against the translucent body); their borders are the iso-lines of
+  the cubic alpha field, drawn crisp at the new size like vector edges,
+  while colour and alpha inside each region keep the original's gradients
+  (normalised convolution of that region's pixels only). Glows stay soft.
+
 Inputs are the two original atlases as written by RESOT_TEXTURE_DUMP=1
 (<pack>/dump/<key>_512x128_fmt06.tga and <key>_512x256_fmt06.tga). Both are
 stored upside down, as the game samples them; the files written here keep
@@ -43,6 +52,16 @@ FONT_STROKE = 0.0                  # extra stroke, original pixels. 0.5 fits the
                                    # (user, 2026-10-25); the plain TTF weight is used.
 FALLBACK_BELOW = 0.6               # glyphs whose TTF shape differs keep the traced original
 DIAGRAM = (237, 0, 512, 256)       # controller drawing, upright atlas pixels
+# HUD textures (dump/ui_keys.txt of a fight in 6101_couloir): alpha levels of
+# the silhouette and of the strong part; None keeps a soft texture soft.
+HUD = {
+    "de18894ce22822b0": (0.15, 0.6),   # health bar frame: gold outline, dark body
+    "29b1e5be337ecb6d": None,          # health bar fill (cyan line, glow)
+    "4376096df446c350": (0.15, 0.6),   # frame end piece
+    "b50489193fc08f85": (0.15, 0.62),  # sand tank holder: rings and top line
+    "cffb399a69f0e145": None,          # sand tank glow
+    "ef78ce9d3289327a": (0.5, None),   # ring segment
+}
 
 
 def read_tga(path):
@@ -239,6 +258,64 @@ def build_buttons(atlas, scale, magick):
     return img.transpose(Image.FLIP_TOP_BOTTOM), n
 
 
+# ---------------------------------------------------------------------- HUD
+def region_conv(field, scale):
+    return ndimage.zoom(ndimage.gaussian_filter(field, 0.5), scale, order=3)
+
+
+def iso_edge(field, level):
+    """Coverage of field >= level with a one-pixel anti-aliased edge."""
+    gy, gx = np.gradient(field)
+    return np.clip((field - level) / (np.hypot(gx, gy) + 1e-6) + 0.5, 0, 1)
+
+
+def redraw_hud(img, scale, levels):
+    px = np.asarray(img, dtype=np.float32) / 255.0
+    rgb, a = px[..., :3], px[..., 3]
+    if levels is None:                       # soft: cubic on premultiplied colour
+        af = np.clip(ndimage.zoom(a, scale, order=3), 0, 1)
+        num = np.stack([ndimage.zoom(a * rgb[..., c], scale, order=3) for c in range(3)], -1)
+        out = np.dstack([np.clip(num / np.maximum(af, 1e-4)[..., None], 0, 1), af])
+    else:
+        t1, t2 = levels
+        field = ndimage.zoom(a, scale, order=3)
+        m_sil = iso_edge(field, t1)
+        if t2 is None:
+            classes = [(m_sil, a >= t1 * 0.5)]
+        else:
+            m_hi = iso_edge(field, t2)
+            classes = [(np.minimum(m_hi, m_sil), a >= t2),
+                       (np.clip(m_sil - m_hi, 0, 1), (a >= t1 * 0.5) & (a < t2))]
+        acc_a = np.zeros(field.shape, np.float32)
+        acc_c = np.zeros(field.shape + (3,), np.float32)
+        overall = np.stack([region_conv(a * rgb[..., c], scale) for c in range(3)], -1)
+        overall = np.clip(overall / np.maximum(region_conv(a, scale), 1e-3)[..., None], 0, 1)
+        for mask, cls in classes:
+            cls = cls.astype(np.float32)
+            den = region_conv(cls, scale)
+            weight = region_conv(cls * a, scale)
+            # a region only where its pixels are near (no cubic overshoot)
+            mask = mask * np.clip(den / 0.1, 0, 1)
+            alpha = np.clip(weight / np.maximum(den, 1e-3), 0, 1)
+            col = np.stack([region_conv(cls * a * rgb[..., c], scale) for c in range(3)], -1)
+            col = np.where((weight > 1e-3)[..., None], col / np.maximum(weight, 1e-3)[..., None], overall)
+            acc_a += mask * alpha
+            acc_c += (mask * alpha)[..., None] * np.clip(col, 0, 1)
+        out = np.dstack([acc_c / np.maximum(acc_a, 1e-4)[..., None], np.clip(acc_a, 0, 1)])
+    return Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA")
+
+
+def build_hud(dump, pack, scale):
+    done = []
+    for key, levels in HUD.items():
+        src = sorted(dump.glob(key + "_*.tga"))
+        if src:
+            img = redraw_hud(read_tga(src[0]), scale, levels)
+            write_tga(img, pack / (key + ".tga"))
+            done.append((key, img))
+    return done
+
+
 def find_magick():
     for p in (shutil.which("magick"), r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"):
         if p and Path(p).exists():
@@ -271,9 +348,12 @@ def main():
     print("font: %d glyphs at %dx%d%s" % (len(rects), font.width, font.height,
                                            "; " + " ".join(missing) if missing else ""))
     print("buttons: %dx%d, controller drawing traced into %d contours" % (buttons.width, buttons.height, n))
+    hud = build_hud(dump, a.pack, a.scale)
+    print("HUD: %d of %d textures redrawn%s" % (len(hud), len(HUD), "" if hud else
+          " (none dumped yet: run a level with RESOT_TEXTURE_DUMP=1)"))
     if a.preview:
         a.preview.mkdir(parents=True, exist_ok=True)
-        for name, img in (("font", font), ("buttons", buttons)):
+        for name, img in [("font", font), ("buttons", buttons)] + [("hud_" + k, i) for k, i in hud]:
             up = img.transpose(Image.FLIP_TOP_BOTTOM)
             bg = Image.new("RGBA", up.size, (40, 44, 60, 255))
             bg.alpha_composite(up)

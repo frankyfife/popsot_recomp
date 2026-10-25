@@ -302,6 +302,10 @@ To build them:
 
        python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures
 
+For the HUD, also run a level once with the dump on, e.g.
+`RESOT_TEXTURE_DUMP=1` and `RESOT_START_LEVEL=6101_couloir`, then run the
+script again: it redraws the health bar, sand tanks and their frame too.
+
 ### Level select (retail)
 
 The main menu has the developers' "Special Load Map" again ("Spezielle

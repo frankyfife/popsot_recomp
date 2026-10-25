@@ -275,6 +275,33 @@ rasteriser, for comparison), `-Seconds N`, `-SnapshotEvery S` (frame dumps in
 `-Set @{RECOMP_APU_WAV='out.wav'}` (record the sound). More in
 [docs/RECOMP.md](../../docs/RECOMP.md).
 
+### Language, HD menu font and buttons (retail)
+
+`[Language] Text=german` and `Movies=german` are the Windows defaults:
+- The menus and texts come from the German text streams that the USA disc
+  already holds.
+- The cinematics play their German sound track.
+- The loading and logo films are the German ones.
+- The bonus films use their German-subtitled versions once
+  `tools/german-speech.py --films` has copied them from a European disc.
+
+`english` restores the original for either.
+
+Texture packs replace a guest texture by content, at any size: `<key>.tga` in
+`textures/` beside the executable (`RESOT_TEXTURE_PACK` overrides the folder).
+`tools/hd-ui.py` builds the menu font and button atlases at 8x:
+- The font is rendered from the disc's own vector font
+  (`MEDIA/AtlantisMF.ttf`) into the measured glyph rectangles.
+- The buttons are drawn as SVG (`tools/hd-ui/buttons.svg`).
+- The controller drawing is traced from your own atlas.
+
+To build them:
+1. Run the game once with `RESOT_TEXTURE_DUMP=1` up to the profile screen.
+   This writes `textures/dump/`.
+2. Run:
+
+       python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures
+
 ### Post processing quality and texture glow
 
 `Texture glow effect` uses `[Graphics] TextureGlowEffect=1` by default on

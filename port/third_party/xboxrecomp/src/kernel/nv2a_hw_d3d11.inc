@@ -1421,6 +1421,8 @@ static uint32_t hw_tex_bytes(const Texture *t)
     return t->pitch * t->height;
 }
 
+#include "resot_texpack.h"   /* RE-SoT: texture packs, both hosts */
+
 static uint32_t hw_tex_hash(const Texture *t)
 {
     const uint8_t *p = (const uint8_t *)xbox_GetMemoryOffset() + t->offset;
@@ -1496,6 +1498,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     int mips;
     LARGE_INTEGER upload_start, upload_end, upload_frequency; /* RE-SoT: slow upload evidence. */
     int cache_reason;
+    uint32_t upload_w, upload_h;
 
     if (!t->valid || t->width > 4096 || t->height > 4096)
         return NULL;
@@ -1572,9 +1575,31 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     for (face = 0; face < (t->cube ? 6u : 1u); face++)
         hw_decode_texture(t, face * face_stride, px + (size_t)face*t->width*t->height);
     mips = t->levels > 1 && tex_size_from_format(t->color);
+    {
+        /* RE-SoT: a texture pack replacement (resot_texpack.h) is uploaded
+         * at its own size, always with mips; a resource of another shape
+         * is recreated. */
+        uint32_t rw = t->width, rh = t->height, *rep = NULL;
+        if (!t->cube)
+            rep = texpack_lookup(px, t->width, t->height, t->color, &rw, &rh);
+        if (rep) {
+            free(px);
+            px = rep;
+            mips = 1;
+        }
+        if (c->tex) {
+            ID3D11Texture2D_GetDesc(c->tex, &td);
+            if (td.Width != rw || td.Height != rh || (td.MipLevels > 1) != (mips != 0)) {
+                ID3D11ShaderResourceView_Release(c->srv);
+                ID3D11Texture2D_Release(c->tex);
+                c->srv = NULL; c->tex = NULL;
+            }
+        }
+        upload_w = rw; upload_h = rh;
+    }
     if (!c->tex) {
         memset(&td, 0, sizeof td);
-        td.Width = t->width; td.Height = t->height;
+        td.Width = upload_w; td.Height = upload_h;
         td.MipLevels = mips ? 0 : 1; td.ArraySize = t->cube ? 6 : 1;
         td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         td.SampleDesc.Count = 1;
@@ -1593,8 +1618,8 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     ID3D11Texture2D_GetDesc(c->tex, &td);
     for (face = 0; face < (t->cube ? 6u : 1u); face++)
         ID3D11DeviceContext_UpdateSubresource(s_hw.ctx, (ID3D11Resource *)c->tex,
-            face * td.MipLevels, NULL, px + (size_t)face * t->width * t->height,
-            t->width * 4, 0);
+            face * td.MipLevels, NULL, px + (size_t)face * upload_w * upload_h,
+            upload_w * 4, 0);
     if (mips)
         ID3D11DeviceContext_GenerateMips(s_hw.ctx, c->srv);
     free(px);
@@ -2839,7 +2864,12 @@ static int hw_draw_program_batch(void)
                 if (o0.fog[0] > fhi) fhi = o0.fog[0];
                 if (o0.d0[3] < alo) alo = o0.d0[3];
                 if (o0.d0[3] > ahi) ahi = o0.d0[3];
-                if (n <= 4 || k < 3) /* RE-SoT: projected light-map coordinates on mesh draws. */
+                /* RE-SoT: RECOMP_TRACE_ALLVTX=<texture offset, hex> prints every
+                 * vertex of batches sampling it (glyph rectangles of a font). */
+                static int allvtx_init; static uint32_t allvtx;
+                if (!allvtx_init) { const char *e = getenv("RECOMP_TRACE_ALLVTX");
+                    allvtx = e ? (uint32_t)strtoul(e, NULL, 16) : 0; allvtx_init = 1; }
+                if (n <= 4 || k < 3 || (allvtx && s_gpu.texs[0].offset == allvtx)) /* RE-SoT: projected light-map coordinates on mesh draws. */
                     fprintf(stderr, "[FTRACE]     vtx %u pos %g %g t0 %g %g t1 %g %g"
                                     " t2 %g %g t3 %g %g\n", k, o0.pos[0], o0.pos[1],
                             o0.tex[0][0], o0.tex[0][1], o0.tex[1][0], o0.tex[1][1],

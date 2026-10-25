@@ -400,12 +400,68 @@ static void dump_texture_bmp(uint32_t seq);
 #define TEX_DUMP_SEQ_BASE 1000u
 #define TEX_DUMP_SEQ_MAX  40u
 
+/* RE-SoT: RECOMP_TEX_DUMP_ADDR=<hex>,<hex>,... writes each listed texture
+ * once, with its alpha, as a 32-bit TGA <RECOMP_TEX_DUMP_RGBA><offset>.tga
+ * (default logs/tex_). For font and icon atlases, whose alpha is the glyph. */
+static int sample_texture(uint32_t u, uint32_t v, uint32_t *argb);
+static void dump_texture_tga_once(void)
+{
+    static char list[256];
+    static int configured;
+    static uint32_t done[16];
+    static unsigned ndone;
+    const char *prefix = getenv("RECOMP_TEX_DUMP_RGBA");
+    uint32_t off = s_gpu.texs[0].offset, w = s_gpu.texs[0].width, h = s_gpu.texs[0].height, x, y, i;
+    char want[16], path[512];
+    uint8_t hdr[18];
+    FILE *f;
+    if (!configured) {
+        const char *e = getenv("RECOMP_TEX_DUMP_ADDR");
+        snprintf(list, sizeof list, "%s", e ? e : "");
+        configured = 1;
+    }
+    if (!list[0] || !w || !h || w > 4096 || h > 4096)
+        return;
+    snprintf(want, sizeof want, "%08X", off);
+    if (!strstr(list, want))
+        return;
+    for (i = 0; i < ndone; i++)
+        if (done[i] == off)
+            return;
+    if (ndone < 16)
+        done[ndone++] = off;
+    snprintf(path, sizeof path, "%s%08X_%ux%u_fmt%02X.tga", prefix ? prefix : "logs/tex_",
+             off, w, h, s_gpu.texs[0].color);
+    f = fopen(path, "wb");
+    if (!f)
+        return;
+    memset(hdr, 0, sizeof hdr);
+    hdr[2] = 2;                                  /* uncompressed true colour */
+    hdr[12] = (uint8_t)w; hdr[13] = (uint8_t)(w >> 8);
+    hdr[14] = (uint8_t)h; hdr[15] = (uint8_t)(h >> 8);
+    hdr[16] = 32; hdr[17] = 0x28;                /* 8 alpha bits, top-left origin */
+    fwrite(hdr, 1, sizeof hdr, f);
+    for (y = 0; y < h; y++)
+        for (x = 0; x < w; x++) {
+            uint32_t argb = 0;
+            uint8_t px[4];
+            if (!sample_texture(x, y, &argb))
+                argb = 0;
+            px[0] = (uint8_t)argb; px[1] = (uint8_t)(argb >> 8);
+            px[2] = (uint8_t)(argb >> 16); px[3] = (uint8_t)(argb >> 24);
+            fwrite(px, 1, 4, f);
+        }
+    fclose(f);
+    fprintf(stderr, "[TEX] wrote %s\n", path);
+}
+
 static void note_texture_use(void)
 {
     int i;
 
     if (!s_gpu.texs[0].valid)
         return;
+    dump_texture_tga_once();
     for (i = 0; i < s_tex_use_count; i++) {
         if (s_tex_use[i].offset == s_gpu.texs[0].offset
          && s_tex_use[i].color  == s_gpu.texs[0].color) {

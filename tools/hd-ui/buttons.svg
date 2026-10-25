@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- reSOT: the retail button atlas (512x256, upright) redrawn as vectors.
+     Every icon sits in the rectangle of the original element, so the game's
+     texture coordinates stay valid. The controller line drawing on the
+     right (x 237..512) is traced from the user's own atlas by
+     tools/hd-ui.py and is not part of this file. Drawn for reSOT. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="256" viewBox="0 0 512 256">
+  <defs>
+    <radialGradient id="gA" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#c8e69a"/><stop offset="0.45" stop-color="#79ad45"/><stop offset="1" stop-color="#2f5a14"/>
+    </radialGradient>
+    <radialGradient id="gB" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#f29a8e"/><stop offset="0.45" stop-color="#c42a24"/><stop offset="1" stop-color="#5a0a08"/>
+    </radialGradient>
+    <radialGradient id="gX" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#a8d2f6"/><stop offset="0.45" stop-color="#3f86cf"/><stop offset="1" stop-color="#173f73"/>
+    </radialGradient>
+    <radialGradient id="gY" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#f6e2a2"/><stop offset="0.45" stop-color="#d1a83a"/><stop offset="1" stop-color="#6a4c10"/>
+    </radialGradient>
+    <radialGradient id="gBlack" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#5a5a5a"/><stop offset="0.5" stop-color="#151515"/><stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <radialGradient id="gWhite" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#fff"/><stop offset="0.6" stop-color="#e6e6e6"/><stop offset="1" stop-color="#8c8c8c"/>
+    </radialGradient>
+    <radialGradient id="gStick" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#3c3c3c"/><stop offset="1" stop-color="#101010"/>
+    </radialGradient>
+    <linearGradient id="gRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d0d0d0"/><stop offset="1" stop-color="#5a5a5a"/>
+    </linearGradient>
+    <g id="stickdots" fill="#e8e8e8">
+      <circle cx="0" cy="-9" r="1.2"/><circle cx="9" cy="0" r="1.2"/>
+      <circle cx="0" cy="9" r="1.2"/><circle cx="-9" cy="0" r="1.2"/>
+    </g>
+    <g id="smallbutton">
+      <circle r="4.4" fill="url(#gRim)"/>
+      <circle r="3.4" fill="url(#gBlack)"/>
+      <circle cx="-1.2" cy="-1.3" r="1.0" fill="#fff" fill-opacity="0.9"/>
+    </g>
+    <filter id="halo" x="-30%" y="-30%" width="160%" height="160%">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="0.6" result="d"/>
+      <feFlood flood-color="#fff" flood-opacity="0.55"/>
+      <feComposite in2="d" operator="in" result="h"/>
+      <feMerge><feMergeNode in="h"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="middle">
+    <!-- A, B, X, Y -->
+    <g transform="translate(17,91)">
+      <circle r="11.2" fill="#000" fill-opacity="0.35"/><circle r="10.5" fill="url(#gA)"/>
+      <ellipse cx="-2.9" cy="-4.7" rx="5" ry="2.9" fill="#fff" fill-opacity="0.3"/>
+      <text y="5.1" font-size="14.5" fill="#151a10">A</text>
+    </g>
+    <g transform="translate(17,126)">
+      <circle r="11.2" fill="#000" fill-opacity="0.35"/><circle r="10.5" fill="url(#gB)"/>
+      <ellipse cx="-2.9" cy="-4.7" rx="5" ry="2.9" fill="#fff" fill-opacity="0.3"/>
+      <text y="5.1" font-size="14.5" fill="#1c0606">B</text>
+    </g>
+    <g transform="translate(17,163)">
+      <circle r="11.2" fill="#000" fill-opacity="0.35"/><circle r="10.5" fill="url(#gX)"/>
+      <ellipse cx="-2.9" cy="-4.7" rx="5" ry="2.9" fill="#fff" fill-opacity="0.3"/>
+      <text y="5.1" font-size="14.5" fill="#0a1626">X</text>
+    </g>
+    <g transform="translate(17,199)">
+      <circle r="11.2" fill="#000" fill-opacity="0.35"/><circle r="10.5" fill="url(#gY)"/>
+      <ellipse cx="-2.9" cy="-4.7" rx="5" ry="2.9" fill="#fff" fill-opacity="0.3"/>
+      <text y="5.1" font-size="14.5" fill="#241a06">Y</text>
+    </g>
+
+    <!-- white and black buttons -->
+    <g transform="translate(18.5,234.5)">
+      <circle r="9.1" fill="url(#gRim)"/><circle r="8.2" fill="url(#gWhite)"/>
+      <circle cx="-2.9" cy="-2.7" r="1.8" fill="#111"/>
+    </g>
+    <g transform="translate(54.5,234.5)">
+      <circle r="9.1" fill="url(#gRim)"/><circle r="8.2" fill="url(#gBlack)"/>
+      <circle cx="-2.9" cy="-2.7" r="1.8" fill="#fff"/>
+    </g>
+
+    <!-- thumbsticks -->
+    <g transform="translate(17.5,17.5)">
+      <circle r="12.5" fill="#9a9a9a"/><circle r="11.4" fill="url(#gStick)"/>
+      <use xlink:href="#stickdots"/>
+      <text y="4.5" font-size="12" fill="#f0f0f0">R</text>
+    </g>
+    <g transform="translate(17.5,53.5)">
+      <circle r="12.5" fill="#9a9a9a"/><circle r="11.4" fill="url(#gStick)"/>
+      <use xlink:href="#stickdots"/>
+      <text y="4.5" font-size="12" fill="#f0f0f0">L</text>
+    </g>
+
+    <!-- BACK and START -->
+    <text x="51.5" y="57" font-size="8.2" font-weight="normal" fill="#e6e6e6">BACK</text>
+    <use xlink:href="#smallbutton" x="51.5" y="65.5"/>
+    <text x="52.5" y="91" font-size="8.2" font-weight="normal" fill="#e6e6e6">START</text>
+    <use xlink:href="#smallbutton" x="52.5" y="99.5"/>
+
+    <!-- triggers -->
+    <path d="M48,116 h8.5 a6.75,6.75 0 0 1 0,13.5 h-8.5 z" fill="#111" stroke="#3a3a3a" stroke-width="0.8"/>
+    <text x="55" y="127.6" font-size="11.5" fill="#f2f2f2">R</text>
+    <path d="M59,137.5 h-8.5 a7,7 0 0 0 0,14 h8.5 z" fill="#111" stroke="#3a3a3a" stroke-width="0.8"/>
+    <text x="52.5" y="148.8" font-size="11.5" fill="#f2f2f2">L</text>
+  </g>
+
+  <!-- scroll arrows -->
+  <g fill="none" stroke="#ececec" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M51.8,180.5 l3.6,-3.6 l3.6,3.6 M51.8,185.3 l3.6,-3.6 l3.6,3.6"/>
+    <path d="M51.8,194 l3.6,3.6 l3.6,-3.6 M51.8,198.8 l3.6,3.6 l3.6,-3.6"/>
+  </g>
+
+  <!-- black symbols with a light halo -->
+  <g filter="url(#halo)">
+    <!-- d-pad / navigation -->
+    <circle cx="51.5" cy="17.5" r="11.4" fill="none" stroke="#000" stroke-width="2.4"/>
+    <path d="M51.5,9 L60,17.5 L51.5,26 L43,17.5 Z" fill="#000"/>
+    <path d="M51.5,12 L57,17.5 L51.5,23 L46,17.5 Z" fill="none" stroke="#8c8c8c" stroke-width="0.9"/>
+    <!-- figure in a circle -->
+    <circle cx="87" cy="17" r="12" fill="none" stroke="#000" stroke-width="2.4"/>
+    <circle cx="87" cy="10.2" r="2.6" fill="#000"/>
+    <path d="M81.8,14 h10.4 l-4,11.4 h-2.4 z" fill="#000"/>
+    <!-- small figure -->
+    <circle cx="120.5" cy="9.2" r="2.8" fill="#000"/>
+    <path d="M115.5,13.4 h10 l-3.9,11.4 h-2.2 z" fill="#000"/>
+    <!-- speaker -->
+    <path d="M139.5,12.5 h4.5 l6,-5.5 v17.5 l-6,-5.5 h-4.5 z" fill="#000"/>
+    <path d="M153.5,11.5 a7,7 0 0 1 0,11" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M157.2,8.6 a11,11 0 0 1 0,16.8" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round"/>
+    <!-- vibration off -->
+    <rect x="174" y="4" width="26" height="26" rx="3" fill="none" stroke="#000" stroke-width="3.2" stroke-dasharray="5.5 3"/>
+    <path d="M180,21 l4,-8 h7 l4,8 z" fill="#000"/>
+    <path d="M178,27 L197,7" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

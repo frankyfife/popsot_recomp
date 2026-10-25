@@ -42,6 +42,7 @@ typedef struct {
     SDL_GPUTexture *image;
     Texture guest;
     uint32_t hash, checked, used;
+    uint32_t host_w, host_h;   /* RE-SoT: image size; a pack replacement differs */
 } NgTexture;
 /* RE-SoT: stable, collision-checked program entries. Workers only read the
  * immutable source/key; shader publication is protected by each entry's lock.
@@ -825,25 +826,35 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     reuse_image = c && !t->cube;
 #endif
     if (!c) c = victim;
-    /* RE-SoT: flush readers before cycling or recreating. SDL retires the
-     * old backing image after its last encoded GPU use. */
-    if (c->image) ng_flush_draws(); /* RE-SoT: retire a sampled version only after encoding its draws. */
-    if (c->image && !reuse_image) SDL_ReleaseGPUTexture(s_ng.device, c->image);
     layers = t->cube ? 6 : 1;
-    if (t->levels > 1 && tex_size_from_format(t->color)) {
-        uint32_t extent = t->width > t->height ? t->width : t->height;
-        while ((extent >>= 1) != 0) levels++;
-    }
-    if (!reuse_image) c->image = ng_image(t->width, t->height, t->cube, levels,
-        SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0),
-        SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM);
     px = (uint32_t *)malloc((size_t)t->width*t->height*layers*4);
     if (!px) ng_fail("decode texture allocation");
     /* RE-SoT: same bulk P8/ARGB conversion as D3D11, including Android. */
     for (face = 0; face < layers; face++)
         hw_decode_texture(t, t->cube ? face*tex_face_stride(t) : 0,
             px + (size_t)face*t->width*t->height);
-    ng_upload_cycle(c->image, px, t->width, t->height, layers, levels > 1, reuse_image);
+    {
+        /* RE-SoT: a texture pack replacement (resot_texpack.h) has its own
+         * size and always a full mip chain; cycling needs the same shape. */
+        uint32_t rw = t->width, rh = t->height, *rep = NULL, extent;
+        if (!t->cube)
+            rep = texpack_lookup(px, t->width, t->height, t->color, &rw, &rh);
+        if (rep) { free(px); px = rep; }
+        if (rep || (t->levels > 1 && tex_size_from_format(t->color))) {
+            extent = rw > rh ? rw : rh;
+            while ((extent >>= 1) != 0) levels++;
+        }
+        if (c->image && (c->host_w != rw || c->host_h != rh || rep)) reuse_image = 0;
+        /* RE-SoT: flush readers before cycling or recreating. SDL retires the
+         * old backing image after its last encoded GPU use. */
+        if (c->image) ng_flush_draws(); /* RE-SoT: retire a sampled version only after encoding its draws. */
+        if (c->image && !reuse_image) SDL_ReleaseGPUTexture(s_ng.device, c->image);
+        if (!reuse_image) c->image = ng_image(rw, rh, t->cube, levels,
+            SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0),
+            SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM);
+        ng_upload_cycle(c->image, px, rw, rh, layers, levels > 1, reuse_image);
+        c->host_w = rw; c->host_h = rh;
+    }
     free(px); c->guest = *t; c->hash = hash; c->checked = c->used = s_hw.frame;
     return c->image;
 }

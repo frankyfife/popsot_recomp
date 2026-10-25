@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "../../port/game/guest_probe.h"
 #include "target.h"
 #if defined(_MSC_VER)
@@ -44,8 +45,39 @@ extern ptrdiff_t g_xbox_mem_offset;
 extern RESOT_TLS double g_fp_stack[8];
 extern RESOT_TLS int g_fp_top;
 
+/* RESOT_DUMP_RAM=<file>[,seconds]: writes guest RAM 0..64 MB once, after
+ * the given seconds (default 30) from the first frame. For finding tables
+ * such as a font's glyph rectangles offline. */
+static void resot_dump_ram_check(void)
+{
+    static int state = -1;
+    static clock_t start;
+    static double after = 30.0;
+    static char path[260];
+    if (state < 0) {
+        const char *e = getenv("RESOT_DUMP_RAM"), *comma;
+        state = e && *e ? 0 : 2;
+        if (!state) {
+            snprintf(path, sizeof path, "%s", e);
+            comma = strrchr(path, ',');
+            if (comma) { after = atof(comma + 1); path[comma - path] = 0; }
+            start = clock();
+        }
+    }
+    if (state == 0 && (double)(clock() - start) / CLOCKS_PER_SEC >= after) {
+        FILE *f = fopen(path, "wb");
+        state = 1;
+        if (f) {
+            fwrite((const void *)((uintptr_t)g_xbox_mem_offset), 1, 64u << 20, f);
+            fclose(f);
+            fprintf(stderr, "[DUMP] guest RAM written to %s\n", path);
+        }
+    }
+}
+
 void sub_00348128_enter(void)
 {
+    resot_dump_ram_check();
     static int configured, raw;
     static unsigned reports;
     float refresh;
@@ -863,6 +895,26 @@ static uint32_t s_text_va;
 
 static void resot_text(uint32_t index, char *out, unsigned size)
 {
+    /* RESOT_FONT_PROBE=<first>,<count>: the main menu's reSOT entry shows the
+    * character codes first..first+count-1 instead, so a frame trace with
+    * RECOMP_TRACE_ALLVTX gives every glyph's rectangle (tools/hd-ui.py). */
+    const char *probe = getenv("RESOT_FONT_PROBE");
+    if (index == T_ROOT && probe && *probe) {
+        unsigned first = (unsigned)strtoul(probe, NULL, 0), count = 0, i;
+        const char *comma = strchr(probe, ',');
+        const char *sep = comma ? strchr(comma + 1, ',') : NULL;
+        unsigned n = 0;
+        if (comma) count = (unsigned)strtoul(comma + 1, NULL, 0);
+        /* ,<sep>: the separator code before every character, so a missing
+         * glyph shows as two separators in a row */
+        for (i = 0; i < count && n + 2 < size && first + i < 256; i++) {
+            if (sep) out[n++] = (char)strtoul(sep + 1, NULL, 0);
+            out[n++] = (char)(first + i);
+        }
+        if (sep && n + 1 < size) out[n++] = (char)strtoul(sep + 1, NULL, 0);
+        out[n] = 0;
+        return;
+    }
     if (index < sizeof s_static_texts / sizeof s_static_texts[0])
         snprintf(out, size, "%s", resot_text_language() == 4 ? s_static_texts_de[index]
                                                              : s_static_texts[index]);

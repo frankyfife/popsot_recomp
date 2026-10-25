@@ -1,5 +1,87 @@
 # Validation log
 
+## 2026-10-25: HD menu font and buttons (texture packs, vectors)
+
+The user asked for the fonts and button icons to be redrawn as vectors, and
+in German.
+
+**What the menus draw.** A frame trace of the profile screen shows that all
+menu text and prompts come from two textures, drawn at the end of the frame
+with w = 0.06:
+- `80AC9000`: a 512x128 ARGB font atlas. The glyphs are white, shaped by
+  their alpha, and stored upside down; the quads flip v.
+- `80B26000`: a 512x256 button atlas with:
+  - A, B, X, Y;
+  - the black and white buttons;
+  - L/R, START/BACK and both sticks;
+  - the scroll arrows;
+  - five symbols;
+  - the controller drawing for the controls page.
+
+The menu font is Atlantis MF, which is on the disc as `MEDIA/AtlantisMF.ttf`.
+The lowercase letters are its small caps.
+
+**Glyph rectangles.** Matching the TTF against the atlas image was not
+reliable: the glyphs touch, and the order is not a plain sequence. So the
+game drew every character itself:
+- `RESOT_FONT_PROBE=<first>,<count>[,<separator>]` shows those codes in
+  place of the main menu's reSOT entry.
+- `RECOMP_TRACE_ALLVTX=80AC9000` prints every vertex of the font batches.
+
+Results:
+- 93 ASCII glyphs (all of 33..126 except `\`, the escape character).
+- 70 Latin-1 glyphs.
+- 19 Windows-1252 glyphs (0x80..0x9F).
+- The separator runs list the codes without a glyph, e.g. cent sign,
+  pound sign, plus-minus, superscripts, multiplication sign, division sign.
+
+The 182 rectangles are in `tools/hd-ui/font_rects.json`.
+
+**Texture packs** (`port/third_party/xboxrecomp/src/kernel/resot_texpack.h`,
+D3D11 and SDL GPU):
+- **Key:** a texture is identified by FNV-1a 64 of its decoded level-0
+  pixels, size and NV2A format.
+- **Replacement:** `<pack>/<key>.tga` replaces it at its own size, with a
+  full mip chain. The resource is recreated when its shape changes.
+- **Dump:** `RESOT_TEXTURE_DUMP=1` writes new textures to `<pack>/dump/`.
+
+Keys:
+- font `61ae24597fbff11f`;
+- buttons `961c13f4b5867590`.
+
+For finding such textures there are two further switches:
+- `RECOMP_TEX_DUMP_ADDR` / `RECOMP_TEX_DUMP_RGBA` write chosen textures as
+  RGBA TGA.
+- `RESOT_DUMP_RAM=<file>[,seconds]` writes guest RAM once.
+
+**`tools/hd-ui.py`** writes both atlases at 8x (4096x1024 and 4096x2048).
+
+Font:
+- Each glyph comes from the TTF at size 19 plus a 0.5-px stroke. That fits
+  best: mean correlation against the original rose from 0.85 to 0.89.
+- It is centred on the original ink and clipped to its cell.
+- Four glyphs whose TTF design differs keep the original, traced along its
+  iso-contour: grave accent, macron, AE and ae.
+
+Buttons:
+- The icons come from `tools/hd-ui/buttons.svg`, drawn for reSOT, rendered
+  by ImageMagick/librsvg.
+- Every icon sits within one pixel of the original element's ink box.
+  An earlier, larger version was clipped by the game's rectangles.
+- The controller drawing is traced from the user's atlas into SVG paths:
+  45 contours from the cubic-interpolated alpha at 0.5. The repository
+  holds no game artwork.
+
+**Checks.**
+- Retail build succeeds.
+- `[TEXPACK]` lines show both replacements on D3D11 and on Vulkan.
+- Profile screen at 450 % (`logs/atlas/hd_ingame_cmp2.png`): the text and
+  the A/B/X/Y prompts are sharp at 4K and keep their layout, umlauts
+  included. Icons are no longer clipped.
+
+**Not yet checked:** the controls page with the controller drawing, the HUD
+and subtitles (other textures, not yet identified).
+
 ## 2026-10-22: German text on xbox-retail
 
 Following the German movies (next entry), the menus and texts.

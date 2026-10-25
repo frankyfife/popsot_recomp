@@ -36,7 +36,9 @@ neither 2D nor 3D. Ruled out: the menu-leave flag [0x76BF30] (left
 unset: still silent), ChangeMap's eax (the same object as New Game's), and
 the menus' sound-type pause (Mdl00001BA5_fn_PauseEverything 0x00114F20 /
 ResumeEverything 0x00116270: the pause flag *[0x758534] was 0, and
-resuming both types with 0x000A2A60 changed nothing). Open.
+resuming both types with 0x000A2A60 changed nothing), and the map key's
+0x20000000 bit New Game passes (0x2200B526 for 0101; with it the level
+select's 6101 stayed silent too). Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

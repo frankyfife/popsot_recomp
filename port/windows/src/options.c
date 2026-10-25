@@ -834,9 +834,13 @@ void resot_options_init(void)
     env=getenv("RECOMP_HW_VSYNC");
     s_vsync=GetPrivateProfileIntA("Graphics","VSync",env && *env!='0',s_path)!=0;
     s_post_quality=(int)GetPrivateProfileIntA("Graphics","PostProcessingQuality",1,s_path);
+    /* RE-SoT: RESOT_POST_QUALITY=0..4 / RESOT_TEXTURE_GLOW=0|1 for one run
+     * (comparisons), without touching the player's INI. */
+    if((env=getenv("RESOT_POST_QUALITY"))&&*env)s_post_quality=atoi(env);
     if(s_post_quality<0 || s_post_quality>4)s_post_quality=1;
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow=GetPrivateProfileIntA("Graphics","TextureGlowEffect",0,s_path)!=0;
+    if((env=getenv("RESOT_TEXTURE_GLOW"))&&*env)s_texture_glow=*env!='0';
     env=getenv("RECOMP_HW_SOFT_FOCUS");
     s_soft_focus=GetPrivateProfileIntA("Graphics","SoftFocus",1,s_path)!=0;
     xbox_SetSoftFocus(env&&*env?*env!='0':s_soft_focus);

@@ -53,6 +53,8 @@ FONT_STROKE = 0.0                  # extra stroke, original pixels. 0.5 fits the
                                    # (mean correlation 0.89), but looks too bold at 4K
                                    # (user, 2026-10-25); the plain TTF weight is used.
 FALLBACK_BELOW = 0.6               # glyphs whose TTF shape differs keep the traced original
+EDGE_GAP = 2                       # HD texels around a glyph's rectangle no other glyph may ink
+BUTTON_REACH = 1                   # original texels the HD buttons may reach past the original ink
 DIAGRAM = (237, 0, 512, 256)       # controller drawing, upright atlas pixels
 HUD_GROUP = 0x0B007B00             # Jade keys of the HUD textures (0B007B00-0B007BFF)
 HUD_MAX_ERROR = 0.07               # mean premultiplied difference at the original size
@@ -97,6 +99,7 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
     font = ImageFont.truetype(str(ttf), size_px)
     missing = []
     fallback = []
+    areas = glyph_areas(rects, out_a.shape, scale)
     for code, (u0, u1, v0, v1) in sorted(rects.items(), key=lambda kv: int(kv[0])):
         c = int(code)
         # the game's text bytes are Windows-1252 (0x80..0x9F: Euro sign, S/Z
@@ -122,14 +125,15 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
         g = g.crop(bbox).transpose(Image.FLIP_TOP_BOTTOM)
         gx = int(round(cx * scale - g.width / 2.0))
         gy = int(round(cy * scale - g.height / 2.0))
-        # clip to the cell, so a neighbour never receives ink
+        # only where this glyph may ink (glyph_areas), so no neighbour's
+        # rectangle ever samples it
         ga = np.asarray(g)
-        cx0, cy0, cx1, cy1 = x0 * scale, y0 * scale, x1 * scale, y1 * scale
-        ax0, ay0 = max(gx, cx0), max(gy, cy0)
-        ax1, ay1 = min(gx + ga.shape[1], cx1), min(gy + ga.shape[0], cy1)
+        bx0, bx1, by0, by1, allow = areas[(u0, u1, v0, v1)]
+        ax0, ay0 = max(gx, bx0), max(gy, by0)
+        ax1, ay1 = min(gx + ga.shape[1], bx1), min(gy + ga.shape[0], by1)
         if ax1 > ax0 and ay1 > ay0:
-            sub = ga[ay0 - gy:ay1 - gy, ax0 - gx:ax1 - gx]
-            out_a[ay0:ay1, ax0:ax1] = np.maximum(out_a[ay0:ay1, ax0:ax1], sub)
+            sub = ga[ay0 - gy:ay1 - gy, ax0 - gx:ax1 - gx] * allow[ay0 - by0:ay1 - by0, ax0 - bx0:ax1 - bx0]
+            out_a[ay0:ay1, ax0:ax1] = np.maximum(out_a[ay0:ay1, ax0:ax1], sub.astype(np.uint8))
     # check each glyph against the original; where the TTF shape differs
     # (a different design or no glyph), trace the original instead
     small = np.asarray(Image.fromarray(out_a).resize((W, H), Image.BOX)).astype(np.float32) / 255.0
@@ -139,11 +143,59 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
         a, b = A[y0:y1, x0:x1], small[y0:y1, x0:x1]
         s = float((a * b).sum() / (np.sqrt((a * a).sum() * (b * b).sum()) + 1e-9))
         if s < FALLBACK_BELOW:
-            out_a[y0 * scale:y1 * scale, x0 * scale:x1 * scale] = traced_upscale(a, scale)
+            bx0, bx1, by0, by1, allow = areas[(u0, u1, v0, v1)]
+            traced = np.zeros((by1 - by0, bx1 - bx0), np.uint8)
+            t = traced_upscale(a, scale)
+            tx0, ty0 = x0 * scale - bx0, y0 * scale - by0
+            sx0, sy0 = max(tx0, 0), max(ty0, 0)
+            sx1, sy1 = min(tx0 + t.shape[1], traced.shape[1]), min(ty0 + t.shape[0], traced.shape[0])
+            traced[sy0:sy1, sx0:sx1] = t[sy0 - ty0:sy1 - ty0, sx0 - tx0:sx1 - tx0]
+            region = out_a[by0:by1, bx0:bx1]
+            region[allow] = traced[allow]
             fallback.append(code)
     out = Image.fromarray(out_a)
     white = Image.new("L", out.size, 255)
     return Image.merge("RGBA", (white, white, white, out)), missing + ["traced:" + ",".join(fallback)] if fallback else missing
+
+
+def glyph_areas(rects, shape, scale):
+    """Where each glyph may ink: its sampled rectangle grown by EDGE_GAP HD
+    texels, except where another glyph's grown rectangle reaches; per
+    rectangle (x0, x1, y0, y1, allowed). The game's rectangles of
+    neighbours touch or overlap by half a texel (e.g. Z: u 246.5-262.0,
+    [: 262.5-267.0), and the cells the glyphs used to be clipped to were
+    rounded outwards: the bracket's stroke began at Z's right edge, and
+    Z's bilinear sample there drew it as a thin line before the next letter
+    at 4K (user report, 2026-10-25). Codes that share one rectangle, or
+    nearly (170 / 186), are one area."""
+    H, W = shape
+    count = np.zeros(shape, np.int16)
+    merged = []
+    owner = {}
+    for r in sorted(set(tuple(r) for r in rects.values())):
+        u0, u1, v0, v1 = r
+        for m in merged:
+            iw = min(u1, m[1]) - max(u0, m[0])
+            ih = min(v1, m[3]) - max(v0, m[2])
+            small = min((u1 - u0) * (v1 - v0), (m[1] - m[0]) * (m[3] - m[2]))
+            if iw > 0 and ih > 0 and iw * ih > 0.5 * small:
+                m[:] = [min(u0, m[0]), max(u1, m[1]), min(v0, m[2]), max(v1, m[3])]
+                owner[r] = m
+                break
+        else:
+            merged.append([u0, u1, v0, v1])
+            owner[r] = merged[-1]
+    boxes = {}
+    for m in merged:
+        x0, x1 = max(int(np.floor(m[0] * scale - EDGE_GAP)), 0), min(int(np.ceil(m[1] * scale + EDGE_GAP)), W)
+        y0, y1 = max(int(np.floor(m[2] * scale - EDGE_GAP)), 0), min(int(np.ceil(m[3] * scale + EDGE_GAP)), H)
+        boxes[id(m)] = (x0, x1, y0, y1)
+        count[y0:y1, x0:x1] += 1
+    areas = {}
+    for r, m in owner.items():
+        x0, x1, y0, y1 = boxes[id(m)]
+        areas[r] = (x0, x1, y0, y1, count[y0:y1, x0:x1] == 1)
+    return areas
 
 
 # ------------------------------------------------------------------ tracing
@@ -250,6 +302,15 @@ def build_buttons(atlas, scale, magick):
         img = Image.open(png).convert("RGBA")
     if img.size != (atlas.width * scale, atlas.height * scale):
         img = img.resize((atlas.width * scale, atlas.height * scale), Image.LANCZOS)
+    # nothing more than BUTTON_REACH original texels from the original ink:
+    # anti-aliasing or a shape drawn a little larger must not reach into the
+    # gap the game's rectangles may sample (fragments at the edges at 4K)
+    ink = np.asarray(upright.split()[3]) > 8
+    ink = ndimage.binary_dilation(ink, iterations=BUTTON_REACH)
+    near = np.repeat(np.repeat(ink, scale, axis=0), scale, axis=1)
+    rgba = np.asarray(img).copy()
+    rgba[..., 3] = (rgba[..., 3] * near).astype(np.uint8)
+    img = Image.fromarray(rgba, "RGBA")
     return img.transpose(Image.FLIP_TOP_BOTTOM), n
 
 

@@ -1,5 +1,48 @@
 # Validation log
 
+## 2026-10-25: level select ("Special Load Map") on xbox-retail
+
+The user asked for the game's debug level select first, so the later levels
+(and their fuller HUD) can be reached, as popsot-fixes does on PC with the
+hidden `P_SpecialLoad` page.
+
+**What retail has.** No page: group 0x0B0041D2 keeps the caption "Special
+Load Map" (index 8) and nothing builds a page with it (see the retail menu
+map below). The map change itself is
+`Mdl0000186A_fn_ChangeMapWithCheckPoint`, sub_0025CF40 (cdecl: map key,
+check point). The main menu calls it once, for the credits (0x0014330D,
+map 0x0B00A848): `prince.bf` stream FF0BA848 is the world list
+"MenuCredits", which fixes the key mapping (key 0x0T00LLLL = stream
+FF0TLLLL). New Game calls it only after the opening film (return
+0x002B18E2, map 0x2200B526 = stream FF02B526, "0101_Entree"; the top byte
+is not part of the stream key), which a first run that stopped at the
+profile screen had missed. Replacing that map (`RESOT_START_MAP`) was
+dropped for a menu, which needs no restart.
+
+**What was added** (`source/xbox-retail/target_hooks.c`):
+- A main-menu entry "Spezielle Karte laden" / "Special Load Map" before
+  "reSOT Options", opening a native page with four parts: areas 01-22,
+  24-51, 61-91 and Extras (POP1, WhiteRoom, magic_corridor,
+  Magic_Fountain, MenuCredits); 41 world lists in all, one per area, the
+  first room of each. The rooms are each world list's last world, read
+  from the retail `prince.bf` with a scratch reader (LZO1X blocks).
+- A choice is taken in the 0x00039B20 override and run from the next
+  XInputGetState call, outside the menu tick, the way the credits start
+  (0x001432C0-0x0014330D): flag behind [0x76BF30] = 1, active top page
+  closed (vtable +8, (1, 0, 1)), eax = [0x76606C], [0x758C8C] = 0,
+  ChangeMapWithCheckPoint(key, -1).
+- `python tools/test-xbe-sites.py xbox-retail`: 312 claims, 0 failed (the
+  world-list keys are `value` claims).
+
+**Checked.** `tools/run.ps1 -Target xbox-retail -Seconds 120 -Windowed
+-SnapshotEvery 5` with a pad script (profile, four times down, A, twice
+down, A, A): stderr shows `[LEVEL] level select: 6101_couloir (world list
+FF023E88)` and `[LEVEL] change map 02003E88 check point -1`; the snapshots
+show the menu entry, the part page, the list, then the area's opening
+cutscene and play with the health bar and sand tanks. **Not checked:** the
+other 40 entries; state carried from the menu (sword, sand tanks, costume)
+in levels started this way; saving from such a level.
+
 ## 2026-10-25: HD menu font and buttons (texture packs, vectors)
 
 The user asked for the fonts and button icons to be redrawn as vectors, and

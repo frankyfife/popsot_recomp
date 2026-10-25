@@ -336,6 +336,20 @@ void sub_00347456_enter(void)
         GMEM32(g_esp + 12) = (uint32_t)lang;
 }
 
+/* Map change. The game changes "map" (a Jade world list, .wol) through
+ * Mdl0000186A_fn_ChangeMapWithCheckPoint, sub_0025CF40 (cdecl: map key,
+ * check point; -1 = the map's start). It stores both in the universe AI's
+ * variables (object 0xCC00008E, +0x118) and switches to loading. The main
+ * menu's message handler (MenuStartDemoE3__MSG) calls it at 0x0014330D for
+ * the credits, map 0x0B00A848 (world list "MenuCredits"); New Game calls
+ * it after the opening film (return 0x002B18E2) with 0x2200B526 (stream
+ * FF02B526, "0101_Entree"). Logged, since the level select (below) uses it. */
+void sub_0025CF40_enter(void)
+{
+    fprintf(stderr, "[LEVEL] change map %08X check point %d (ret %08X)\n",
+            GMEM32(g_esp + 4), (int)GMEM32(g_esp + 8), GMEM32(g_esp));
+}
+
 /* Retail primary WOW merge at 0x00031A73: source in EAX, aggregate
  * destination at stack +4. This caller follows the primary key load at
  * 0x00031A58; dependency merges use other callers. */
@@ -643,11 +657,13 @@ void sub_00417DAD(void)
 /* XInputGetState, polled once a frame on the title thread: also where the
  * reSOT Options labels catch up with a changed setting. */
 static void native_refresh(void);
+static void level_pending(void);
 
 void sub_00417F85(void)
 {
     uint32_t st;
     native_refresh();
+    level_pending();
     if (usb_input()) { sub_00417F85_gen(); return; }
     st = stdcall_arg(1);
     if (stdcall_arg(0) != PAD_HANDLE || !st) {
@@ -853,7 +869,7 @@ extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 #define RESOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
 #define RESOT_MSG_KIND     0x52E5u
 #define RESOT_TEXT_SLOT    96u
-#define RESOT_TEXTS        80u
+#define RESOT_TEXTS        144u
 
 static int hidden_menus(void)
 {
@@ -876,7 +892,8 @@ static uint32_t guest_cdecl(void (*fn)(void), const uint32_t *args, int n)
 static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
-       T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50 };
+       T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50,
+       T_LEVELS = 80, T_PART = 81, T_LV = 88 };
 static const char *const s_static_texts[] = {
     "reSOT Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
@@ -892,6 +909,52 @@ static const char *const s_static_texts_de[] = {
     "Alle Belegungen zur" "\xFC" "cksetzen",
 };
 static uint32_t s_text_va;
+
+/* RE-SoT: level select ("Special Load Map"), after popsot-fixes' Special
+ * Load entry (P_SpecialLoad, docs/TECHNICAL.md:188), which the PC main menu
+ * still carries hidden; the retail XBE keeps only the caption (text group
+ * 0x0B0041D2, index 8) and no page. Here it is a native page set: one world
+ * list per area of the game, the first room of each, and the hidden ones
+ * (the POP1 bonus, the developers' WhiteRoom test room, the magic corridor
+ * and fountain worlds, the credits map). A world list's map key is
+ * 0x0T00LLLL for the bigfile stream FF0TLLLL (the credits: FF0BA848 holds
+ * "MenuCredits", key 0x0B00A848); the room is the world list's last world
+ * (read from Assets/xbox-retail/prince.bf). */
+typedef struct { uint32_t stream; const char *room; } Level;
+static const Level s_levels[] = {
+    { 0xFF02B526u, "0101_Entree" },          { 0xFF02B676u, "0201_Statue" },
+    { 0xFF0D138Eu, "1101_Hall" },            { 0xFF0D06E2u, "1102_Corridor01" },
+    { 0xFF0D0A1Eu, "1201_CorridorStart" },   { 0xFF0D0D5Bu, "1301_Lobby" },
+    { 0xFF0D0F5Eu, "1401_CorridorStart" },   { 0xFF0B4DDDu, "1501_ReceptionHall" },
+    { 0xFF0D24F8u, "2101_Start" },           { 0xFF02BE15u, "2104_couloir1" },
+    { 0xFF0B5C22u, "2201_Aviary" },          { 0xFF0B4EA6u, "2203_RopeBridges" },
+
+    { 0xFF0D6474u, "2401_CorridorStart" },   { 0xFF012246u, "2402_Central" },
+    { 0xFF012249u, "2403_Cavern" },          { 0xFF0A0E1Bu, "2501_TowerInsideA" },
+    { 0xFF0F3E8Bu, "2601_Bridge" },          { 0xFF012456u, "3101_Tower" },
+    { 0xFF02AC02u, "3201_Grotte" },          { 0xFF01298Au, "3301_Transition" },
+    { 0xFF0152C9u, "3401_Balcony" },         { 0xFF0B64B5u, "3501_HaremAccess" },
+    { 0xFF0B5131u, "5102_GreatHall" },       { 0xFF0B5136u, "5104_Observatory" },
+
+    { 0xFF023E88u, "6101_couloir" },         { 0xFF02A3C6u, "6102_Rempart" },
+    { 0xFF02BBF5u, "6201_PrisonA" },         { 0xFF02A642u, "7201_Cour" },
+    { 0xFF0F42DEu, "7202_TowerOfDawn" },     { 0xFF0B569Eu, "7301_GroundFloor" },
+    { 0xFF0B59ECu, "7401_HourglassRoom" },   { 0xFF02BCA5u, "7601_CouloirBas" },
+    { 0xFF01268Au, "8101_TowerBase" },       { 0xFF01268Eu, "8102_TowerEntrance" },
+    { 0xFF0F4E2Cu, "8201_UpperHighLevel" },  { 0xFF0B66FBu, "9101_FarahRoom" },
+
+    { 0xFF0124B6u, "POP1" },                 { 0xFF0B784Au, "WhiteRoom" },
+    { 0xFF000865u, "magic_corridor" },       { 0xFF0003DCu, "Magic_Fountain" },
+    { 0xFF0BA848u, "MenuCredits" },
+};
+#define LEVELS ((int)(sizeof s_levels / sizeof s_levels[0]))
+#define LEVEL_PARTS 4
+static const int s_part_first[LEVEL_PARTS + 1] = { 0, 12, 24, 36, LEVELS };
+static const char *const s_part_names[LEVEL_PARTS] = {
+    "Areas 01-22", "Areas 24-51", "Areas 61-91", "Extras" };
+static const char *const s_part_names_de[LEVEL_PARTS] = {
+    "Abschnitte 01-22", "Abschnitte 24-51", "Abschnitte 61-91", "Extras" };
+static uint32_t s_level_pending;
 
 static void resot_text(uint32_t index, char *out, unsigned size)
 {
@@ -926,7 +989,18 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         resot_native_label(RESOT_NATIVE_KEYS, (int)(index - T_KEYS), out, size);
     else if (index >= T_JOYS && index < T_JOYS + RESOT_NATIVE_ACTIONS)
         resot_native_label(RESOT_NATIVE_JOY, (int)(index - T_JOYS), out, size);
-    else
+    else if (index == T_LEVELS)
+        snprintf(out, size, "%s", resot_text_language() == 4 ? "Spezielle Karte laden"
+                                                             : "Special Load Map");
+    else if (index >= T_PART && index < T_PART + LEVEL_PARTS)
+        snprintf(out, size, "%s", resot_text_language() == 4 ? s_part_names_de[index - T_PART]
+                                                             : s_part_names[index - T_PART]);
+    else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
+        char *c;
+        snprintf(out, size, "%s", s_levels[index - T_LV].room);
+        for (c = out; *c; c++)
+            if (*c == '_') *c = ' ';
+    } else
         snprintf(out, size, "?");
 }
 
@@ -954,12 +1028,13 @@ void sub_000F84A0(void)
 enum { DO_OPEN, DO_MSG };
 typedef struct { uint32_t text; int what; int arg; uint32_t choice; } NativeChoice;
 typedef struct { uint32_t title; float top, step; int n; NativeChoice c[12]; uint32_t page; } NativePage;
-enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_PAGES };
+enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2,
+       P_LEVELS, P_LV0, P_LV1, P_LV2, P_LV3, P_PAGES };
 #define MSG_ID(page, item) ((uint32_t)(page) << 8 | (uint32_t)(item))
 #define MSG_RESET 0xFF00u
 static NativePage s_pages[P_PAGES];
 static const int s_bind_first[3] = { 0, 9, 16 }, s_bind_count[3] = { 9, 7, 9 };
-static uint32_t s_main_menu, s_main_cur, s_root_choice;
+static uint32_t s_main_menu, s_main_cur, s_root_choice, s_level_choice;
 static int s_native_built, s_native_bound;
 
 static void native_choice(NativePage *p, int i, uint32_t text, int what, int arg)
@@ -994,6 +1069,17 @@ static void native_layout(void)
             native_choice(p, j, (joy ? T_JOYS : T_KEYS) + (uint32_t)action, DO_MSG,
                           (int)MSG_ID(P_K0 + i, action));
         }
+    }
+    p = &s_pages[P_LEVELS]; p->title = T_LEVELS; p->top = 0.3833f; p->step = 0.0667f;
+    p->n = LEVEL_PARTS;
+    for (i = 0; i < LEVEL_PARTS; i++) {
+        NativePage *q = &s_pages[P_LV0 + i];
+        native_choice(p, i, T_PART + (uint32_t)i, DO_OPEN, P_LV0 + i);
+        q->title = T_PART + (uint32_t)i; q->top = 0.18f; q->step = 0.04f;
+        q->n = s_part_first[i + 1] - s_part_first[i];
+        for (j = 0; j < q->n; j++)
+            native_choice(q, j, T_LV + (uint32_t)(s_part_first[i] + j), DO_MSG,
+                          (int)MSG_ID(P_LV0 + i, j));
     }
 }
 
@@ -1109,10 +1195,11 @@ static void native_build_and_bind(void)
                                      : menu_bind_message(c->choice, (uint32_t)c->arg);
         }
     root = menu_bind_open_page(s_root_choice, s_pages[P_ROOT].page);
+    root += menu_bind_open_page(s_level_choice, s_pages[P_LEVELS].page);
     s_native_built = 1;
     s_native_bound = 1;
-    fprintf(stderr, "[MENU] reSOT Options: %d pages, %d of %d choices bound, main entry %08X %s\n",
-            P_PAGES, ok, all, s_root_choice, root ? "bound" : "not bound");
+    fprintf(stderr, "[MENU] reSOT Options: %d pages, %d of %d choices bound, main entries %08X %08X,"
+                    " %d bound\n", P_PAGES, ok, all, s_level_choice, s_root_choice, root);
 }
 
 void sub_002A2B20_enter(void)
@@ -1131,7 +1218,7 @@ void sub_002A2B20_enter(void)
         return;
     if (GMEM32(g_esp) == MAIN_OPEN_RET) {          /* a new main menu */
         s_native_built = s_native_bound = 0;
-        s_root_choice = 0;
+        s_root_choice = s_level_choice = 0;
     } else if (GMEM32(g_esp) == MAIN_NEXT_OPEN_RET && s_root_choice && !s_native_built) {
         s_main_menu = g_edx;
         s_main_cur = g_eax;
@@ -1193,6 +1280,7 @@ void sub_002A2670_enter(void)
     if (menu_trace())
         fprintf(stderr, "[MENU] page close ret=%08X arg=%08X\n", GMEM32(g_esp), GMEM32(g_esp + 4));
     if (GMEM32(g_esp) == MAIN_CLOSE_RET && hidden_menus() && !s_root_choice) {
+        s_level_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_LEVELS);
         s_root_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_ROOT);
         fprintf(stderr, "[MENU] hidden: \"reSOT Options\" choice %08X added to the main page\n",
                 s_root_choice);
@@ -1254,7 +1342,7 @@ static void native_refresh(void)
         for (j = 0; j < s_pages[i].n; j++) {
             GuestRegs saved;
             uint32_t text;
-            if (s_pages[i].c[j].what != DO_MSG
+            if (i >= P_LEVELS || s_pages[i].c[j].what != DO_MSG
                     || !native_text_object(s_pages[i].c[j].choice, &text))
                 continue;
             regs_save(&saved);
@@ -1284,5 +1372,56 @@ void sub_00039B20(void)
     else if ((id >> 8) >= P_K0 && (id >> 8) <= P_J2)
         resot_native_activate((id >> 8) >= P_J0 ? RESOT_NATIVE_JOY : RESOT_NATIVE_KEYS,
                               (int)(id & 0xFF));
+    else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
+        int n = s_part_first[(id >> 8) - P_LV0] + (int)(id & 0xFF);
+        if (n < s_part_first[(id >> 8) - P_LV0 + 1])
+            s_level_pending = (uint32_t)n + 1;
+    }
     g_esp += 8;                           /* ret 4 */
+}
+
+/* Starts the chosen level the way the main menu starts the credits
+ * (0x001432C0-0x0014330D): set the flag behind [0x76BF30], close the top
+ * page when it is active (vtable +8, thiscall (1, 0, 1)), then eax =
+ * [0x76606C], [0x758C8C] = 0 and ChangeMapWithCheckPoint(map, -1). Run from
+ * the input poll, so the menu manager is not in the middle of its tick. */
+#define MENU_LEAVE_FLAG  0x0076BF30u
+#define MENU_MANAGER     0x007584F0u
+#define MAP_CHANGE_EAX   0x0076606Cu
+#define MAP_CHANGE_STATE 0x00758C8Cu
+extern void sub_0025CF40(void);
+typedef void (*GuestFn)(void);
+extern GuestFn recomp_lookup(uint32_t xbox_va);
+static void level_pending(void)
+{
+    GuestRegs saved;
+    uint32_t args[3], flag, mgr, n, page;
+    const Level *lv;
+    if (!s_level_pending)
+        return;
+    lv = &s_levels[s_level_pending - 1];
+    s_level_pending = 0;
+    fprintf(stderr, "[LEVEL] level select: %s (world list %08X)\n", lv->room, lv->stream);
+    regs_save(&saved);
+    g_esp -= 0x40;
+    if ((flag = GMEM32(MENU_LEAVE_FLAG)) != 0)
+        GMEM32(flag) = 1;
+    if ((mgr = GMEM32(MENU_MANAGER)) != 0 && (n = GMEM32(mgr + 0xF0)) != 0
+            && (page = GMEM32(mgr + n * 4 + 0x6C)) != 0 && GMEM32(page + 0x84) == 2) {
+        GuestFn close = recomp_lookup(GMEM32(GMEM32(page) + 8));
+        if (close) {
+            args[0] = 1; args[1] = 0; args[2] = 1;
+            g_ecx = page;
+            guest_cdecl(close, args, 3);
+        }
+    }
+    regs_load(&saved);
+    regs_save(&saved);
+    g_esp -= 0x40;
+    args[0] = ((lv->stream & 0xF0000u) << 8) | (lv->stream & 0xFFFFu);
+    args[1] = 0xFFFFFFFFu;
+    g_eax = GMEM32(MAP_CHANGE_EAX);
+    GMEM32(MAP_CHANGE_STATE) = 0;
+    guest_cdecl(sub_0025CF40, args, 2);
+    regs_load(&saved);
 }

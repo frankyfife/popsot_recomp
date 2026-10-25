@@ -21879,6 +21879,8 @@ loc_0025C71E: ;
  */
 void sub_0025CF40(void)
 {
+    extern void sub_0025CF40_enter(void);
+    sub_0025CF40_enter();
     uint32_t ebp = 0;
     ebp = g_ebp;  /* prologue saves caller's frame */
     int _flags = 0; /* fallback flag var */

@@ -302,6 +302,16 @@ To build them:
 
        python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures
 
+### Level select (retail)
+
+The main menu has the developers' "Special Load Map" again ("Spezielle
+Karte laden"). It lists one entry per area of the game and the hidden
+worlds (the original Prince of Persia bonus, the developers' WhiteRoom,
+the credits map) and starts the chosen one directly, like popsot-fixes'
+Special Load on PC. It is meant for testing: the Prince keeps whatever the
+menu had (sword, sand tanks), not what the story would have given him by
+then. `RESOT_HIDDEN_MENUS=0` hides it together with "reSOT Options".
+
 ### Post processing quality and texture glow
 
 `Texture glow effect` uses `[Graphics] TextureGlowEffect=1` by default on

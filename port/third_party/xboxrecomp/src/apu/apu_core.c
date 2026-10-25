@@ -597,8 +597,13 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
             if (now - last >= 10000) {
                 int queued = 0, dropped = 0, starved = 0;
                 float device = xa2_take_output_peak();
+                extern int xbox_DiagAudio(int *out, int n);
+                int v[6] = {0};
                 xa2_get_stats(&queued, &dropped, &starved);
-                fprintf(stderr, "[APU] device output peak %.4f (1 = full scale; -1 = no meter)\n", device);
+                xbox_DiagAudio(v, 6);
+                fprintf(stderr, "[APU] device output peak %.4f (1 = full scale; -1 = no meter);"
+                                " voices 2D %d 3D %d multipass %d, streaming %d, locked %d\n",
+                        device, v[0], v[1], v[2], v[3], v[4]);
                 fprintf(stderr, "[APU] output over %.0f s: %d frames, %d not silent, peak %d/32767;"
                                 " XAudio2 queue %d, %d dropped, %d starved;"
                                 " late %d (max %.1f ms), block max %.1f ms, lock max %.1f ms,"

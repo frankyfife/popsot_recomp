@@ -19,9 +19,24 @@ the chain is rebuilt and the sampler picks the level the minification
 needs; level 0 alone is used for presenting. Measured on the 320 copy
 against a box average of its own source (gain-fitted), the ratio of
 high-frequency (Laplacian) energy: 2.30 without mips, 0.86 with them.
-Fog: the fog is per vertex and draws nothing temporal; no fog-specific
-noise was found. **Not done:** the native D3D12/Vulkan backends still
-sample without mips.
+Fog (the user's suspicion) was not examined separately: the D3D11 fog is
+computed per vertex and interpolated, and the frozen-scene frames show no
+noise from it; whether fog layers flicker in motion is open. **Not done:**
+the native D3D12/Vulkan backends still sample without mips.
+
+**Frame rate** (same evening, 2160p, Ultra, FPS limit 120, 6101): a steady
+60 fps (the game paces itself), the guest waiting 7.7 of every 10 s for
+work, 2.4 ms of draw calls per frame, only shader-cache hits. The user's
+drops were not reproduced; their log was overwritten by these test runs.
+
+**Silent level after the level select, narrowed.** The 10-second audio line
+now also counts the voice processor's active voices. After the level
+select five 2D voices stay active (silent) and no new voice ever starts,
+neither 2D nor 3D. Ruled out: the menu-leave flag [0x76BF30] (left
+unset: still silent), ChangeMap's eax (the same object as New Game's), and
+the menus' sound-type pause (Mdl00001BA5_fn_PauseEverything 0x00114F20 /
+ResumeEverything 0x00116270: the pause flag *[0x758534] was 0, and
+resuming both types with 0x000A2A60 changed nothing). Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

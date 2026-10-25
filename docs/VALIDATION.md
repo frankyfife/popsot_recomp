@@ -18,8 +18,25 @@ texel of the original shapes. Recaptured: the line is gone, the menu text
 is clean. The atlases in `bin/textures` were rebuilt locally (they are
 not in the repository).
 
-**Not yet found:** the polygon spikes and the far-offset glow/bloom
-ghosts of the user's recording. Its frames show at 13.9 s a soft light
+**Glow ghosts, found and fixed (same day).** The user marked them: the
+bright window repeated as soft copies to the left, about 610 and 1220
+pixels away at 2000 wide. The user's own F9 capture of 2026-10-22
+(`bin/logs/capture/c_flip35835_*`, Ultra) shows the cause in the 160x120
+blur level (959x540 there): the Prince two and three times side by side.
+The chains' blur and bloom passes take a few point taps a fixed number of
+guest texels apart; a texel of a 160x120 to 10x7 level is a wide,
+already blurred area on the Xbox, so the taps merge. Ultra rendered those
+levels at the internal resolution: every tap hit sharp detail, and at the
+20x15 and 10x7 levels a few texels are a third of the screen. Ultra now
+keeps the screen-fraction chains (4:3 targets below 640 wide,
+`resot_effect_screen_chain`) at the guest's size, like High; shadow maps
+and other auxiliary targets still follow the internal resolution.
+Checked: `effect_quality_smoke` passes with the new cases; a 6101 capture
+at Ultra has the chain at 427x240 ... 21x7 (320x240 widened to 16:9) and
+the shadow maps at 1535x1152, the 160 level a smooth blur.
+
+**Not yet found:** the polygon spike of the user's recording (a flat
+beige wedge from the Prince's hand to the right edge). Its frames show at 13.9 s a soft light
 patch on the wall far left of a window for two frames; captures at
 3840x2160 with Ultra and High (6101 enemies, 0101 cutscene) showed the
 glow composite in register and every effect source of the frame current

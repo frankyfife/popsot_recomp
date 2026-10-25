@@ -7,12 +7,25 @@
 #define RESOT_EFFECT_QUALITY_H
 #include <stdint.h>
 
-/* RE-SoT: Ultra (4) renders every auxiliary target at the internal
- * resolution instead of the guest's. Positions and texel coordinates are
- * normalised by guest sizes (hdr[0], tscale), so the scaled targets stay in
- * register; filter taps keep their guest-texel spacing (VALIDATION.md,
- * 2026-10-22). */
+/* RE-SoT: Ultra (4) renders auxiliary targets at the internal resolution
+ * instead of the guest's. Positions and texel coordinates are normalised by
+ * guest sizes (hdr[0], tscale), so the scaled targets stay in register.
+ * Except the screen-fraction chains (resot_effect_screen_chain): their
+ * blur and bloom passes take a few point taps a fixed number of guest texels
+ * apart, and a guest texel of a 160x120 to 10x7 level is a wide, already
+ * blurred area; at internal resolution each tap hits sharp detail and the
+ * taps show as separate copies, at the 20x15 and 10x7 levels a third of the
+ * screen apart (user report 2026-10-25: window glow repeated to the left;
+ * a capture's 160x120 level showed the Prince two and three times). */
 #define RESOT_EFFECT_ULTRA 4
+
+/* A 4:3 target below the display width: a fraction of the screen (320x240
+ * down to the 10x7 bloom tail), as the blur and bloom chains use. */
+static int resot_effect_screen_chain(uint32_t width, uint32_t height)
+{
+    int d = (int)(width * 3u) - (int)(height * 4u);
+    return width < 640 && height && width >= 8 && d >= -4 && d <= 4;
+}
 
 static unsigned resot_effect_percent(int quality, uint32_t width, uint32_t height)
 {

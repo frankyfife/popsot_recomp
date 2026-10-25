@@ -18,6 +18,16 @@ int main(void)
         CHECK(resot_effect_percent(q,64,16)==100);
         CHECK(resot_effect_percent(q,320,1024)==100);
     }
+    /* Ultra keeps the screen-fraction chains at the guest's size, not the
+     * shadow maps or display-sized buffers. */
+    CHECK(resot_effect_screen_chain(320,240));
+    CHECK(resot_effect_screen_chain(160,120));
+    CHECK(resot_effect_screen_chain(40,30));
+    CHECK(resot_effect_screen_chain(20,15));
+    CHECK(resot_effect_screen_chain(10,7));
+    CHECK(!resot_effect_screen_chain(256,256));
+    CHECK(!resot_effect_screen_chain(640,480));
+    CHECK(!resot_effect_screen_chain(512,256));
     /* Independently recorded caster states, not texture allocation addresses. */
     CHECK(resot_shadow_target(0x08080213,512,0,0,256,256,0,0,0));
     CHECK(resot_shadow_target(0x08080113,512,0,0,256,256,0,0,0));

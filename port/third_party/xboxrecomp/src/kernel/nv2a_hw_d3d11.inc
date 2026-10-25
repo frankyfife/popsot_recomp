@@ -989,10 +989,12 @@ static uint32_t hw_surface_scale(uint32_t w)
         unsigned fx = resot_effect_percent(hw_post_quality(),s_gpu.clip_w,s_gpu.clip_h);
         if (fx != 100) return HW_PERCENT_SCALE | fx;
     }
-    /* RE-SoT: Ultra: auxiliary targets (effect chains, frame copies, shadow
-     * maps) follow the internal resolution like the display. Checked in
+    /* RE-SoT: Ultra: auxiliary targets (frame copies, shadow maps) follow
+     * the internal resolution like the display, the screen-fraction blur and
+     * bloom chains keep the guest's (resot_effect_quality.h). Checked in
      * retail with RECOMP_HW_FX_SCALE=2: the glow stays in register. */
-    if (hw_post_quality() >= RESOT_EFFECT_ULTRA)
+    if (hw_post_quality() >= RESOT_EFFECT_ULTRA
+            && !(w < 640 && resot_effect_screen_chain(s_gpu.clip_w,s_gpu.clip_h)))
         return percent ? HW_PERCENT_SCALE | (uint32_t)percent : (uint32_t)s_hw.scale;
     if(w>=640 && percent) return HW_PERCENT_SCALE | (uint32_t)percent;
     return w >= 640 ? (uint32_t)s_hw.scale : (uint32_t)s_hw.fx_scale;

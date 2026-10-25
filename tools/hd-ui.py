@@ -15,14 +15,14 @@ SCALE times the size, as texture pack files <key>.tga (resot_texpack.h):
   (iso-contours of the cubic-interpolated alpha), so nothing of the game is
   stored in the repository.
 
-- HUD (health bar frame and fill, its end piece, the sand tank holder, the
-  tank glow, the ring segment): redrawn from the user's dump of a level
-  (RESOT_TEXTURE_DUMP=1 in a fight, e.g. with RESOT_START_LEVEL=6101_couloir).
-  Each is split into alpha level sets (silhouette, and the strong outline or
-  rings against the translucent body); their borders are the iso-lines of
-  the cubic alpha field, drawn crisp at the new size like vector edges,
-  while colour and alpha inside each region keep the original's gradients
-  (normalised convolution of that region's pixels only). Glows stay soft.
+- HUD, optional (--hud-pack): the health bar, its frame and end piece, the
+  sand tanks and the ring come from the PC version's PoP Texture Studio pack
+  (Evgesha.JK beside the GOG game), which redrew them at 8x to 16x. Its
+  records are keyed by Jade texture key (the HUD is group 0B007Bxx), ours by
+  picture, so each HUD texture of the user's level dump (RESOT_TEXTURE_DUMP=1
+  in a fight, e.g. with RESOT_START_LEVEL=6101_couloir) is paired with the
+  record whose smallest stored level, scaled to the original size, differs
+  least, and only when the next best differs at least twice as much.
 
 Inputs are the two original atlases as written by RESOT_TEXTURE_DUMP=1
 (<pack>/dump/<key>_512x128_fmt06.tga and <key>_512x256_fmt06.tga). Both are
@@ -32,7 +32,9 @@ SVG.
 """
 import argparse
 import json
+import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -52,16 +54,9 @@ FONT_STROKE = 0.0                  # extra stroke, original pixels. 0.5 fits the
                                    # (user, 2026-10-25); the plain TTF weight is used.
 FALLBACK_BELOW = 0.6               # glyphs whose TTF shape differs keep the traced original
 DIAGRAM = (237, 0, 512, 256)       # controller drawing, upright atlas pixels
-# HUD textures (dump/ui_keys.txt of a fight in 6101_couloir): alpha levels of
-# the silhouette and of the strong part; None keeps a soft texture soft.
-HUD = {
-    "de18894ce22822b0": (0.15, 0.6),   # health bar frame: gold outline, dark body
-    "29b1e5be337ecb6d": None,          # health bar fill (cyan line, glow)
-    "4376096df446c350": (0.15, 0.6),   # frame end piece
-    "b50489193fc08f85": (0.15, 0.62),  # sand tank holder: rings and top line
-    "cffb399a69f0e145": None,          # sand tank glow
-    "ef78ce9d3289327a": (0.5, None),   # ring segment
-}
+HUD_GROUP = 0x0B007B00             # Jade keys of the HUD textures (0B007B00-0B007BFF)
+HUD_MAX_ERROR = 0.07               # mean premultiplied difference at the original size
+HUD_MIN_RATIO = 2.0                # next best match / best match
 
 
 def read_tga(path):
@@ -259,60 +254,77 @@ def build_buttons(atlas, scale, magick):
 
 
 # ---------------------------------------------------------------------- HUD
-def region_conv(field, scale):
-    return ndimage.zoom(ndimage.gaussian_filter(field, 0.5), scale, order=3)
+def evgjk_records(f):
+    """Texture records of a PoP Texture Studio pack (EVGJK1): Jade key, original
+    and replacement size, payload kind (1 DXT1, 2 DXT5, 3 BGRA) with its mip
+    levels at offset/size."""
+    hdr = f.read(0x90)
+    if hdr[:8] != b"EVGJK1\r\n":
+        raise SystemExit("not a PoP Texture Studio pack (EVGJK1)")
+    _, rec_off, rec_size, _, count, _ = struct.unpack_from("<6I", hdr, 8)
+    f.seek(rec_off)
+    out = []
+    for _ in range(count):
+        r = f.read(rec_size)
+        key, ow, oh, _, _, rw, rh, _, kind = struct.unpack_from("<IHHBBHHBB", r, 0)
+        off, size = struct.unpack_from("<QQ", r, 0x18)
+        out.append(dict(key=key, ow=ow, oh=oh, rw=rw, rh=rh, kind=kind, off=off, size=size))
+    return out
 
 
-def iso_edge(field, level):
-    """Coverage of field >= level with a one-pixel anti-aliased edge."""
-    gy, gx = np.gradient(field)
-    return np.clip((field - level) / (np.hypot(gx, gy) + 1e-6) + 0.5, 0, 1)
+def evgjk_level_bytes(kind, w, h):
+    return w * h * 4 if kind == 3 else max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * (8 if kind == 1 else 16)
 
 
-def redraw_hud(img, scale, levels):
-    px = np.asarray(img, dtype=np.float32) / 255.0
-    rgb, a = px[..., :3], px[..., 3]
-    if levels is None:                       # soft: cubic on premultiplied colour
-        af = np.clip(ndimage.zoom(a, scale, order=3), 0, 1)
-        num = np.stack([ndimage.zoom(a * rgb[..., c], scale, order=3) for c in range(3)], -1)
-        out = np.dstack([np.clip(num / np.maximum(af, 1e-4)[..., None], 0, 1), af])
-    else:
-        t1, t2 = levels
-        field = ndimage.zoom(a, scale, order=3)
-        m_sil = iso_edge(field, t1)
-        if t2 is None:
-            classes = [(m_sil, a >= t1 * 0.5)]
-        else:
-            m_hi = iso_edge(field, t2)
-            classes = [(np.minimum(m_hi, m_sil), a >= t2),
-                       (np.clip(m_sil - m_hi, 0, 1), (a >= t1 * 0.5) & (a < t2))]
-        acc_a = np.zeros(field.shape, np.float32)
-        acc_c = np.zeros(field.shape + (3,), np.float32)
-        overall = np.stack([region_conv(a * rgb[..., c], scale) for c in range(3)], -1)
-        overall = np.clip(overall / np.maximum(region_conv(a, scale), 1e-3)[..., None], 0, 1)
-        for mask, cls in classes:
-            cls = cls.astype(np.float32)
-            den = region_conv(cls, scale)
-            weight = region_conv(cls * a, scale)
-            # a region only where its pixels are near (no cubic overshoot)
-            mask = mask * np.clip(den / 0.1, 0, 1)
-            alpha = np.clip(weight / np.maximum(den, 1e-3), 0, 1)
-            col = np.stack([region_conv(cls * a * rgb[..., c], scale) for c in range(3)], -1)
-            col = np.where((weight > 1e-3)[..., None], col / np.maximum(weight, 1e-3)[..., None], overall)
-            acc_a += mask * alpha
-            acc_c += (mask * alpha)[..., None] * np.clip(col, 0, 1)
-        out = np.dstack([acc_c / np.maximum(acc_a, 1e-4)[..., None], np.clip(acc_a, 0, 1)])
-    return Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA")
+def evgjk_level(f, r, smallest=False):
+    """The first (or the smallest stored, at least 4x4) level as RGBA."""
+    w, h, off, left, levels = r["rw"], r["rh"], r["off"], r["size"], []
+    while left >= evgjk_level_bytes(r["kind"], w, h):
+        n = evgjk_level_bytes(r["kind"], w, h)
+        levels.append((w, h, off, n))
+        off += n
+        left -= n
+        if (w <= 4 and h <= 4) or not smallest:
+            break
+        w, h = max(w // 2, 1), max(h // 2, 1)
+    w, h, off, n = levels[-1]
+    f.seek(off)
+    data = f.read(n)
+    if r["kind"] == 3:
+        return Image.frombytes("RGBA", (w, h), data, "raw", "BGRA")
+    img = Image.frombytes("RGBA", (max(w, 4), max(h, 4)), data, "bcn", 1 if r["kind"] == 1 else 3)
+    return img.crop((0, 0, w, h))
 
 
-def build_hud(dump, pack, scale):
-    done = []
-    for key, levels in HUD.items():
-        src = sorted(dump.glob(key + "_*.tga"))
-        if src:
-            img = redraw_hud(read_tga(src[0]), scale, levels)
-            write_tga(img, pack / (key + ".tga"))
-            done.append((key, img))
+def premultiplied(img):
+    a = np.asarray(img.convert("RGBA"), dtype=np.float32) / 255.0
+    return np.dstack([a[..., :3] * a[..., 3:4], a[..., 3]])
+
+
+def build_hud(dump, pack, evgjk):
+    """HUD textures of the dump replaced by the PC pack's; [(key, img, jade key)]."""
+    with open(evgjk, "rb") as f:
+        recs = [r for r in evgjk_records(f) if r["key"] & 0xFFFFFF00 == HUD_GROUP and r["rw"] > r["ow"]]
+        small = {r["key"]: premultiplied(evgjk_level(f, r, True).resize((r["ow"], r["oh"]), Image.BOX))
+                 for r in recs}
+        done = []
+        for src in sorted(dump.glob("*_fmt*.tga")):
+            m = re.match(r"([0-9a-f]{16})_(\d+)x(\d+)_fmt", src.name)
+            if not m:
+                continue
+            size = (int(m.group(2)), int(m.group(3)))
+            cands = [r for r in recs if (r["ow"], r["oh"]) == size]
+            if not cands:
+                continue
+            ours = premultiplied(read_tga(src))
+            errs = sorted((float(np.abs(small[r["key"]] - ours).mean()), i) for i, r in enumerate(cands))
+            best, nxt = errs[0][0], errs[1][0] if len(errs) > 1 else 1.0
+            if best > HUD_MAX_ERROR or nxt < best * HUD_MIN_RATIO:
+                continue
+            r = cands[errs[0][1]]
+            img = evgjk_level(f, r)
+            write_tga(img, pack / (m.group(1) + ".tga"))
+            done.append((m.group(1), img, r["key"]))
     return done
 
 
@@ -332,6 +344,7 @@ def main():
     ap.add_argument("--pack", type=Path, required=True, help="texture pack folder (with dump/ from RESOT_TEXTURE_DUMP=1)")
     ap.add_argument("--scale", type=int, default=8)
     ap.add_argument("--preview", type=Path, help="also write upright previews into this folder")
+    ap.add_argument("--hud-pack", type=Path, help="the PC version's PoP Texture Studio pack (Evgesha.JK) for the HUD")
     a = ap.parse_args()
     dump = a.pack / "dump"
     font_src = dump / (FONT_KEY + "_512x128_fmt06.tga")
@@ -348,12 +361,14 @@ def main():
     print("font: %d glyphs at %dx%d%s" % (len(rects), font.width, font.height,
                                            "; " + " ".join(missing) if missing else ""))
     print("buttons: %dx%d, controller drawing traced into %d contours" % (buttons.width, buttons.height, n))
-    hud = build_hud(dump, a.pack, a.scale)
-    print("HUD: %d of %d textures redrawn%s" % (len(hud), len(HUD), "" if hud else
-          " (none dumped yet: run a level with RESOT_TEXTURE_DUMP=1)"))
+    hud = build_hud(dump, a.pack, a.hud_pack) if a.hud_pack else []
+    for key, img, jade in hud:
+        print("HUD: %s <- %08X %dx%d" % (key, jade, img.width, img.height))
+    if a.hud_pack and not hud:
+        print("HUD: no match (run a level with RESOT_TEXTURE_DUMP=1 first)")
     if a.preview:
         a.preview.mkdir(parents=True, exist_ok=True)
-        for name, img in [("font", font), ("buttons", buttons)] + [("hud_" + k, i) for k, i in hud]:
+        for name, img in [("font", font), ("buttons", buttons)] + [("hud_" + k, i) for k, i, _ in hud]:
             up = img.transpose(Image.FLIP_TOP_BOTTOM)
             bg = Image.new("RGBA", up.size, (40, 44, 60, 255))
             bg.alpha_composite(up)

@@ -302,9 +302,12 @@ To build them:
 
        python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures
 
-For the HUD, also run a level once with the dump on, e.g.
-`RESOT_TEXTURE_DUMP=1` and `RESOT_START_LEVEL=6101_couloir`, then run the
-script again: it redraws the health bar, sand tanks and their frame too.
+For the HUD, `--hud-pack` takes it from the PC version's PoP Texture
+Studio pack (`Evgesha.JK`, e.g. in the GOG folder). Run a level once with
+the dump on (`RESOT_TEXTURE_DUMP=1`, `RESOT_START_LEVEL=6101_couloir`, with
+`RESOT_CHEATS=sand` for the full tanks), then:
+
+       python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures --hud-pack "F:/GOG Games/Prince of Persia - The Sands of Time/Evgesha.JK"
 
 ### Level select (retail)
 

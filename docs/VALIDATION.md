@@ -1,5 +1,45 @@
 # Validation log
 
+## 2026-10-25: HD HUD from the PC version's texture pack
+
+The user found the redrawn HUD (below) too blurry and pointed to the PC
+version. The GOG install (F:) carries the PoP Texture Studio pack
+`Evgesha.JK` that popsot-fixes loads (TECHNICAL.md, Texture packs), and
+its HUD is drawn anew at 8x to 16x.
+
+**Pack format** (EVGJK1, read from the file): a 0x90-byte header (record
+offset 0x90, record size 0x68, 1945 texture records, 158 BF overlays);
+each record: Jade texture key, original width/height/format, replacement
+width/height/format, payload kind (1 DXT1, 2 DXT5, 3 BGRA), payload offset
+and size (u64 at +0x18/+0x20, mip levels one after the other), two
+32-byte hashes. `poptex_d3d9.log` of a PC run lists the matches by Jade
+key; the HUD is group 0B007Bxx (0B007B58 16x16 -> 256x256, 0B007B5A-5D
+64x32 -> 512x256, 0B007B5E 32x32 -> 512x512, 0B007B62-73 16x16 icons).
+
+**Pairing.** Our packs are keyed by picture (resot_texpack.h), the PC pack
+by Jade key, so `tools/hd-ui.py --hud-pack` pairs each dumped texture with
+the 0B007Bxx record whose smallest stored level, scaled to the original
+size, differs least (mean premultiplied difference), and only when the
+next best differs at least twice as much:
+- `ef78ce9d3289327a` <- 0B007B58 (error 0.010, next 0.190), ring;
+- `de18894ce22822b0` <- 0B007B5A (0.025 / 0.074), health bar frame;
+- `29b1e5be337ecb6d` <- 0B007B5B (0.016 / 0.093), health bar fill;
+- `b50489193fc08f85` <- 0B007B5C (0.058 / 0.181), sand tank holder;
+- `f8592d926cd4f196` <- 0B007B5D, the filled tanks (dumped in a run with
+  infinite sand);
+- `4376096df446c350` <- 0B007B5E (0.014 / 0.115), frame end piece.
+The tank glow `cffb399a69f0e145` has no record and keeps the automatic HD.
+A trial over all 226 dumped textures (any group) gave many ambiguous
+pairs for world textures (one 64x64 record best for nine different
+textures), so only the HUD group is used. The redraw code was removed and
+its six files deleted from `bin/textures`.
+
+**Checked.** Run into `6101_couloir` with infinite sand, capture at
+3840x2160 as below: stderr `[TEXPACK] ... 64x32 fmt 06 -> 512x256` for the
+five HUD keys; the picture shows the frame, ring, end piece and the full
+tanks crisp. **Not checked:** the filled-tank texture in game (paired
+after that run), the 16x16 icons (0B007B62-73; not seen in a dump yet).
+
 ## 2026-10-25: HD HUD on xbox-retail (redrawn from a level dump)
 
 The user suggested taking the HUD from the level runs and redrawing it.

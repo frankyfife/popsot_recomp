@@ -1,5 +1,42 @@
 # Validation log
 
+## 2026-10-25: glow copies from padded bloom levels; German hint text
+
+**Glow copies, the real cause.** After the Ultra change the user still saw
+soft copies of bright areas far to the left (a sky patch on a wall, F9
+capture `c_flip20649`) and found the ghosting stronger. In that capture's
+chain the sky sits at the right in the 320x240 and 80x60 levels, but at
+about 60 % of the width in the 40x30 level and further left in the 20x15
+and 10x7 levels; vertically it stays. The frame trace says why:
+`[HW-TEX] declared=40x30 selected=48x30` (also 20x15 / 32x15, 10x7 / 16x7):
+the game declares these textures at the viewport width on surfaces padded
+to 48, 32 and 16 pixels. The host image spans the surface, but texel
+coordinates were normalised by the declared width, so each level squeezed
+its picture 1.2 or 1.6 times towards the left edge and the composite
+added it back there. Now a render target that is at least as large as its
+declaration is normalised by its own size (D3D11 `s_rt_size`, native
+`s_ng_rt_size`); the demo's 640x480 declaration over a 320x240 drawing
+keeps the old stretch. **Not checked in a picture:** no scene reachable
+by script was bright enough to fill the bloom levels (0101 courtyard sky,
+main menu window); the user's window and sky places are the test.
+
+**German hint text** (user: "Ziehen [X]" is wrong). The German text bank's
+verb entries are "Tippt", "Ziehen", "ziehen" for `\d4\` `\d5\` `\d6\`,
+while the sentences want "drückt": "Lauft auf die Ecke zu und \d6\ A",
+"Ihr \d6\et A zu früh" (-> "ziehenet"); and 15 hints bracket the button
+("\d5\ [\p5\C] zum Angriff"; English has no brackets). Both are the
+original data (FD5003DA). The hints are not fetched through the text
+lookup sub_000F84A0 (no string with a code passed there) nor set through
+STR_SetString (its arguments are no strings), so the banks are fixed in
+guest RAM right after sub_00069B10 (world text) and sub_00069D50
+(language change): the first 64 MB and every committed page range of the
+extended heap. Log: `German hint fixes: 1 verb tables, 15 bracketed
+buttons` after each world load in 0101. `RESOT_TEXT_FIXES=0` keeps the
+original. A hint with the new verb was not seen on screen in a run.
+
+**Correction:** New Game does not stop on the balcony; the Prince walks
+through the door there to start the first level (user).
+
 ## 2026-10-25: HD font and button atlas edges (user report)
 
 The user saw small fragments at the edges of glyphs and buttons at 4K. A
@@ -105,8 +142,8 @@ statistic alone before them):**
   output at all (peak 0 for 50 s), the listener stays off; a pause and
   resume does not bring it back, and ChangeMap's eax is the same object as
   New Game's;
-- New Game stops in the balcony scene after the camera flight: 140 s
-  without moving on (Start opens the pause menu there).
+- ~~New Game stops in the balcony scene~~: not a fault, the Prince has
+  to walk through the door (user, same day).
 
 ## 2026-10-25: main-menu camera and the Prototype page (retail)
 

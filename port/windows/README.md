@@ -343,6 +343,13 @@ For tests, `RESOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
 them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of the level
 select) starts that level by itself once the main menu is up.
 
+### German hint text (retail)
+
+With German text, the hints say "Drückt" where the German data has
+"Ziehen" ("Ziehen X, um das Schwert zu ziehen", "Ihr ziehenet A zu früh"),
+and the button symbols lose the brackets fifteen hints put around them.
+`RESOT_TEXT_FIXES=0` shows the original text.
+
 ### Sound: 5.1 and room reverb
 
 "reSOT Options" -> "Sound" (Windows): "Speakers" Stereo (default) or 5.1,

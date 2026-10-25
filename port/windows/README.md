@@ -325,17 +325,33 @@ Back or F8 detaches the camera, as in popsot-fixes: left stick / the
 movement keys fly, right stick / the look keys turn, LT / RT or Q / E move
 down / up, Black or Shift is faster, White or Ctrl slower, Y or P freezes
 the world while the camera keeps moving. The game gets no input but Start
-while it is on. `RESOT_FREECAM=0` disables it.
+while it is on (a menu page keeps its input). The Debug page switches it
+too. `RESOT_FREECAM=0` disables it.
 
 ### Cheats (retail)
 
 Like popsot-fixes on PC, rebuilt from the PS2 prototype's cheat mode:
 invulnerable, infinite sand and one-hit kills (Farah is never killed by a
-hit). Switch them on the "Cheats" page of "reSOT Options" or in play with
-Ctrl+F1, Ctrl+F2 and Ctrl+F3; Ctrl+F4 gives the next of the four swords.
-They are not saved and start off. For tests, `RESOT_CHEATS=invulnerable,sand,onehit`
-switches them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of
-the level select) starts that level by itself once the main menu is up.
+hit), and the prototype's two spawner switches, which retail still tests
+but never sets: "No enemies" (spawners drop their spawn requests) and
+"Endless enemies" (a spawner that has sent all its enemies starts again).
+"reSOT Options" is also in the pause menu now, so the "Cheats" page
+is at hand in play; its last entry gives the next of the four swords once
+the menu is closed. In play, Ctrl+F1, Ctrl+F2 and Ctrl+F3 switch the first
+three and Ctrl+F4 gives the next sword. They are not saved and start off.
+For tests, `RESOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
+them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of the level
+select) starts that level by itself once the main menu is up.
+
+### Debug page (retail)
+
+"reSOT Options" -> "Debug", in the main and the pause menu: the F5 info
+panel, the free camera, the world freeze and the game speed (100 %, 50 %,
+25 %, through a clock factor the game reads but never writes; the scripts'
+own slow motion still works on top). Not saved; `RESOT_GAME_SPEED=50`
+starts at that speed and `RESOT_TIMER_DIAG=1` logs the game clock against
+the wall clock. The level select stays in the main menu only: started from
+the pause menu, a map change ended on the "Spielende" page.
 
 ### Post processing quality and texture glow
 

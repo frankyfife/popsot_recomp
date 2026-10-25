@@ -354,6 +354,18 @@ func 0x0017A0C0                     # Mdl00007493_fn_ProcessMeeleeWeaponHits (cd
 func 0x0026CE80                     # Mdl000092EB_fn_SetWeapon (cdecl prince): next sword
 insn 0x001CAE51 test byte ptr       # Spawn_WP__MSG: inlined Cheat_Test, mask 3
 insn 0x0021F897 test byte ptr       # Spawn_WP_bhv_spawn: inlined Cheat_Test, mask 8
+ref 0x001CAE42 0x00766C3C           # Spawn_WP__MSG: Cheat_Test's global object (no-enemies bit 0x01)
+ref 0x0021F889 0x0076766C           # Spawn_WP_bhv_spawn: Cheat_Test's global object (endless bit 0x08)
+call 0x0021F8C1 sub_00266E20        # bit 8: the spawner starts its count again
+ret 0x001A323E sub_002A2B20        # pause menu: page "Pause" opens
+ret 0x001A3441 sub_002A2670        # pause page closes: reSOT entries added
+ret 0x001A3470 sub_002A2B20        # pause menu: "Optionen" opens next, reSOT pages built
+ref 0x000DB850 0x0043B100           # frame clock: second time factor (Debug page game speed)
+ref 0x000DB856 0x0043B12C           # frame clock: TIM_gf_SpeedFactor
+ref 0x000DB861 0x0043B100           # the same factor on TIM_gf_dt
+ref 0x000DB88C 0x00470D74           # TIM_gf_dt stored
+ref 0x000DB8EF 0x00758C80           # the game clock in seconds (RESOT_TIMER_DIAG)
+f32 0x0043B100 1.0                  # 1.0 in the XBE, never written by the game
 func 0x000164D0                     # ENG_Loop
 ref 0x0001663F 0x007584A0           # ENG_gb_ForcePauseEngine: skips the engine call (free camera freeze)
 ref 0x000E7B17 0x00758E34           # GDI_gpst_CurDD, the current display

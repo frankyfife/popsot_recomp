@@ -877,7 +877,7 @@ extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 #define RESOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
 #define RESOT_MSG_KIND     0x52E5u
 #define RESOT_TEXT_SLOT    96u
-#define RESOT_TEXTS        150u
+#define RESOT_TEXTS        160u
 
 static int hidden_menus(void)
 {
@@ -901,7 +901,8 @@ static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50,
-       T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141 };
+       T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141,
+       T_DEBUG = 150, T_DBG = 151 };
 static const char *const s_static_texts[] = {
     "reSOT Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
@@ -964,14 +965,25 @@ static const char *const s_part_names_de[LEVEL_PARTS] = {
     "Abschnitte 01-22", "Abschnitte 24-51", "Abschnitte 61-91", "Extras" };
 static uint32_t s_level_pending;
 
-/* RE-SoT: cheats (below), shown on their own reSOT page. */
-enum { CHEAT_INVULNERABLE, CHEAT_SAND, CHEAT_ONE_HIT, CHEATS };
+/* RE-SoT: cheats (below), shown on their own reSOT page; after the
+ * switches the page has the sword change (item CHEATS). */
+enum { CHEAT_INVULNERABLE, CHEAT_SAND, CHEAT_ONE_HIT, CHEAT_NO_SPAWN, CHEAT_ENDLESS, CHEATS };
 static int s_cheat[CHEATS];
 static long s_cheat_revision;
+static int s_sword_pending;
 static const char *const s_cheat_names[CHEATS] = {
-    "Invulnerable", "Infinite sand", "One-hit kills" };
+    "Invulnerable", "Infinite sand", "One-hit kills", "No enemies (prototype)",
+    "Endless enemies (prototype)" };
 static const char *const s_cheat_names_de[CHEATS] = {
-    "Unverwundbar", "Unendlich Sand", "Ein Treffer t" "\xF6" "tet" };
+    "Unverwundbar", "Unendlich Sand", "Ein Treffer t" "\xF6" "tet", "Keine Gegner (Prototyp)",
+    "Endlose Gegner (Prototyp)" };
+static void cheat_sword_label(char *out, unsigned size);
+
+/* RE-SoT: the reSOT Debug page (below, after the free camera). */
+enum { DBG_PANEL, DBG_FREECAM, DBG_FREEZE, DBG_SPEED, DBGS };
+static void debug_label(int item, char *out, unsigned size);
+static void debug_activate(int item);
+static long debug_revision(void);
 
 static void resot_text(uint32_t index, char *out, unsigned size)
 {
@@ -1018,7 +1030,13 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         int de = resot_text_language() == 4, c = (int)(index - T_CHEAT);
         snprintf(out, size, "%s: %s", de ? s_cheat_names_de[c] : s_cheat_names[c],
                  s_cheat[c] ? (de ? "An" : "On") : (de ? "Aus" : "Off"));
-    } else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
+    } else if (index == T_CHEAT + CHEATS)
+        cheat_sword_label(out, size);
+    else if (index == T_DEBUG)
+        snprintf(out, size, "Debug");
+    else if (index >= T_DBG && index < T_DBG + DBGS)
+        debug_label((int)(index - T_DBG), out, size);
+    else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
         char *c;
         snprintf(out, size, "%s", s_levels[index - T_LV].room);
         for (c = out; *c; c++)
@@ -1051,7 +1069,7 @@ void sub_000F84A0(void)
 enum { DO_OPEN, DO_MSG };
 typedef struct { uint32_t text; int what; int arg; uint32_t choice; } NativeChoice;
 typedef struct { uint32_t title; float top, step; int n; NativeChoice c[12]; uint32_t page; } NativePage;
-enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS,
+enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS, P_DEBUG,
        P_LEVELS, P_LV0, P_LV1, P_LV2, P_LV3, P_PAGES };
 #define MSG_ID(page, item) ((uint32_t)(page) << 8 | (uint32_t)(item))
 #define MSG_RESET 0xFF00u
@@ -1070,14 +1088,18 @@ static void native_layout(void)
     int i, j;
     NativePage *p;
     memset(s_pages, 0, sizeof s_pages);
-    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 3;
+    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 4;
     native_choice(p, 0, T_GRAPHICS, DO_OPEN, P_GFX);
     native_choice(p, 1, T_CONTROLS, DO_OPEN, P_CTRL);
     native_choice(p, 2, T_CHEATS, DO_OPEN, P_CHEATS);
-    p = &s_pages[P_CHEATS]; p->title = T_CHEATS; p->top = 0.3833f; p->step = 0.0667f;
-    p->n = CHEATS;
+    native_choice(p, 3, T_DEBUG, DO_OPEN, P_DEBUG);
+    p = &s_pages[P_CHEATS]; p->title = T_CHEATS; p->top = 0.3f; p->step = 0.0667f;
+    p->n = CHEATS + 1;
     for (i = 0; i < p->n; i++)
         native_choice(p, i, T_CHEAT + (uint32_t)i, DO_MSG, (int)MSG_ID(P_CHEATS, i));
+    p = &s_pages[P_DEBUG]; p->title = T_DEBUG; p->top = 0.3833f; p->step = 0.0667f; p->n = DBGS;
+    for (i = 0; i < p->n; i++)
+        native_choice(p, i, T_DBG + (uint32_t)i, DO_MSG, (int)MSG_ID(P_DEBUG, i));
     p = &s_pages[P_GFX]; p->title = T_GRAPHICS; p->top = 0.3833f; p->step = 0.0667f;
     p->n = RESOT_NATIVE_GRAPHICS_ITEMS;
     for (i = 0; i < p->n; i++)
@@ -1230,6 +1252,17 @@ static void native_build_and_bind(void)
                     " %d bound\n", P_PAGES, ok, all, s_level_choice, s_root_choice, root);
 }
 
+/* RE-SoT: the pause menu builds its pages the same way; its first page
+ * "Pause" (text 0B00411F) opens at return 0x001A323E and closes at
+ * 0x001A3441, and "Optionen" opens next (0x001A3470). "reSOT Options" goes
+ * to the end of the pause page and its pages are built into the pause menu,
+ * so the cheats and the Debug page are at hand in play. The level select
+ * stays in the main menu: started from the pause menu, the map change
+ * (2402_Central from 6101_couloir) ended on the "Spielende" page. */
+#define PAUSE_OPEN_RET      0x001A323Eu
+#define PAUSE_CLOSE_RET     0x001A3441u
+#define PAUSE_NEXT_OPEN_RET 0x001A3470u
+
 void sub_002A2B20_enter(void)
 {
     if (menu_trace()) {
@@ -1244,10 +1277,11 @@ void sub_002A2B20_enter(void)
     }
     if (!hidden_menus())
         return;
-    if (GMEM32(g_esp) == MAIN_OPEN_RET) {          /* a new main menu */
+    if (GMEM32(g_esp) == MAIN_OPEN_RET || GMEM32(g_esp) == PAUSE_OPEN_RET) {   /* a new menu */
         s_native_built = s_native_bound = 0;
         s_root_choice = s_level_choice = 0;
-    } else if (GMEM32(g_esp) == MAIN_NEXT_OPEN_RET && s_root_choice && !s_native_built) {
+    } else if ((GMEM32(g_esp) == MAIN_NEXT_OPEN_RET || GMEM32(g_esp) == PAUSE_NEXT_OPEN_RET)
+               && s_root_choice && !s_native_built) {
         s_main_menu = g_edx;
         s_main_cur = g_eax;
         native_build_and_bind();
@@ -1307,11 +1341,14 @@ void sub_002A2670_enter(void)
 {
     if (menu_trace())
         fprintf(stderr, "[MENU] page close ret=%08X arg=%08X\n", GMEM32(g_esp), GMEM32(g_esp + 4));
-    if (GMEM32(g_esp) == MAIN_CLOSE_RET && hidden_menus() && !s_root_choice) {
-        s_level_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_LEVELS);
+    if ((GMEM32(g_esp) == MAIN_CLOSE_RET || GMEM32(g_esp) == PAUSE_CLOSE_RET) && hidden_menus()
+            && !s_root_choice) {
+        int pause = GMEM32(g_esp) == PAUSE_CLOSE_RET;
+        if (!pause)
+            s_level_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_LEVELS);
         s_root_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_ROOT);
-        fprintf(stderr, "[MENU] hidden: \"reSOT Options\" choice %08X added to the main page\n",
-                s_root_choice);
+        fprintf(stderr, "[MENU] hidden: \"reSOT Options\" choice %08X added to the %s page\n",
+                s_root_choice, pause ? "pause" : "main");
     }
 }
 
@@ -1363,7 +1400,7 @@ static void native_refresh(void)
     static long seen;
     long revision;
     int i, j, n = 0;
-    if (!s_native_bound || (revision = resot_native_revision() + s_cheat_revision) == seen)
+    if (!s_native_bound || (revision = resot_native_revision() + debug_revision()) == seen)
         return;
     seen = revision;
     for (i = 0; i < P_PAGES; i++)
@@ -1404,7 +1441,11 @@ void sub_00039B20(void)
         s_cheat[id & 0xFF] = !s_cheat[id & 0xFF];
         s_cheat_revision++;
         fprintf(stderr, "[CHEAT] %s %s\n", s_cheat_names[id & 0xFF], s_cheat[id & 0xFF] ? "on" : "off");
-    } else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
+    } else if (id == MSG_ID(P_CHEATS, CHEATS))
+        s_sword_pending = 1;                      /* once the menu is closed */
+    else if ((id >> 8) == P_DEBUG)
+        debug_activate((int)(id & 0xFF));
+    else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
         int n = s_part_first[(id >> 8) - P_LV0] + (int)(id & 0xFF);
         if (n < s_part_first[(id >> 8) - P_LV0 + 1])
             s_level_pending = (uint32_t)n + 1;
@@ -1498,10 +1539,17 @@ static void level_pending(void)
  *   without checking the slot.
  * Invulnerable and infinite sand are kept at their maximum at every input
  * poll; one-hit kills set the damage to 1000.0 for every hit on an object
- * that is not a main actor (so Farah is never killed by a hit). Switched on
- * the reSOT Cheats page or in play with Ctrl+F1 (invulnerable), Ctrl+F2
- * (sand), Ctrl+F3 (one-hit kills); Ctrl+F4 gives the next sword. Not
- * saved: every start begins with them off. */
+ * that is not a main actor (so Farah is never killed by a hit).
+ * The prototype's spawner switches: Cheat_Test reads the byte at variable
+ * +0x210 of a global script object, [0x766C3C] in Spawn_WP__MSG (mask 3: the
+ * spawn request is dropped) and [0x76766C] in Spawn_WP_bhv_spawn (mask 8:
+ * a spawner that has sent all its enemies starts its count again, through
+ * 0x00266E20). Nothing in retail sets them; "No enemies" sets bit 0x01,
+ * "Endless enemies" bit 0x08, and only the bits set here are cleared again.
+ * Switched on the reSOT Cheats page (main or pause menu) or in play with
+ * Ctrl+F1 (invulnerable), Ctrl+F2 (sand), Ctrl+F3 (one-hit kills); Ctrl+F4
+ * or the page's sword entry gives the next sword (from the page: once the
+ * menu is closed). Not saved: every start begins with them off. */
 #define MAIN_ACTOR1     0x0067B6A0u
 #define MAIN_ACTOR2     0x0067B6A4u
 #define V_LIFE          0x19Cu
@@ -1515,6 +1563,12 @@ static void level_pending(void)
 #define V_HITS          0x7Cu
 #define V_SWORD_INDEX   0x73Cu
 #define V_WEAPONS       0x8B8u
+#define SPAWN_MSG_GLOBAL   0x00766C3Cu
+#define SPAWN_BHV_GLOBAL   0x0076766Cu
+#define V_CHEAT_BITS       0x210u
+#define CHEAT_BIT_NO_SPAWN 0x01u
+#define CHEAT_BIT_ENDLESS  0x08u
+#define GMEM8(va) (*(volatile uint8_t *)((uintptr_t)g_xbox_mem_offset + (uint32_t)(va)))
 extern void sub_0026CE80(void);
 extern int xbox_FramebufferKeyDown(int vk);
 
@@ -1543,6 +1597,37 @@ static int cheat_in_play(void)
     return ok && cheat_word(mgr + 0xF0, &ok) == 0 && ok;
 }
 
+static void cheat_sword_label(char *out, unsigned size)
+{
+    int de = resot_text_language() == 4;
+    uint32_t v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4);
+    if (v && GMEM32(v + V_SWORD_INDEX) < 4)
+        snprintf(out, size, de ? "Schwert wechseln: %u von 4" : "Next sword: %u of 4",
+                 GMEM32(v + V_SWORD_INDEX) + 1);
+    else
+        snprintf(out, size, de ? "Schwert wechseln" : "Next sword");
+}
+
+/* One switch bit of a spawner's global object; *mine: this bit was set here. */
+static void cheat_spawn_bit(uint32_t global, uint8_t bit, int on, int *mine)
+{
+    int ok = 1;
+    uint32_t obj = cheat_word(global, &ok), v;
+    uint8_t b;
+    if (!ok || !obj || !(v = cheat_vars(obj, V_CHEAT_BITS + 4)))
+        return;
+    b = GMEM8(v + V_CHEAT_BITS);
+    if (on && !(b & bit)) {
+        GMEM8(v + V_CHEAT_BITS) = (uint8_t)(b | bit);
+        *mine = 1;
+        fprintf(stderr, "[CHEAT] spawner switch %02X set (object %08X)\n", bit, obj);
+    } else if (!on && *mine) {
+        if (b & bit)
+            GMEM8(v + V_CHEAT_BITS) = (uint8_t)(b & ~bit);
+        *mine = 0;
+    }
+}
+
 static void cheat_next_sword(void)
 {
     GuestRegs saved;
@@ -1565,10 +1650,12 @@ static void cheat_next_sword(void)
     fprintf(stderr, "[CHEAT] sword %u of 4\n", GMEM32(v + V_SWORD_INDEX) + 1);
 }
 
+static void debug_tick(void);
+
 static void cheats_tick(void)
 {
-    static const char *const names[CHEATS] = { "invulnerable", "infinite sand", "one-hit kills" };
-    static int was[4];
+    static const char *const names[3] = { "invulnerable", "infinite sand", "one-hit kills" };
+    static int was[4], mine_spawn, mine_endless;
     int ctrl = xbox_FramebufferKeyDown(0xA2) || xbox_FramebufferKeyDown(0xA3), i;
     uint32_t v;
     static int configured;
@@ -1579,13 +1666,15 @@ static void cheats_tick(void)
             s_cheat[CHEAT_INVULNERABLE] = strstr(e, "invulnerable") != NULL;
             s_cheat[CHEAT_SAND] = strstr(e, "sand") != NULL;
             s_cheat[CHEAT_ONE_HIT] = strstr(e, "onehit") != NULL;
+            s_cheat[CHEAT_NO_SPAWN] = strstr(e, "nospawn") != NULL;
+            s_cheat[CHEAT_ENDLESS] = strstr(e, "endless") != NULL;
             s_cheat_revision++;
         }
     }
     for (i = 0; i < 4; i++) {                    /* Ctrl+F1 .. Ctrl+F4 */
         int down = ctrl && xbox_FramebufferKeyDown(0x70 + i);
         if (down && !was[i]) {
-            if (i < CHEATS) {
+            if (i < 3) {
                 s_cheat[i] = !s_cheat[i];
                 s_cheat_revision++;
                 fprintf(stderr, "[CHEAT] %s %s\n", names[i], s_cheat[i] ? "on" : "off");
@@ -1595,6 +1684,14 @@ static void cheats_tick(void)
         }
         was[i] = down;
     }
+    if (s_sword_pending && cheat_in_play()) {
+        s_sword_pending = 0;
+        cheat_next_sword();
+        s_cheat_revision++;
+    }
+    cheat_spawn_bit(SPAWN_MSG_GLOBAL, CHEAT_BIT_NO_SPAWN, s_cheat[CHEAT_NO_SPAWN], &mine_spawn);
+    cheat_spawn_bit(SPAWN_BHV_GLOBAL, CHEAT_BIT_ENDLESS, s_cheat[CHEAT_ENDLESS], &mine_endless);
+    debug_tick();
     if (!s_cheat[CHEAT_INVULNERABLE] && !s_cheat[CHEAT_SAND])
         return;
     if (!(v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4)))
@@ -1666,8 +1763,9 @@ void sub_0017A0C0_enter(void)
  * Input: the pad state the title polls (XInputGetState, above), so the
  * keyboard's bindings work too: left stick move, right stick look, LT / RT
  * (or Q / E) down / up, Black or Shift faster, White or Ctrl slower, Y or P
- * freezes the world. Back or F8 switches the camera on and off; while it is
- * on the game gets no input but Start. RESOT_FREECAM=0 disables it. */
+ * freezes the world. Back or F8 switches the camera on and off, as does the
+ * reSOT Debug page; while it is on the game gets no input but Start, except
+ * while a menu page is open. RESOT_FREECAM=0 disables it. */
 #define CUR_DISPLAY        0x00758E34u
 #define DISPLAY_CAMERA     0xD0u
 #define CAM_ROW_I          0x90u
@@ -1724,6 +1822,10 @@ static void freecam_pad(uint8_t *st)
         fprintf(stderr, "[FREECAM] world %s\n", s_fc.frozen ? "frozen" : "running");
     }
     was_freeze = freeze;
+    if (!cheat_in_play()) {                      /* a menu page is open: it keeps the input */
+        s_fc.lx = s_fc.ly = s_fc.rx = s_fc.ry = s_fc.vert = 0.0f;
+        return;
+    }
     s_fc.lx = fc_axis(th[0]); s_fc.ly = fc_axis(th[1]);
     s_fc.rx = fc_axis(th[2]); s_fc.ry = fc_axis(th[3]);
     s_fc.vert = ((float)st[6 + 7] - (float)st[6 + 6]) / 255.0f;         /* RT - LT */
@@ -1803,5 +1905,106 @@ void sub_002FDD00_enter(void)
         GMEMF(cam + CAM_ROW_J + 4u * i) = s_fc.sj * u[i];
         GMEMF(cam + CAM_ROW_K + 4u * i) = k[i];
         GMEMF(cam + CAM_POS + 4u * i) = s_fc.pos[i];
+    }
+}
+
+/* The reSOT Debug page: the F5 panel, the free camera and the world freeze
+ * (above), and the game speed. Retail's frame clock (sub_000DB740) scales
+ * the frame time by two factors before it is stored (0x000DB850, 0x000DB861:
+ * the 64-bit microseconds at 0x7654E0 and TIM_gf_dt at 0x470D74):
+ * TIM_gf_SpeedFactor at 0x43B12C, which the scripts set (the sand powers'
+ * slow motion) and ENG_ReinitOneWorld puts back to 1.0, and a second one at
+ * 0x43B100 that is 1.0 in the XBE and never written by the game. The game
+ * speed is written there, so the scripts' own slow motion still works on
+ * top of it. Not saved. */
+#define CLOCK_FACTOR 0x0043B100u
+extern int xbox_FramebufferFpsVisible(void);
+extern void xbox_FramebufferToggleDebugPanel(void);
+static const int s_speeds[] = { 100, 50, 25 };
+static int s_speed;
+
+static void debug_label(int item, char *out, unsigned size)
+{
+    int de = resot_text_language() == 4;
+    const char *on = de ? "An" : "On", *off = de ? "Aus" : "Off";
+    switch (item) {
+    case DBG_PANEL:
+        snprintf(out, size, "%s: %s", de ? "Info-Anzeige (F5)" : "Info panel (F5)",
+                 xbox_FramebufferFpsVisible() ? on : off);
+        break;
+    case DBG_FREECAM:
+        snprintf(out, size, "%s: %s", de ? "Freie Kamera (Back, F8)" : "Free camera (Back, F8)",
+                 s_fc.on ? on : off);
+        break;
+    case DBG_FREEZE:
+        snprintf(out, size, "%s: %s", de ? "Welt anhalten (Y, P)" : "Freeze world (Y, P)",
+                 s_fc.frozen ? on : off);
+        break;
+    case DBG_SPEED:
+        snprintf(out, size, "%s: %d%%", de ? "Spielgeschwindigkeit" : "Game speed", s_speeds[s_speed]);
+        break;
+    default:
+        snprintf(out, size, "?");
+    }
+}
+
+static void debug_activate(int item)
+{
+    switch (item) {
+    case DBG_PANEL:
+        xbox_FramebufferToggleDebugPanel();
+        break;
+    case DBG_FREECAM:
+        if (!freecam_enabled())
+            break;
+        s_fc.on = !s_fc.on;
+        s_fc.started = 0;
+        fprintf(stderr, "[FREECAM] %s (Debug page)\n", s_fc.on ? "on" : "off");
+        break;
+    case DBG_FREEZE:
+        s_fc.frozen = !s_fc.frozen;
+        GMEM32(FORCE_PAUSE_ENGINE) = (uint32_t)s_fc.frozen;
+        fprintf(stderr, "[FREECAM] world %s (Debug page)\n", s_fc.frozen ? "frozen" : "running");
+        break;
+    case DBG_SPEED:
+        s_speed = (s_speed + 1) % (int)(sizeof s_speeds / sizeof s_speeds[0]);
+        fprintf(stderr, "[DEBUG] game speed %d%%\n", s_speeds[s_speed]);
+        break;
+    }
+    s_cheat_revision++;
+}
+
+/* Changes whenever a label of the Cheats or Debug page may read differently. */
+static long debug_revision(void)
+{
+    return s_cheat_revision + (xbox_FramebufferFpsVisible() ? 1L << 20 : 0)
+           + (s_fc.on ? 1L << 21 : 0) + (s_fc.frozen ? 1L << 22 : 0);
+}
+
+static void debug_tick(void)
+{
+    static float applied = 1.0f;
+    float want = (float)s_speeds[s_speed] / 100.0f;
+    static int configured;
+    if (!configured) {                           /* RESOT_GAME_SPEED=50 or 25 */
+        const char *e = getenv("RESOT_GAME_SPEED");
+        int i;
+        configured = 1;
+        for (i = 0; e && *e && i < (int)(sizeof s_speeds / sizeof s_speeds[0]); i++)
+            if (atoi(e) == s_speeds[i]) s_speed = i;
+        want = (float)s_speeds[s_speed] / 100.0f;
+    }
+    if (want != applied) {
+        GMEMF(CLOCK_FACTOR) = want;
+        applied = want;
+        fprintf(stderr, "[DEBUG] clock factor %.2f\n", want);
+    }
+    if (getenv("RESOT_TIMER_DIAG")) {            /* game clock (0x758C80) against the wall */
+        static int polls;
+        static double start;
+        if (!start) start = fc_now();
+        if (++polls % 600 == 0)
+            fprintf(stderr, "[TIME] game clock %.2f s, wall %.2f s\n", GMEMF(0x00758C80u),
+                    fc_now() - start);
     }
 }

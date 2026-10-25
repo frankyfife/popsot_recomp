@@ -140,6 +140,11 @@ int xbox_FramebufferFpsVisible(void)
 {
     return InterlockedCompareExchange(&s_debug_panel, 0, 0) != 0;
 }
+/* Android's FPS button and the retail reSOT Debug page switch it as F5 does. */
+void xbox_FramebufferToggleDebugPanel(void)
+{
+    InterlockedExchange(&s_debug_panel, !InterlockedCompareExchange(&s_debug_panel, 0, 0));
+}
 static void (*s_wow_provider)(char *, size_t);
 
 /* RE-SoT: report the backend that initialized successfully, including a
@@ -1136,11 +1141,6 @@ void xbox_FramebufferHostMouse(int dx, int dy)
 {
     InterlockedExchangeAdd(&s_mouse_dx, dx);
     InterlockedExchangeAdd(&s_mouse_dy, dy);
-}
-
-void xbox_FramebufferToggleDebugPanel(void)
-{
-    InterlockedExchange(&s_debug_panel, !InterlockedCompareExchange(&s_debug_panel, 0, 0));
 }
 
 static DWORD WINAPI fb_thread(LPVOID unused)

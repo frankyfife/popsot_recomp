@@ -1,5 +1,78 @@
 # Validation log
 
+## 2026-10-25: reSOT Debug page, pause menu entry, prototype spawner cheats
+
+**Why in the reSOT menu, not a launcher.** The user asked for FuturamaPC's
+launcher options (hidden levels, cut content, debug options) or, if more
+sensible, the reSOT menu. FuturamaPC needs a control pipe from its Qt
+launcher into the running game for anything that acts in play
+(`launcher/README.md`, page "Original"); reSOT's native menu pages run in
+the game, take effect at once and are reachable from the pause menu now.
+
+**Pause menu.** The pause menu (traced with `RESOT_MENU_TRACE=1`) opens its
+page "Pause" at return 0x001A323E, closes it at 0x001A3441 and opens
+"Optionen" next at 0x001A3470, like the main menu's 0x00234B42 /
+0x00234D8B / 0x00234DCD. The same hooks add "reSOT-Optionen" to the end of
+the pause page and build the native pages into the pause menu (16 pages,
+122 of 122 choices bound; the pause menu is built at start, again after
+each map change). The level select is left out there: chosen from the pause
+menu (6101_couloir -> 2402_Central) the map changed and then stayed on
+"Spielende".
+
+**Debug page.** Info panel (F5), free camera, world freeze, game speed.
+Retail's frame clock `sub_000DB740` multiplies the frame time by
+[0x43B100] and [0x43B12C] (0x000DB850, 0x000DB856) and TIM_gf_dt by both
+again (0x000DB861-0x000DB88C). 0x43B12C is TIM_gf_SpeedFactor (the PS2
+map's name; written by 21 script sites and set to 1.0 by
+ENG_ReinitOneWorld, main_0000.c); 0x43B100 is 1.0 in the XBE and has no
+writer in the lifted code, so the page writes the game speed there.
+Measured with `RESOT_TIMER_DIAG=1` (game clock 0x758C80 against the wall
+clock, 45 s in the main menu): at 50 % 9.98 / 19.95 s and 19.99 / 39.97 s,
+at 100 % 19.95 / 19.93 s and 39.98 / 39.95 s. The 6101 intro cutscene ended
+about 10 s later at 50 %, not twice as late (it follows its audio,
+assumed).
+
+**Spawner switches** (prototype `Cheat_Test`, popsot-fixes TECHNICAL.md:474):
+Spawn_WP__MSG tests byte +0x210 of the global object [0x766C3C] with mask
+3 and drops the spawn request; Spawn_WP_bhv_spawn tests [0x76766C] +0x210
+with mask 8 and, when its count is reached, starts it again (0x0021F8AB,
+call 0x00266E20). Retail never sets them. "No enemies" sets 0x01,
+"Endless enemies" 0x08; only bits set by reSOT are cleared again.
+
+**Checked** (6101_couloir via `RESOT_START_LEVEL`):
+- pause -> reSOT-Optionen -> Debug: labels "Info-Anzeige (F5): An" and
+  "Spielgeschwindigkeit: 50%" after A; B three times back to play;
+- Cheats page from the pause menu: "Schwert wechseln: 1 von 4", A, menu
+  closed -> `[CHEAT] sword 2 of 4`; Debug "Freie Kamera" -> on, the camera
+  flew with the left stick after the menu closed;
+- `RESOT_CHEATS=nospawn`: `[CHEAT] spawner switch 01 set (object
+  748D5C20)`; at 70-145 s no guards at the stairs, where the run without
+  it shows them from 70 s on.
+
+**Not checked:** "Endless enemies" in a fight that runs out of enemies;
+the label refresh of "Freie Kamera" after the toggle; Back in the pause
+menu also switches the free camera.
+
+**Dead-ends scan** (subagent, read-only; heuristic over the lifted
+localref slots and the PS2 map, not checked in play). Found, not yet
+restored:
+- universe object 0xCC00008E variable +0xD8 has readers and no writer: the
+  prototype's "Cheats" switch of the pause menu's Special page. Retail
+  still calls the prototype's `fn_iCheats` (sub_0026F1C0, from
+  Prince_Bhv_BeforeMainTrack 0x00110DB1): d-pad life +-15 and next sword,
+  R3 ghost mode (Prince_Bhv_GhostMode 0x002825F0), A+X skips scripted
+  camera paths, Back opens the death menu;
+- +0xE0: life regeneration (fn_RegenerateLife 0x0026AE40, +1 per second),
+  only ever written 0 (Univers_Bhv_Init 0x001BC4A4);
+- +0xBC: "Interface" (life bar, tutorials), read but not written in code;
+- +0x10: a camera "Rotation" inversion read by two camera modes;
+- universe +0x8 extras bits: 0x1000 the POP1 level (end of the credits),
+  0x8000 Prince of Persia 2 (the GP24 secret), which launches
+  `d:\pop2\default.xbe` and therefore ends the port (XLaunchNewImage).
+Ruled out: Special-page row 1003 (its key 0x0B00A6E5 is not on the disc),
+the "Work in progress" overlay (no setup left in retail), the E3 kiosk
+films (not on the disc), further test worlds.
+
 ## 2026-10-25: subtitles and hints on xbox-retail
 
 **What the game shows.** The retail German text streams (FD5xxxxx in

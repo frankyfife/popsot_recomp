@@ -1,5 +1,28 @@
 # Validation log
 
+## 2026-10-25: grainy, restless picture: mip chains for render targets
+
+User report: the picture is grainy and restless, also on smooth surfaces
+(suspected fog). Two frames of a frozen world (freecam, world paused) with a
+still camera, captured four seconds apart (`RECOMP_FRAME_TRACE` re-armed by
+deleting the flag): the scene before post-processing identical, the final
+picture different in 0.46 % of its pixels (water and birds, which still
+move). So the noise comes with motion. Cause: the effect chains copy the
+scene into a 320x240 level (427x240 at 16:9); at 2160p that is a nine-fold
+minification read with bilinear filtering from a texture without mips, 4
+of about 81 pixels per sample, and the glow and soft-focus overlays built
+from it sparkle at every move (the Xbox does 640 -> 320, a 2x2 average).
+Since this afternoon's Ultra change the chains run at that size, which is
+why it got worse. D3D11 surfaces now have a full mip chain
+(`GENERATE_MIPS`); when the game samples a surface that was drawn since,
+the chain is rebuilt and the sampler picks the level the minification
+needs; level 0 alone is used for presenting. Measured on the 320 copy
+against a box average of its own source (gain-fitted), the ratio of
+high-frequency (Laplacian) energy: 2.30 without mips, 0.86 with them.
+Fog: the fog is per vertex and draws nothing temporal; no fog-specific
+noise was found. **Not done:** the native D3D12/Vulkan backends still
+sample without mips.
+
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 
 **Glow copies, the real cause.** After the Ultra change the user still saw

@@ -132,6 +132,11 @@ typedef struct {
     ID3D11Texture2D *tex;
     ID3D11RenderTargetView *rtv;
     ID3D11ShaderResourceView *srv;
+    /* RE-SoT: the surface's mip chain, for the game sampling it as a texture
+     * (hw_texture); srv sees level 0 only. mips_dirty: drawn since the chain
+     * was last built. */
+    ID3D11ShaderResourceView *srv_mips;
+    uint32_t mips_dirty;
     uint32_t drawn_frame;
 } HwSurface;
 
@@ -1348,6 +1353,7 @@ static HwSurface *hw_surface(void)
         if (s_hw.front == s) s_hw.front = NULL;
         if (s_hw.biggest == s) s_hw.biggest = NULL;
         ID3D11ShaderResourceView_Release(s->srv);
+        if (s->srv_mips) ID3D11ShaderResourceView_Release(s->srv_mips);
         ID3D11RenderTargetView_Release(s->rtv);
         ID3D11Texture2D_Release(s->tex);
         memset(s, 0, sizeof *s);
@@ -1355,14 +1361,33 @@ static HwSurface *hw_surface(void)
     memset(&td, 0, sizeof td);
     td.Width = hw_px(w, hw_surface_scale(w));
     td.Height = hw_py(h,hw_surface_scale(w));
-    td.MipLevels = 1; td.ArraySize = 1;
+    /* RE-SoT: a full mip chain. The effect chains copy the scene into
+     * 320x240 (427x240 at 16:9) and smaller levels; with the scene at the
+     * internal resolution (2160p: nine times as wide) a bilinear sample read
+     * 4 of about 81 pixels, and the glow and soft-focus overlays sparkled at
+     * every camera move (user report 2026-10-25: grainy, restless picture,
+     * also on smooth surfaces). With the chain the sampler takes the level
+     * that matches the minification, an average like the Xbox's 2x2 at
+     * 640 -> 320. Level 0 alone (srv) is used for presenting. */
+    td.MipLevels = 0; td.ArraySize = 1;
     td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     td.SampleDesc.Count = 1;
     td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    td.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
     if (FAILED(ID3D11Device_CreateTexture2D(s_hw.dev, &td, NULL, &s->tex)))
         return NULL;
     ID3D11Device_CreateRenderTargetView(s_hw.dev, (ID3D11Resource *)s->tex, NULL, &s->rtv);
-    ID3D11Device_CreateShaderResourceView(s_hw.dev, (ID3D11Resource *)s->tex, NULL, &s->srv);
+    {
+        D3D11_SHADER_RESOURCE_VIEW_DESC vd;
+        memset(&vd, 0, sizeof vd);
+        vd.Format = td.Format;
+        vd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        vd.Texture2D.MostDetailedMip = 0;
+        vd.Texture2D.MipLevels = 1;
+        ID3D11Device_CreateShaderResourceView(s_hw.dev, (ID3D11Resource *)s->tex, &vd, &s->srv);
+        ID3D11Device_CreateShaderResourceView(s_hw.dev, (ID3D11Resource *)s->tex, NULL, &s->srv_mips);
+    }
+    s->mips_dirty = 1;
     {
         static const float black[4] = {0, 0, 0, 1};
         ID3D11DeviceContext_ClearRenderTargetView(s_hw.ctx, s->rtv, black);
@@ -1592,8 +1617,17 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
                 best->drawn_frame, s_hw.frame, best == target);
         if (best) {
             hw_trace_effect_source(stage,best->offset,best->w,best->h,best->drawn_frame); /* RE-SoT */
-            if (best != target) { s_rt_size[stage & 3][0] = best->w; s_rt_size[stage & 3][1] = best->h; }
-            return best == target ? NULL : best->srv;
+            if (best == target)
+                return NULL;
+            s_rt_size[stage & 3][0] = best->w; s_rt_size[stage & 3][1] = best->h;
+            if (best->srv_mips) {                 /* RE-SoT: see hw_surface */
+                if (best->mips_dirty) {
+                    ID3D11DeviceContext_GenerateMips(s_hw.ctx, best->srv_mips);
+                    best->mips_dirty = 0;
+                }
+                return best->srv_mips;
+            }
+            return best->srv;
         }
     }
     if (!hw_mem_ok(t->offset, t->cube ? 6 * tex_face_stride(t) : hw_tex_bytes(t)))
@@ -2030,6 +2064,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     }
 #endif
     s->drawn_frame = s_hw.frame;
+    s->mips_dirty = 1;
     area = s->w * s->h;
     if (!s_hw.biggest || area >= s_hw.biggest_area) {
         s_hw.biggest = s;
@@ -3311,6 +3346,7 @@ static void hw_clear(uint32_t param)
             if (bs) ID3D11BlendState_Release(bs);
         }
         s->drawn_frame = s_hw.frame;
+        s->mips_dirty = 1;
         if (!s_hw.biggest || s->w * s->h >= s_hw.biggest_area) {
             s_hw.biggest = s;
             s_hw.biggest_area = s->w * s->h;
@@ -3728,6 +3764,7 @@ int nv2a_hw_readback(uint32_t *dst, uint32_t w, uint32_t h)
         ID3D11Texture2D_GetDesc(s_hw.front->tex, &td);
         td.Usage = D3D11_USAGE_STAGING;
         td.BindFlags = 0;
+        td.MiscFlags = 0;                       /* RE-SoT: surfaces generate mips now */
         td.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
         if (SUCCEEDED(ID3D11Device_CreateTexture2D(s_hw.dev, &td, NULL, &stage))) {
             ID3D11DeviceContext_CopyResource(s_hw.ctx, (ID3D11Resource *)stage,

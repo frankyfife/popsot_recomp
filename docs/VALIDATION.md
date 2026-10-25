@@ -1,5 +1,42 @@
 # Validation log
 
+## 2026-10-25: free camera on xbox-retail
+
+popsot-fixes' free camera (TECHNICAL.md:345, src/menucam.cpp), rebuilt for
+retail. The game's own debug camera cannot be used: `Cam_CameraDebug`
+(0x00240B00) and its `mode_freeview` (0x00206C60) are only reachable
+through the AI2C table, and their model keys (0x03002045, 0x0300203D) do
+not occur in the retail `prince.bf`.
+
+Retail anchors (XBE disassembly against the Jade source WORrender.c and
+the PS2 prototype's CAM_Inverse):
+- the current display [0x758E34] (GDI_gpst_CurDD), its main camera +0xD0;
+- WOR_SetCam 0x0002F780 calls CAM_Inverse 0x002FDD00 (camera in eax,
+  return 0x0002F7EB) after CAM_SetCameraMatrix 0x002FDDD0;
+- camera layout as on PS2, 8 bytes further in than PC: rows I +0x90,
+  J +0xA0, K +0xB0 (the viewing direction), position +0xC0, view matrix
+  +0xE0;
+- ENG_gb_ForcePauseEngine 0x007584A0: ENG_Loop (0x000164D0) skips the
+  engine call while it is set (0x0001663F); the game never sets it.
+
+`source/xbox-retail/target_hooks.c`: an entry hook on CAM_Inverse (re-lift:
+two lines in gen/render/render_0000.c) writes our camera for that one call;
+the XInputGetState hook reads the pad state (keyboard bindings included),
+then hands the game nothing but Start while the camera is on. Back or F8
+switches it, Y or P freezes the world. `python tools/test-xbe-sites.py
+xbox-retail`: 333 claims, 0 failed.
+
+**Checked.** Run into `6101_couloir` (`RESOT_START_LEVEL`, invulnerable),
+pad script: Back at 72 s, left stick up 3 s, right stick right 0.7 s, Y,
+left stick down 2.5 s; snapshots every 5 s. stderr: `[FREECAM] on`,
+`start at 72.99 128.29 -26.46, yaw -1.13 pitch -0.18, signs 1 -1`,
+`world frozen`. The pictures: the camera flew forward out of the corridor
+into the courtyard, turned right with the horizon level, then backed into
+a wall; the 85 s and 90 s pictures are identical (world frozen, camera
+stopped). **Not checked:** switching it off (and the unfreeze that goes
+with it), the keyboard keys, Black/White speeds, use in the main menu,
+cutscenes.
+
 ## 2026-10-25: cheats on xbox-retail
 
 popsot-fixes' cheats (src/cheats.cpp, TECHNICAL.md:474-536), rebuilt for

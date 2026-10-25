@@ -26049,6 +26049,8 @@ loc_002FDCD3: ;
  */
 void sub_002FDD00(void)
 {
+    extern void sub_002FDD00_enter(void);
+    sub_002FDD00_enter();
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;

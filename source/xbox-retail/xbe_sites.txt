@@ -354,3 +354,11 @@ func 0x0017A0C0                     # Mdl00007493_fn_ProcessMeeleeWeaponHits (cd
 func 0x0026CE80                     # Mdl000092EB_fn_SetWeapon (cdecl prince): next sword
 insn 0x001CAE51 test byte ptr       # Spawn_WP__MSG: inlined Cheat_Test, mask 3
 insn 0x0021F897 test byte ptr       # Spawn_WP_bhv_spawn: inlined Cheat_Test, mask 8
+func 0x000164D0                     # ENG_Loop
+ref 0x0001663F 0x007584A0           # ENG_gb_ForcePauseEngine: skips the engine call (free camera freeze)
+ref 0x000E7B17 0x00758E34           # GDI_gpst_CurDD, the current display
+func 0x0002F780                     # WOR_SetCam
+func 0x002FDDD0                     # CAM_SetCameraMatrix
+func 0x002FDD00                     # CAM_Inverse (camera in eax)
+ret 0x0002F7EB sub_002FDD00         # WOR_SetCam: the display's main camera (+0xD0)
+value 0x00400CC0                    # PS2 prototype CAM_Inverse (SLUS_207.43), for the layout

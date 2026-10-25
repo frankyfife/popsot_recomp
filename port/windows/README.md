@@ -312,6 +312,14 @@ Special Load on PC. It is meant for testing: the Prince keeps whatever the
 menu had (sword, sand tanks), not what the story would have given him by
 then. `RESOT_HIDDEN_MENUS=0` hides it together with "reSOT Options".
 
+### Free camera (retail)
+
+Back or F8 detaches the camera, as in popsot-fixes: left stick / the
+movement keys fly, right stick / the look keys turn, LT / RT or Q / E move
+down / up, Black or Shift is faster, White or Ctrl slower, Y or P freezes
+the world while the camera keeps moving. The game gets no input but Start
+while it is on. `RESOT_FREECAM=0` disables it.
+
 ### Cheats (retail)
 
 Like popsot-fixes on PC, rebuilt from the PS2 prototype's cheat mode:

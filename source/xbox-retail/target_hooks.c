@@ -659,6 +659,7 @@ void sub_00417DAD(void)
 static void native_refresh(void);
 static void level_pending(void);
 static void cheats_tick(void);
+static void freecam_pad(uint8_t *state);
 
 void sub_00417F85(void)
 {
@@ -672,7 +673,12 @@ void sub_00417F85(void)
         stdcall_return(1167, 2);
         return;
     }
-    stdcall_return(xbox_HlePadState(0, (uint8_t *)((uintptr_t)g_xbox_mem_offset + st)), 2);
+    {
+        uint32_t r = xbox_HlePadState(0, (uint8_t *)((uintptr_t)g_xbox_mem_offset + st));
+        if (r == 0)
+            freecam_pad((uint8_t *)((uintptr_t)g_xbox_mem_offset + st));
+        stdcall_return(r, 2);
+    }
 }
 
 /* XInputSetState */
@@ -1640,4 +1646,162 @@ void sub_0017A0C0_enter(void)
         return;
     if ((v = cheat_vars(obj, V_HITS + 4)) != 0 && (int32_t)GMEM32(v + V_HITS) > 0)
         GMEM32(v + V_HITS) = 0;
+}
+
+/* Free camera, after popsot-fixes (src/menucam.cpp, docs/TECHNICAL.md:345):
+ * a free-flying camera written into the main view's camera struct.
+ * Retail (Jade source WORrender.c, PS2 prototype CAM_Inverse 0x400CC0):
+ * the current display is [0x758E34] (GDI_gpst_CurDD) and its main camera
+ * +0xD0. WOR_SetCam (0x0002F780) sets that camera from the view's object
+ * matrix (CAM_SetCameraMatrix, 0x002FDDD0), then calls CAM_Inverse
+ * (0x002FDD00, camera in eax; returns to 0x0002F7EB), which builds the view
+ * matrix (+0xE0) from rows I +0x90, J +0xA0, K +0xB0 (the viewing
+ * direction) and the position +0xC0; the frustum is built from the camera
+ * right after, so culling follows. The camera is written in that call's
+ * entry, rebuilt from yaw and pitch without roll, keeping the signs of the
+ * I and J rows the game's camera had when ours started.
+ * ENG_gb_ForcePauseEngine, 0x007584A0, makes ENG_Loop (0x000164D0, test at
+ * 0x0001663F) skip the engine call while display still runs: the world
+ * freezes, the camera keeps moving. The game never sets it.
+ * Input: the pad state the title polls (XInputGetState, above), so the
+ * keyboard's bindings work too: left stick move, right stick look, LT / RT
+ * (or Q / E) down / up, Black or Shift faster, White or Ctrl slower, Y or P
+ * freezes the world. Back or F8 switches the camera on and off; while it is
+ * on the game gets no input but Start. RESOT_FREECAM=0 disables it. */
+#define CUR_DISPLAY        0x00758E34u
+#define DISPLAY_CAMERA     0xD0u
+#define CAM_ROW_I          0x90u
+#define CAM_ROW_J          0xA0u
+#define CAM_ROW_K          0xB0u
+#define CAM_POS            0xC0u
+#define SETCAM_INVERSE_RET 0x0002F7EBu
+#define FORCE_PAUSE_ENGINE 0x007584A0u
+static struct {
+    int on, started, frozen;
+    float lx, ly, rx, ry, vert, speed;
+    float yaw, pitch, pos[3], si, sj;
+    double last;
+} s_fc;
+
+static int freecam_enabled(void)
+{
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("RESOT_FREECAM"); on = !(e && *e == '0'); }
+    return on;
+}
+
+static float fc_axis(int16_t v)
+{
+    float f = (float)v / 32767.0f, a = f < 0 ? -f : f;
+    if (a < 0.2f) return 0.0f;                   /* round-ish dead zone */
+    return (f < 0 ? -1.0f : 1.0f) * (a - 0.2f) / 0.8f;
+}
+
+static void freecam_pad(uint8_t *st)
+{
+    static int was_toggle, was_freeze;
+    uint16_t buttons;
+    int16_t th[4];
+    int toggle, freeze, i;
+    if (!freecam_enabled())
+        return;
+    memcpy(&buttons, st + 4, 2);
+    memcpy(th, st + 14, 8);
+    toggle = (buttons & 0x20) || xbox_FramebufferKeyDown(0x77);          /* Back, F8 */
+    if (toggle && !was_toggle) {
+        s_fc.on = !s_fc.on;
+        s_fc.started = 0;
+        if (!s_fc.on && s_fc.frozen) { GMEM32(FORCE_PAUSE_ENGINE) = 0; s_fc.frozen = 0; }
+        fprintf(stderr, "[FREECAM] %s\n", s_fc.on ? "on" : "off");
+    }
+    was_toggle = toggle;
+    if (!s_fc.on)
+        return;
+    freeze = st[6 + 3] > 128 || xbox_FramebufferKeyDown(0x50);         /* Y, P */
+    if (freeze && !was_freeze) {
+        s_fc.frozen = !s_fc.frozen;
+        GMEM32(FORCE_PAUSE_ENGINE) = (uint32_t)s_fc.frozen;
+        fprintf(stderr, "[FREECAM] world %s\n", s_fc.frozen ? "frozen" : "running");
+    }
+    was_freeze = freeze;
+    s_fc.lx = fc_axis(th[0]); s_fc.ly = fc_axis(th[1]);
+    s_fc.rx = fc_axis(th[2]); s_fc.ry = fc_axis(th[3]);
+    s_fc.vert = ((float)st[6 + 7] - (float)st[6 + 6]) / 255.0f;         /* RT - LT */
+    if (xbox_FramebufferKeyDown(0x45)) s_fc.vert += 1.0f;               /* E */
+    if (xbox_FramebufferKeyDown(0x51)) s_fc.vert -= 1.0f;               /* Q */
+    s_fc.speed = 6.0f;
+    if (st[6 + 4] > 128 || xbox_FramebufferKeyDown(0xA0) || xbox_FramebufferKeyDown(0xA1))
+        s_fc.speed *= 4.0f;                                              /* Black, Shift */
+    if (st[6 + 5] > 128 || xbox_FramebufferKeyDown(0xA2) || xbox_FramebufferKeyDown(0xA3))
+        s_fc.speed *= 0.25f;                                             /* White, Ctrl */
+    /* the game sees no input but Start */
+    buttons &= 0x10;
+    memcpy(st + 4, &buttons, 2);
+    for (i = 0; i < 16; i++)
+        st[6 + i] = 0;
+}
+
+static double fc_now(void)
+{
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+/* CAM_Inverse (camera in eax). */
+void sub_002FDD00_enter(void)
+{
+    uint32_t dd, cam;
+    float k[3], r[3], u[3], cy, sy, cp, sp, len, dt;
+    double now;
+    int i;
+    if (!s_fc.on || GMEM32(g_esp) != SETCAM_INVERSE_RET || !(dd = GMEM32(CUR_DISPLAY))
+            || g_eax != dd + DISPLAY_CAMERA)
+        return;
+    cam = g_eax;
+    now = fc_now();
+    if (!s_fc.started) {
+        float i0[3], j0[3];
+        for (i = 0; i < 3; i++) {
+            k[i] = GMEMF(cam + CAM_ROW_K + 4u * i);
+            i0[i] = GMEMF(cam + CAM_ROW_I + 4u * i);
+            j0[i] = GMEMF(cam + CAM_ROW_J + 4u * i);
+            s_fc.pos[i] = GMEMF(cam + CAM_POS + 4u * i);
+        }
+        s_fc.yaw = atan2f(k[1], k[0]);
+        s_fc.pitch = asinf(k[2] < -1.0f ? -1.0f : k[2] > 1.0f ? 1.0f : k[2]);
+        /* right = K x up, up' = right x K (Z up); match the game's signs */
+        r[0] = k[1]; r[1] = -k[0]; r[2] = 0.0f;
+        u[0] = r[1] * k[2] - r[2] * k[1]; u[1] = r[2] * k[0] - r[0] * k[2];
+        u[2] = r[0] * k[1] - r[1] * k[0];
+        s_fc.si = r[0] * i0[0] + r[1] * i0[1] + r[2] * i0[2] < 0.0f ? -1.0f : 1.0f;
+        s_fc.sj = u[0] * j0[0] + u[1] * j0[1] + u[2] * j0[2] < 0.0f ? -1.0f : 1.0f;
+        s_fc.last = now;
+        s_fc.started = 1;
+        fprintf(stderr, "[FREECAM] start at %.2f %.2f %.2f, yaw %.2f pitch %.2f, signs %g %g\n",
+                s_fc.pos[0], s_fc.pos[1], s_fc.pos[2], s_fc.yaw, s_fc.pitch, s_fc.si, s_fc.sj);
+    }
+    dt = (float)(now - s_fc.last);
+    s_fc.last = now;
+    if (dt < 0.0f || dt > 0.1f) dt = 0.1f;
+    s_fc.yaw -= s_fc.rx * 2.0f * dt;
+    s_fc.pitch += s_fc.ry * 2.0f * dt;
+    if (s_fc.pitch > 1.5f) s_fc.pitch = 1.5f;
+    if (s_fc.pitch < -1.5f) s_fc.pitch = -1.5f;
+    cy = cosf(s_fc.yaw); sy = sinf(s_fc.yaw); cp = cosf(s_fc.pitch); sp = sinf(s_fc.pitch);
+    k[0] = cp * cy; k[1] = cp * sy; k[2] = sp;
+    r[0] = k[1]; r[1] = -k[0]; r[2] = 0.0f;
+    len = sqrtf(r[0] * r[0] + r[1] * r[1]);
+    r[0] /= len; r[1] /= len;
+    u[0] = r[1] * k[2] - r[2] * k[1]; u[1] = r[2] * k[0] - r[0] * k[2];
+    u[2] = r[0] * k[1] - r[1] * k[0];
+    for (i = 0; i < 3; i++)
+        s_fc.pos[i] += (k[i] * s_fc.ly + r[i] * s_fc.lx) * s_fc.speed * dt;
+    s_fc.pos[2] += s_fc.vert * s_fc.speed * dt;
+    for (i = 0; i < 3; i++) {
+        GMEMF(cam + CAM_ROW_I + 4u * i) = s_fc.si * r[i];
+        GMEMF(cam + CAM_ROW_J + 4u * i) = s_fc.sj * u[i];
+        GMEMF(cam + CAM_ROW_K + 4u * i) = k[i];
+        GMEMF(cam + CAM_POS + 4u * i) = s_fc.pos[i];
+    }
 }

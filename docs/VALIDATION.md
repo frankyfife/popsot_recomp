@@ -38,7 +38,15 @@ the menus' sound-type pause (Mdl00001BA5_fn_PauseEverything 0x00114F20 /
 ResumeEverything 0x00116270: the pause flag *[0x758534] was 0, and
 resuming both types with 0x000A2A60 changed nothing), and the map key's
 0x20000000 bit New Game passes (0x2200B526 for 0101; with it the level
-select's 6101 stayed silent too). Open.
+select's 6101 stayed silent too). Also ruled out (night of 2026-10-25):
+stopping the menu's sounds first, as the main menu's cinematic branch does
+(DARE_StopSounds 0x000A2070 with esi = the type at [0x430E64], edi 0, a
+pushed 0; MenuStartDemoE3__MSG at 0x00143E1D): the stop ran, and 6101 still
+started no voice. The game's own ChangeMap callers (the AI library's
+0x0025B8A9 and 0x0025B921, used by level triggers such as the balcony
+door) call nothing sound-related before the change either, so the missing
+step is not right at the call. The sound banks (sound/soundx*.big/.fat)
+are all opened at startup, not per level. Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

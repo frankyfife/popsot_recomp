@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -27,6 +28,9 @@ typedef struct {
     unsigned nkeys;
     uint64_t dumped[1024];
     unsigned ndumped;
+    uint64_t last_key;          /* key of the latest lookup, 0 when not computed */
+    uint64_t ui[512];           /* keys already listed in dump/ui_keys.txt */
+    unsigned nui;
 } ResotTexPack;
 static ResotTexPack s_texpack;
 
@@ -147,6 +151,124 @@ done:
     return px;
 }
 
+/* In dump mode: list a texture drawn after the frame's last full-screen
+ * composite, i.e. menu text, prompts and HUD, once in dump/ui_keys.txt, so
+ * tools/hd-ui.py knows which dumped textures are interface. */
+static void texpack_note_ui(uint64_t key, uint32_t w, uint32_t h, uint32_t fmt)
+{
+    char path[700];
+    FILE *f;
+    unsigned i;
+    if (!s_texpack.dump || !key) return;
+    for (i = 0; i < s_texpack.nui; i++)
+        if (s_texpack.ui[i] == key) return;
+    if (s_texpack.nui < 512) s_texpack.ui[s_texpack.nui++] = key;
+    snprintf(path, sizeof path, "%s/dump/ui_keys.txt", s_texpack.dir);
+    f = fopen(path, "a");
+    if (!f) return;
+    fprintf(f, "%016llx %ux%u fmt%02X\n", (unsigned long long)key, w, h, fmt);
+    fclose(f);
+}
+
+/* RE-SoT: automatic HD interface. A texture drawn after the frame's last
+ * full-screen composite (menu text, prompts, HUD) that has no pack file is
+ * scaled up to 8x (at most 2048 texels), Catmull-Rom on premultiplied
+ * colour. Where the alpha is mostly hard-edged (icons, bars, glyphs) it is
+ * also sharpened around its 0.5 iso-contour, so edges stay crisp at any
+ * resolution, the raster equivalent of tracing it into vectors. Soft
+ * textures (glows, fog layers) keep the plain bicubic result.
+ * RESOT_HD_UI=0 or [Graphics] HDInterface=0 turns it off. */
+static int texpack_hd_ui_enabled(void)
+{
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("RESOT_HD_UI");
+        v = !(e && *e == '0');
+    }
+    return v;
+}
+
+static float texpack_cubic(float p0, float p1, float p2, float p3, float t)
+{
+    return p1 + 0.5f * t * (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3
+                                           + t * (3.0f * (p1 - p2) + p3 - p0)));
+}
+
+/* BGRA in, BGRA out (malloc'ed); NULL when not worth it. */
+static uint32_t *texpack_upscale_ui(const uint32_t *px, uint32_t w, uint32_t h,
+                                    uint32_t *ow, uint32_t *oh)
+{
+    uint32_t s = 8, x, y, c, n = w * h, hard = 0, soft = 0;
+    float *pm, *row, k;
+    uint32_t *out;
+    while (s > 1 && (w * s > 2048 || h * s > 2048)) s >>= 1;
+    if (s < 2 || w < 4 || h < 4) return NULL;
+    for (x = 0; x < n; x++) {
+        uint32_t a = px[x] >> 24;
+        if (a > 12) { if (a < 38 || a > 217) hard++; else soft++; }
+    }
+    k = soft * 3u < hard ? 2.5f : 1.0f;          /* mostly hard-edged: sharpen */
+    pm = (float *)malloc(sizeof(float) * 4 * n);
+    row = (float *)malloc(sizeof(float) * 4 * (size_t)w * h * s);
+    out = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)w * s * h * s);
+    if (!pm || !row || !out) { free(pm); free(row); free(out); return NULL; }
+    for (x = 0; x < n; x++) {                     /* premultiplied B, G, R, A */
+        float a = (float)(px[x] >> 24) / 255.0f;
+        for (c = 0; c < 3; c++) pm[x * 4 + c] = (float)((px[x] >> (8 * c)) & 255) / 255.0f * a;
+        pm[x * 4 + 3] = a;
+    }
+    /* horizontal pass: w*s x h */
+    for (y = 0; y < h; y++)
+        for (x = 0; x < w * s; x++) {
+            float fx = ((float)x + 0.5f) / (float)s - 0.5f, t;
+            int i = (int)floorf(fx), j;
+            t = fx - (float)i;
+            for (c = 0; c < 4; c++) {
+                float v[4];
+                for (j = 0; j < 4; j++) {
+                    int xi = i - 1 + j;
+                    xi = xi < 0 ? 0 : xi >= (int)w ? (int)w - 1 : xi;
+                    v[j] = pm[((size_t)y * w + (uint32_t)xi) * 4 + c];
+                }
+                row[((size_t)y * w * s + x) * 4 + c] = texpack_cubic(v[0], v[1], v[2], v[3], t);
+            }
+        }
+    /* vertical pass, then sharpen alpha and un-premultiply */
+    for (y = 0; y < h * s; y++) {
+        float fy = ((float)y + 0.5f) / (float)s - 0.5f, t;
+        int i = (int)floorf(fy), j;
+        t = fy - (float)i;
+        for (x = 0; x < w * s; x++) {
+            float v4[4], a, a2, scale;
+            for (c = 0; c < 4; c++) {
+                float v[4];
+                for (j = 0; j < 4; j++) {
+                    int yi = i - 1 + j;
+                    yi = yi < 0 ? 0 : yi >= (int)h ? (int)h - 1 : yi;
+                    v[j] = row[((size_t)(uint32_t)yi * w * s + x) * 4 + c];
+                }
+                v4[c] = texpack_cubic(v[0], v[1], v[2], v[3], t);
+            }
+            a = v4[3] < 0.0f ? 0.0f : v4[3] > 1.0f ? 1.0f : v4[3];
+            a2 = (a - 0.5f) * k + 0.5f;
+            a2 = a2 < 0.0f ? 0.0f : a2 > 1.0f ? 1.0f : a2;
+            scale = a > 0.001f ? 1.0f / a : 0.0f;
+            {
+                uint32_t pxl = (uint32_t)(a2 * 255.0f + 0.5f) << 24;
+                for (c = 0; c < 3; c++) {
+                    float v = v4[c] * scale;
+                    v = v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
+                    pxl |= (uint32_t)(v * 255.0f + 0.5f) << (8 * c);
+                }
+                out[(size_t)y * w * s + x] = pxl;
+            }
+        }
+    }
+    free(pm); free(row);
+    *ow = w * s; *oh = h * s;
+    return out;
+}
+
 /* The replacement for these decoded pixels (malloc'ed, top-down BGRA), or
  * NULL. Also does the dump when asked. */
 static uint32_t *texpack_lookup(const uint32_t *px, uint32_t w, uint32_t h, uint32_t fmt,
@@ -155,8 +277,10 @@ static uint32_t *texpack_lookup(const uint32_t *px, uint32_t w, uint32_t h, uint
     uint64_t key;
     char path[700];
     if (!s_texpack.ready) texpack_init();
+    s_texpack.last_key = 0;
     if (!s_texpack.nkeys && !s_texpack.dump) return NULL;
     key = texpack_key(px, w, h, fmt);
+    s_texpack.last_key = key;
     if (s_texpack.dump && s_texpack.ndumped < 1024) {
         unsigned i;
         for (i = 0; i < s_texpack.ndumped && s_texpack.dumped[i] != key; i++)

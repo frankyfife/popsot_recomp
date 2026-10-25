@@ -804,6 +804,10 @@ void resot_options_init(void)
       for(i=0;i<2;i++) { char value[16];
         GetPrivateProfileStringA("Language",keys[i][0],"german",value,sizeof value,s_path);
         env=getenv(keys[i][1]); if(!env||!*env) _putenv_s(keys[i][1],value); } }
+    /* RE-SoT: [Graphics] HDInterface=1 (default): interface textures without a
+     * texture pack file are scaled up automatically (resot_texpack.h). */
+    env=getenv("RESOT_HD_UI");
+    if(!env||!*env) _putenv_s("RESOT_HD_UI",GetPrivateProfileIntA("Graphics","HDInterface",1,s_path)?"1":"0");
     s_pending_size=0; /* Internal resolution never changes the window. */
     for(i=0;i<ACTIONS;i++) {
         snprintf(name,sizeof name,"Action%d",i);

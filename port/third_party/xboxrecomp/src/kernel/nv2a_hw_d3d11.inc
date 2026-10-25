@@ -145,6 +145,9 @@ typedef struct {
     uint32_t offset, fmt, w, h, pitch, palette;
     uint32_t cube, levels; /* RE-SoT: resource shape is part of the cache key. */
     uint32_t hash, checked_frame, used_frame;
+    uint64_t packkey;      /* RE-SoT: texture pack key, when it was computed */
+    uint32_t hd;           /* RE-SoT: 0 guest size, 1 automatic HD interface, 2 not
+                            * worth it, 3 texture pack replacement */
     ID3D11Texture2D *tex;
     ID3D11ShaderResourceView *srv;
 } HwTexture;
@@ -225,6 +228,7 @@ static struct {
     HwSurface *front, *biggest;          /* shown / largest drawn this frame */
     uint32_t biggest_area;
     uint32_t frame;
+    uint32_t post_frame;   /* RE-SoT: frame whose last full-screen composite was drawn */
     DWORD last_flip_ms;
     int pending_present; /* RE-SoT: backbuffer awaiting submission completion. */
     ID3D11Texture2D *ovl_tex;
@@ -1489,6 +1493,52 @@ static void hw_border_constants(HwPsConst *pc, unsigned stage, const Texture *t)
 }
 
 #if RESOT_HW_D3D11
+/* RE-SoT: an interface texture (drawn after the frame's last full-screen
+ * composite onto the display): listed in dump mode, and given the automatic
+ * HD version once (resot_texpack.h, texpack_upscale_ui). */
+static void hw_texpack_note(HwTexture *c, const HwSurface *target, const Texture *t)
+{
+    uint32_t *px, *hd, w, h;
+    D3D11_TEXTURE2D_DESC td;
+    ID3D11Texture2D *tex = NULL;
+    ID3D11ShaderResourceView *srv = NULL;
+    if (s_hw.post_frame != s_hw.frame || !target || target->w != 640)
+        return;
+    if (s_texpack.dump && c->packkey)
+        texpack_note_ui(c->packkey, c->w, c->h, c->fmt);
+    if (c->hd || t->cube || !texpack_hd_ui_enabled() || t->width * t->height > 256u * 256u)
+        return;
+    c->hd = 2;
+    px = (uint32_t *)malloc((size_t)t->width * t->height * 4);
+    if (!px) return;
+    hw_decode_texture(t, 0, px);
+    hd = texpack_upscale_ui(px, t->width, t->height, &w, &h);
+    free(px);
+    if (!hd) return;
+    memset(&td, 0, sizeof td);
+    td.Width = w; td.Height = h; td.MipLevels = 0; td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM; td.SampleDesc.Count = 1;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    td.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+    if (SUCCEEDED(ID3D11Device_CreateTexture2D(s_hw.dev, &td, NULL, &tex))
+        && SUCCEEDED(ID3D11Device_CreateShaderResourceView(s_hw.dev, (ID3D11Resource *)tex, NULL, &srv))) {
+        ID3D11DeviceContext_UpdateSubresource(s_hw.ctx, (ID3D11Resource *)tex, 0, NULL, hd, w * 4, 0);
+        ID3D11DeviceContext_GenerateMips(s_hw.ctx, srv);
+        if (c->srv) ID3D11ShaderResourceView_Release(c->srv);
+        if (c->tex) ID3D11Texture2D_Release(c->tex);
+        c->tex = tex; c->srv = srv; c->hd = 1;
+        {
+            static unsigned reports;
+            if (reports++ < 64)
+                fprintf(stderr, "[HD-UI] %08X %ux%u fmt %02X -> %ux%u\n", t->offset, t->width, t->height, t->color, w, h);
+        }
+    } else {
+        if (srv) ID3D11ShaderResourceView_Release(srv);
+        if (tex) ID3D11Texture2D_Release(tex);
+    }
+    free(hd);
+}
+
 static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
 {
     const Texture *t = &s_gpu.texs[stage];
@@ -1547,11 +1597,13 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     }
     if (c && c->checked_frame == s_hw.frame) {
         c->used_frame = s_hw.frame;
+        hw_texpack_note(c, target, t);
         return c->srv;
     }
     hash = hw_tex_hash(t);
     if (c && c->hash == hash) {
         c->checked_frame = c->used_frame = s_hw.frame;
+        hw_texpack_note(c, target, t);
         return c->srv;
     }
     /* RE-SoT: distinguish streamed/animated data from cache collisions in
@@ -1582,6 +1634,8 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
         uint32_t rw = t->width, rh = t->height, *rep = NULL;
         if (!t->cube)
             rep = texpack_lookup(px, t->width, t->height, t->color, &rw, &rh);
+        c->packkey = s_texpack.last_key;
+        c->hd = rep ? 3 : 0;
         if (rep) {
             free(px);
             px = rep;
@@ -1640,6 +1694,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
             cache_reason == 0 ? "changed" : cache_reason == 1 ? "new" : "evicted",
             (double)(upload_end.QuadPart-upload_start.QuadPart)*1000.0/upload_frequency.QuadPart);
     }
+    hw_texpack_note(c, target, t);
     return c->srv;
 }
 
@@ -2513,6 +2568,12 @@ static int hw_postprocess_candidate(uint32_t n)
     const Texture *t = &s_gpu.texs[0];
     uint32_t i;
     if (hw_post_chain_candidate(n) || hw_post_disabled_consumer(n)) return 1;
+    /* RE-SoT: the frame's last full-screen composite (soft focus, 160x120
+     * source, blend 302/303): interface draws follow (texpack_note_ui). */
+    if (n == 4 && s_gpu.prim == NV_PRIM_QUADS && s_gpu.clip_w == 640 && s_gpu.clip_h == 480
+        && s_gpu.blend_enable && s_gpu.blend_sfactor == 0x302 && s_gpu.blend_dfactor == 0x303
+        && t->valid && t->width == 160 && t->height == 120 && t->color == 0x12)
+        s_hw.post_frame = s_hw.frame;
     if ((hw_post_quality()!=0 && xbox_FramebufferPostProcessing() && s_ftrace != 2)
         || n != 4 || s_gpu.prim != NV_PRIM_QUADS
         || s_gpu.clip_w != 640 || s_gpu.clip_h != 480

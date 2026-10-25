@@ -52,8 +52,34 @@ into the running world exactly as in the user's own New Game session
 so the world loading matches too. A temporary trace in the map's sound
 behaviour (Snd_MapInit_bhv_init, 0x001D0320, from the AI2C name table)
 never fired after the level select, nor in the menu world; whether it
-fires on a normal level start is the next thing to check (a scripted pad
-did not get past the menu's balcony). Open.
+fires on a normal level start: it does not (a scripted New Game,
+RECOMP_PAD_SCRIPT start, then A every 3 s, then the left stick up, reaches
+0101 and 0102 with sound and never runs it), so it is not the missing step.
+
+What the night's runs pin down (all temporary code, reverted):
+
+- The level select into **0101_Entree** is silent too, while New Game's own
+  way into the same 0101 has sound (9 2D voices, peaks 0.25-0.70). So the
+  level is fine; the way in is not.
+- Leaving from play instead of the menu does not help: a warp to 6101 from
+  the balcony after New Game (ChangeMap with the menu-close steps skipped)
+  was just as silent.
+- Stopping both menu sound types first (DARE_StopSounds on [0x430E64] and
+  [0x430E68], as the menu does before the opening film) and resuming both
+  types every 5 s from 10 s after the change (0x000A2A60) changed nothing.
+- The "5 active 2D voices" are not the menu's sounds: they stay through the
+  stop above. New Game's 0101 adds 4 to them; the level select adds none.
+- The sound switches the menu tests (bytes [0x758484] = 1, [0x758485] = 0,
+  [0x430E9C] = 1, [0x758478] = 1) are the same either way; the pause flag
+  *[0x758534] goes from 1 in the menu to 0 after the change in both.
+
+New Game's ChangeMap (0x002B18E2) runs from the opening film's script with
+eax = [0x767C88] and the key 0x2200B526; the level select's runs from the
+input poll with eax = [0x76606C]. Earlier tests swapped each of these alone
+without effect; the next step is to start the level the way New Game does
+end to end (through the film's script), or to trace the first sound New
+Game's 0101 starts and follow why the same call does nothing after the
+level select. Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

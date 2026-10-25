@@ -1,5 +1,26 @@
 # Validation log
 
+## 2026-10-25: subtitles and hints on xbox-retail
+
+**What the game shows.** The retail German text streams (FD5xxxxx in
+`prince.bf`, 340 of 342 the same 13556-byte table) hold menus, tutorial
+hints with inline button codes (`\d5\ \p5\A`), area titles ("Die Baeder",
+"Erklimmt den Turm"), the "that is not how it happened" lines after a
+death and save messages. There are no dialogue lines for the cutscenes and
+no subtitle option in either language: the in-engine cutscenes are not
+subtitled on Xbox, and the bonus films carry theirs in the video
+(`tools/german-speech.py --films`, see above). Two developer strings
+("Load Map", "Hourglass Room") are English in every language.
+
+**Checked.** Run into `0101_Entree` (`RESOT_START_LEVEL`), snapshots every
+3 s and a capture at 3840x2160 at 62 s: the first tutorial hint reads "Der
+linke Analog-Stick steuert den Prinzen / der rechte Analog-Stick steuert
+die Kamera", drawn with the HD font (crisp, no fringes), bottom centre,
+cream, without a box. Over bright parts of the picture (the torches a few
+seconds later) it is hard to read; the original font has no outline or
+shadow either. **Not checked:** a hint with inline button icons, the area
+titles, the lines after a death.
+
 ## 2026-10-25: HD HUD from the PC version's texture pack
 
 The user found the redrawn HUD (below) too blurry and pointed to the PC

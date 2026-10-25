@@ -79,7 +79,16 @@ input poll with eax = [0x76606C]. Earlier tests swapped each of these alone
 without effect; the next step is to start the level the way New Game does
 end to end (through the film's script), or to trace the first sound New
 Game's 0101 starts and follow why the same call does nothing after the
-level select. Open.
+level select.
+
+Two last runs: with the Prince walking, jumping and striking in 6101 after
+the level select (scripted pad, snapshots show him moving), the output stays
+at 0.0000, so the level is mute, not just quiet. And New Game's key bit
+together with its eax (key 0x2200B526, eax [0x767C88], which held the same
+object as [0x76606C]) gave the level select's 0101 sound (peaks 0.22-0.23,
+a 3D voice), but 6101 with the same bit (0x22003E88) stayed silent; 0101
+with that key may simply be New Game's own start (opening sequence), so
+this is a lead, not a fix. Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

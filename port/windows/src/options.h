@@ -41,5 +41,9 @@ void resot_native_activate(int page, int item);
 void resot_native_reset_bindings(void);
 /* Changes whenever a native label may read differently. */
 long resot_native_revision(void);
+/* Free-form values of the target hooks in resot-options.ini (retail: [Menu]
+ * camera poses). An empty value removes the key; scripted runs do not write. */
+int resot_options_get_string(const char *section, const char *key, char *out, unsigned size);
+int resot_options_set_string(const char *section, const char *key, const char *value);
 
 #endif

@@ -1,5 +1,49 @@
 # Validation log
 
+## 2026-10-25: main-menu camera and the Prototype page (retail)
+
+**Main-menu camera** (after popsot-fixes `src/menucam.cpp`, user request: on
+PC the camera could be placed in the start screen and stored, which hides
+the empty edges at 16:9). Traced with `RESOT_CAM_TRACE=1` (main camera at
+CAM_Inverse's entry, every 30th frame, with the current WOW): the front end
+is world "Menu", its camera rests at -83.589 1.389 -2.662 (K -0.991 -0.101
+0.085) and New Game flies it to -92.802 -0.965 3.932 (K -0.906 -0.394
+0.157), the PC values (popsot-fixes TECHNICAL.md, Cameras). The PC logic
+is ported unchanged (start pose or offsets, flight progress projected on
+the line menu -> end, view turned to the end pose or aimed at the Prince,
+hold at the end, blend over or cut). Default poses: the user's
+`camera_start` / `camera_end` from `popfix.ini` in the GOG folder
+(-82.927 2.869 -2.608 -2.9409 0.1740 / -93.671 0.653 4.524 -2.7889
+-0.0786). `[Menu]` keys in `resot-options.ini` through two new
+`options.c` functions; scripted runs do not write them.
+
+**Checked** (captures at 3840x2160 with `RECOMP_FRAME_TRACE`):
+- original (`RESOT_MENU_CAMERA=0`) against the offsets 3.5 / 6.25: the
+  moved camera shows the palace and the Prince at the window instead of
+  foliage with an empty corner;
+- free camera in the main menu: started from the moved pose (-87.06 1.03
+  3.88), X stored `CameraStart` (log: not saved, scripted run) and the
+  menu showed that pose at once;
+- `mode pc`: the PC poses in use; New Game (profile, A on "Neues Spiel"):
+  the camera flew from the picture to the balcony and held there, Prince in
+  view throughout (snapshots every 2 s).
+The user notes the picture is not quite the PC one (accepted).
+
+**Prototype page.** Universe object 0xCC00008E (AI instance [0x44AA24],
+0x001109C4), variables at +0x44:
+- +0xE0 life regeneration: fn_RegenerateLife (0x0026AE40) adds 1 life per
+  second while it is non-zero. Forcing it at every input poll logged it
+  back at 0 more than 2600 times in 90 s: the universe's behaviour clears
+  it every frame (0x001BC4A4). Set at fn_RegenerateLife's entry instead
+  (new entry hook, re-lift: scripts_0009.c). Checked with
+  `RESOT_PROTO_TRACE=hurt` (life halved once in play): 50 at 50.8 s, then
+  +1 about every second, 86 at 89.8 s.
+- +0xBC interface: 1 in play; 0 hid the life bar in 6101 (snapshots).
+- +0xD8 developer pad (scan finding 1): set, its slot [0x76C01C] pointed to
+  it and prince +0x704 was 1, but none of d-pad, Black, White, LT, RT, L3,
+  X, Y, B changed the life or the sword (fn_iCheats queries pad codes 7,
+  5, ... through 0x000DC4F0). Not offered; the button mapping is open.
+
 ## 2026-10-25: reSOT Debug page, pause menu entry, prototype spawner cheats
 
 **Why in the reSOT menu, not a launcher.** The user asked for FuturamaPC's

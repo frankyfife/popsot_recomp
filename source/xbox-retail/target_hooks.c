@@ -877,7 +877,7 @@ extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 #define RESOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
 #define RESOT_MSG_KIND     0x52E5u
 #define RESOT_TEXT_SLOT    96u
-#define RESOT_TEXTS        160u
+#define RESOT_TEXTS        170u
 
 static int hidden_menus(void)
 {
@@ -902,7 +902,7 @@ static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50,
        T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141,
-       T_DEBUG = 150, T_DBG = 151 };
+       T_DEBUG = 150, T_DBG = 151, T_PROTO = 160, T_PRO = 161 };
 static const char *const s_static_texts[] = {
     "reSOT Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
@@ -979,8 +979,16 @@ static const char *const s_cheat_names_de[CHEATS] = {
     "Endlose Gegner (Prototyp)" };
 static void cheat_sword_label(char *out, unsigned size);
 
+/* RE-SoT: the reSOT Prototype page (below, after the cheats). */
+enum { PRO_REGEN, PRO_NOHUD, PROS };
+static int s_proto[PROS];
+static const char *const s_proto_names[PROS] = {
+    "Life regeneration (prototype)", "Hide interface" };
+static const char *const s_proto_names_de[PROS] = {
+    "Lebensregeneration (Prototyp)", "Interface ausblenden" };
+
 /* RE-SoT: the reSOT Debug page (below, after the free camera). */
-enum { DBG_PANEL, DBG_FREECAM, DBG_FREEZE, DBG_SPEED, DBGS };
+enum { DBG_PANEL, DBG_FREECAM, DBG_FREEZE, DBG_SPEED, DBG_MENUCAM, DBGS };
 static void debug_label(int item, char *out, unsigned size);
 static void debug_activate(int item);
 static long debug_revision(void);
@@ -1034,6 +1042,13 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         cheat_sword_label(out, size);
     else if (index == T_DEBUG)
         snprintf(out, size, "Debug");
+    else if (index == T_PROTO)
+        snprintf(out, size, resot_text_language() == 4 ? "Prototyp" : "Prototype");
+    else if (index >= T_PRO && index < T_PRO + PROS) {
+        int de = resot_text_language() == 4, c = (int)(index - T_PRO);
+        snprintf(out, size, "%s: %s", de ? s_proto_names_de[c] : s_proto_names[c],
+                 s_proto[c] ? (de ? "An" : "On") : (de ? "Aus" : "Off"));
+    }
     else if (index >= T_DBG && index < T_DBG + DBGS)
         debug_label((int)(index - T_DBG), out, size);
     else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
@@ -1069,7 +1084,7 @@ void sub_000F84A0(void)
 enum { DO_OPEN, DO_MSG };
 typedef struct { uint32_t text; int what; int arg; uint32_t choice; } NativeChoice;
 typedef struct { uint32_t title; float top, step; int n; NativeChoice c[12]; uint32_t page; } NativePage;
-enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS, P_DEBUG,
+enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS, P_PROTO, P_DEBUG,
        P_LEVELS, P_LV0, P_LV1, P_LV2, P_LV3, P_PAGES };
 #define MSG_ID(page, item) ((uint32_t)(page) << 8 | (uint32_t)(item))
 #define MSG_RESET 0xFF00u
@@ -1088,11 +1103,15 @@ static void native_layout(void)
     int i, j;
     NativePage *p;
     memset(s_pages, 0, sizeof s_pages);
-    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 4;
+    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 5;
     native_choice(p, 0, T_GRAPHICS, DO_OPEN, P_GFX);
     native_choice(p, 1, T_CONTROLS, DO_OPEN, P_CTRL);
     native_choice(p, 2, T_CHEATS, DO_OPEN, P_CHEATS);
-    native_choice(p, 3, T_DEBUG, DO_OPEN, P_DEBUG);
+    native_choice(p, 3, T_PROTO, DO_OPEN, P_PROTO);
+    native_choice(p, 4, T_DEBUG, DO_OPEN, P_DEBUG);
+    p = &s_pages[P_PROTO]; p->title = T_PROTO; p->top = 0.3833f; p->step = 0.0667f; p->n = PROS;
+    for (i = 0; i < p->n; i++)
+        native_choice(p, i, T_PRO + (uint32_t)i, DO_MSG, (int)MSG_ID(P_PROTO, i));
     p = &s_pages[P_CHEATS]; p->title = T_CHEATS; p->top = 0.3f; p->step = 0.0667f;
     p->n = CHEATS + 1;
     for (i = 0; i < p->n; i++)
@@ -1445,6 +1464,11 @@ void sub_00039B20(void)
         s_sword_pending = 1;                      /* once the menu is closed */
     else if ((id >> 8) == P_DEBUG)
         debug_activate((int)(id & 0xFF));
+    else if ((id >> 8) == P_PROTO && (id & 0xFF) < PROS) {
+        s_proto[id & 0xFF] = !s_proto[id & 0xFF];
+        s_cheat_revision++;
+        fprintf(stderr, "[PROTO] %s %s\n", s_proto_names[id & 0xFF], s_proto[id & 0xFF] ? "on" : "off");
+    }
     else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
         int n = s_part_first[(id >> 8) - P_LV0] + (int)(id & 0xFF);
         if (n < s_part_first[(id >> 8) - P_LV0 + 1])
@@ -1651,6 +1675,7 @@ static void cheat_next_sword(void)
 }
 
 static void debug_tick(void);
+static void proto_tick(void);
 
 static void cheats_tick(void)
 {
@@ -1692,6 +1717,7 @@ static void cheats_tick(void)
     cheat_spawn_bit(SPAWN_MSG_GLOBAL, CHEAT_BIT_NO_SPAWN, s_cheat[CHEAT_NO_SPAWN], &mine_spawn);
     cheat_spawn_bit(SPAWN_BHV_GLOBAL, CHEAT_BIT_ENDLESS, s_cheat[CHEAT_ENDLESS], &mine_endless);
     debug_tick();
+    proto_tick();
     if (!s_cheat[CHEAT_INVULNERABLE] && !s_cheat[CHEAT_SAND])
         return;
     if (!(v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4)))
@@ -1745,6 +1771,103 @@ void sub_0017A0C0_enter(void)
         GMEM32(v + V_HITS) = 0;
 }
 
+/* The Prototype page: switches of the universe script object (0xCC00008E)
+ * that retail still reads but never sets, found by comparing the PS2
+ * prototype's MAPFILE.MAP localref slots (__localref__cc00008e_<offset>_*)
+ * with the retail readers. The universe's AI instance is [0x44AA24]
+ * (0x001109C4: script reference 0xCC00008E resolves to it), its variables
+ * at +0x44.
+ * - not offered: +0xD8, the prototype's "Cheats" switch of the pause
+ *   menu's Special page. Prince_Bhv_BeforeMainTrack still calls the
+ *   prototype's fn_iCheats (0x00110DB1 -> 0x0026F1C0), which tests the
+ *   switch (its slot 0x76BFEC), then prince variable +0x704 (1 in play) and
+ *   then pad codes through 0x000DC4F0 (7, 5, ...); R3 ghost mode
+ *   (0x00111DA6, Prince_Bhv_GhostMode 0x002825F0) and Back's death menu
+ *   (0x00110DC5) test it too. With +0xD8 set, no single button changed the
+ *   life or the sword in 6101 (d-pad, Black, White, triggers, thumbs, X, Y,
+ *   B): the combination or the controller it wants is not known yet.
+ * - +0xE0, life regeneration: fn_RegenerateLife (0x0026AE40, reads it at
+ *   0x0026AEF4) gives one life point per second while it is non-zero; the
+ *   universe's behaviour puts 0 there again every frame (0x001BC4A4, seen
+ *   in play), so the option sets it at that function's entry.
+ * - +0xBC, the prototype's "Interface" switch: read by
+ *   fn_UpdateLifeBarVisibility and the tutorial manager; it starts non-zero
+ *   (from the data), the option writes 0 and puts the old value back.
+ * Set at every input poll while on; a value is only put back by the
+ * switch that changed it. Not saved. */
+#define UNIVERSE_AI     0x0044AA24u
+#define U_REGEN         0xE0u
+#define U_INTERFACE     0xBCu
+
+static uint32_t universe_vars(void)
+{
+    int ok = 1;
+    uint32_t ai = cheat_word(UNIVERSE_AI, &ok), v;
+    v = ok && ai ? cheat_word(ai + 0x44, &ok) : 0;
+    if (ok && v) cheat_word(v + U_REGEN, &ok);
+    return ok ? v : 0;
+}
+
+static void proto_tick(void)
+{
+    static const uint32_t off[PROS] = { U_REGEN, U_INTERFACE };
+    static int mine[PROS];
+    static uint32_t saved[PROS];
+    static int configured;
+    uint32_t v = universe_vars(), want;
+    int i;
+    if (!configured) {                           /* RESOT_PROTO=regen,nohud */
+        const char *e = getenv("RESOT_PROTO");
+        configured = 1;
+        if (e && *e) {
+            s_proto[PRO_REGEN] = strstr(e, "regen") != NULL;
+            s_proto[PRO_NOHUD] = strstr(e, "nohud") != NULL;
+            s_cheat_revision++;
+        }
+    }
+    if (!v) return;
+    for (i = 0; i < PROS; i++) {
+        uint32_t cur = GMEM32(v + off[i]);
+        if (i == PRO_REGEN) continue;            /* at fn_RegenerateLife's entry */
+        want = 0;                                /* the interface switch */
+        if (s_proto[i]) {
+            if (!mine[i]) { saved[i] = cur; mine[i] = 1; }
+            if (cur != want) {
+                GMEM32(v + off[i]) = want;
+                fprintf(stderr, "[PROTO] universe +0x%X: %u -> %u\n", off[i], cur, want);
+            }
+        } else if (mine[i]) {
+            GMEM32(v + off[i]) = i == PRO_NOHUD && !saved[i] ? 1 : saved[i];
+            mine[i] = 0;
+        }
+    }
+}
+
+/* fn_RegenerateLife (object in eax). */
+void sub_0026AE40_enter(void)
+{
+    uint32_t v;
+    if (!s_proto[PRO_REGEN] || !(v = universe_vars()))
+        return;
+    GMEM32(v + U_REGEN) = 1;
+    if (getenv("RESOT_PROTO_TRACE")) {           /* the prince's life, when it changes */
+        static int32_t last = -1;
+        uint32_t pv = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4);
+        static uint32_t last_sword;
+        static int hurt;
+        if (pv && !hurt && GMEM32(pv + 0x704) == 1 && !strcmp(getenv("RESOT_PROTO_TRACE"), "hurt")) {
+            hurt = 1;                            /* =hurt: half the life once, in play */
+            GMEM32(pv + V_LIFE) = GMEM32(pv + V_LIFE_MAX) / 2;
+        }
+        if (pv && ((int32_t)GMEM32(pv + V_LIFE) != last || GMEM32(pv + V_SWORD_INDEX) != last_sword)) {
+            last = (int32_t)GMEM32(pv + V_LIFE);
+            last_sword = GMEM32(pv + V_SWORD_INDEX);
+            fprintf(stderr, "[PROTO] %.1f s: prince life %d of %d, sword %u\n",
+                    (double)clock() / CLOCKS_PER_SEC, last, (int)GMEM32(pv + V_LIFE_MAX), last_sword + 1);
+        }
+    }
+}
+
 /* Free camera, after popsot-fixes (src/menucam.cpp, docs/TECHNICAL.md:345):
  * a free-flying camera written into the main view's camera struct.
  * Retail (Jade source WORrender.c, PS2 prototype CAM_Inverse 0x400CC0):
@@ -1765,7 +1888,8 @@ void sub_0017A0C0_enter(void)
  * (or Q / E) down / up, Black or Shift faster, White or Ctrl slower, Y or P
  * freezes the world. Back or F8 switches the camera on and off, as does the
  * reSOT Debug page; while it is on the game gets no input but Start, except
- * while a menu page is open. RESOT_FREECAM=0 disables it. */
+ * while a menu page is open in a level (in the main menu the camera takes
+ * it, see the menu camera below). RESOT_FREECAM=0 disables it. */
 #define CUR_DISPLAY        0x00758E34u
 #define DISPLAY_CAMERA     0xD0u
 #define CAM_ROW_I          0x90u
@@ -1774,6 +1898,7 @@ void sub_0017A0C0_enter(void)
 #define CAM_POS            0xC0u
 #define SETCAM_INVERSE_RET 0x0002F7EBu
 #define FORCE_PAUSE_ENGINE 0x007584A0u
+extern void resot_current_wow(char *out, size_t size);
 static struct {
     int on, started, frozen;
     float lx, ly, rx, ry, vert, speed;
@@ -1795,9 +1920,12 @@ static float fc_axis(int16_t v)
     return (f < 0 ? -1.0f : 1.0f) * (a - 0.2f) / 0.8f;
 }
 
+static int menu_world(void);
+static void menucam_store(int which);
+
 static void freecam_pad(uint8_t *st)
 {
-    static int was_toggle, was_freeze;
+    static int was_toggle, was_freeze, was_x, was_b;
     uint16_t buttons;
     int16_t th[4];
     int toggle, freeze, i;
@@ -1822,9 +1950,15 @@ static void freecam_pad(uint8_t *st)
         fprintf(stderr, "[FREECAM] world %s\n", s_fc.frozen ? "frozen" : "running");
     }
     was_freeze = freeze;
-    if (!cheat_in_play()) {                      /* a menu page is open: it keeps the input */
+    if (!cheat_in_play() && !menu_world()) {     /* a menu page is open: it keeps the input */
         s_fc.lx = s_fc.ly = s_fc.rx = s_fc.ry = s_fc.vert = 0.0f;
         return;
+    }
+    if (menu_world()) {                          /* X / B: the menu picture / the flight's end */
+        int x = st[6 + 2] > 128, b = st[6 + 1] > 128;
+        if (x && !was_x) menucam_store(0);
+        if (b && !was_b) menucam_store(1);
+        was_x = x; was_b = b;
     }
     s_fc.lx = fc_axis(th[0]); s_fc.ly = fc_axis(th[1]);
     s_fc.rx = fc_axis(th[2]); s_fc.ry = fc_axis(th[3]);
@@ -1850,6 +1984,8 @@ static double fc_now(void)
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
+static void menucam_apply(uint32_t cam);
+
 /* CAM_Inverse (camera in eax). */
 void sub_002FDD00_enter(void)
 {
@@ -1857,13 +1993,29 @@ void sub_002FDD00_enter(void)
     float k[3], r[3], u[3], cy, sy, cp, sp, len, dt;
     double now;
     int i;
-    if (!s_fc.on || GMEM32(g_esp) != SETCAM_INVERSE_RET || !(dd = GMEM32(CUR_DISPLAY))
+    if (getenv("RESOT_CAM_TRACE") && GMEM32(g_esp) == SETCAM_INVERSE_RET && (dd = GMEM32(CUR_DISPLAY))
+            && g_eax == dd + DISPLAY_CAMERA) {
+        static unsigned n;
+        if (n++ % 30 == 0) {
+            char wow[64];
+            resot_current_wow(wow, sizeof wow);
+            fprintf(stderr, "[CAM] %s pos %.3f %.3f %.3f K %.3f %.3f %.3f\n", wow,
+                    GMEMF(g_eax + CAM_POS), GMEMF(g_eax + CAM_POS + 4), GMEMF(g_eax + CAM_POS + 8),
+                    GMEMF(g_eax + CAM_ROW_K), GMEMF(g_eax + CAM_ROW_K + 4), GMEMF(g_eax + CAM_ROW_K + 8));
+        }
+    }
+    if (GMEM32(g_esp) != SETCAM_INVERSE_RET || !(dd = GMEM32(CUR_DISPLAY))
             || g_eax != dd + DISPLAY_CAMERA)
         return;
+    if (!s_fc.on) {
+        menucam_apply(g_eax);
+        return;
+    }
     cam = g_eax;
     now = fc_now();
     if (!s_fc.started) {
         float i0[3], j0[3];
+        menucam_apply(cam);                      /* in the main menu: start where it shows */
         for (i = 0; i < 3; i++) {
             k[i] = GMEMF(cam + CAM_ROW_K + 4u * i);
             i0[i] = GMEMF(cam + CAM_ROW_I + 4u * i);
@@ -1908,6 +2060,385 @@ void sub_002FDD00_enter(void)
     }
 }
 
+/* Main-menu camera for wide screens, after popsot-fixes (src/menucam.cpp,
+ * docs/TECHNICAL.md "Cameras"). The front end's 3D scene (world "Menu" in
+ * the current-WOW name, resot_current_wow) was built for 4:3; at 16:9 the
+ * set runs out at the left and right. Its camera rests at the PC version's
+ * Camera02 position (-83.589 1.389 -2.662, K -0.991 -0.101 0.085, traced
+ * with RESOT_CAM_TRACE=1) and New Game flies it to the same end
+ * (-92.802 -0.965 3.932, K -0.906 -0.394 0.157), so popsot-fixes' rules
+ * apply unchanged: in the menu the camera is shown from the start pose or
+ * moved by [Menu] CameraForward / CameraUp / CameraSide (along K, up, to the
+ * right; defaults 3.5 / 6.25 / 0 as on PC). [Menu] CameraMode: "pc" (the
+ * default) uses the user's poses of the PC port, "own" the ones stored with
+ * the free camera in the main menu (X: CameraStart, B: CameraEnd), and
+ * "original" leaves the camera alone (also RESOT_MENU_CAMERA=0).
+ * During the flight the moved camera follows the flight's progress (its
+ * position projected on the line menu -> end) from our start to the end
+ * pose (B, [Menu] CameraEnd) or the game's end; the view turns from the
+ * start view to the end view, or without an end pose towards the game's
+ * view corrected so the Prince (about -103.2 -5.05 1.0) stays where the
+ * game shows him. With an end pose it is held while the game's camera
+ * stays at the end, then blended over (within 3 units, 0.75 s) or cut to.
+ * The Debug page's "Menu camera" entry switches the mode. The camera rows
+ * are rewritten by WOR_SetCam before every CAM_Inverse; a camera we moved
+ * that comes back unchanged is put back to its base first. */
+#define MENU_CAM_X  -83.589f
+#define MENU_CAM_Y    1.389f
+#define MENU_CAM_Z   -2.662f
+static const float s_menu_cam[3] = { MENU_CAM_X, MENU_CAM_Y, MENU_CAM_Z };
+static const float s_flight_end[3] = { -92.802f, -0.965f, 3.932f };
+static const float s_prince_balcony[3] = { -103.2f, -5.05f, 1.0f };
+typedef struct { int set; float pos[3], yaw, pitch; } MenuPose;
+static struct {
+    int loaded, mode;
+    float forward, up, side, offset[3];
+    MenuPose pose[2];                    /* in use: 0 start (menu picture), 1 end of the flight */
+    MenuPose own[2];                     /* the player's, [Menu] CameraStart / CameraEnd */
+    int flight_done, arrived, handover;
+    float start[3], start_yaw, start_pitch;
+    double handover_start;
+    uint32_t cam;                        /* the camera we moved last */
+    int have_out;
+    float base[3], out[3], base_rows[12];
+} s_mc;
+static const char *const s_pose_keys[2] = { "CameraStart", "CameraEnd" };
+
+static float v_dot(const float *a, const float *b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+static void v_cross(const float *a, const float *b, float *r)
+{
+    r[0] = a[1] * b[2] - a[2] * b[1]; r[1] = a[2] * b[0] - a[0] * b[2]; r[2] = a[0] * b[1] - a[1] * b[0];
+}
+static void v_norm(float *v)
+{
+    float l = sqrtf(v_dot(v, v));
+    if (l > 1e-6f) { v[0] /= l; v[1] /= l; v[2] /= l; }
+}
+static int v_near(const float *a, const float *b, float dist)
+{
+    float d[3] = { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
+    return v_dot(d, d) < dist * dist;
+}
+static void yaw_pitch(const float *k, float *yaw, float *pitch)
+{
+    float f[3] = { k[0], k[1], k[2] };
+    v_norm(f);
+    *yaw = atan2f(f[1], f[0]);
+    *pitch = asinf(f[2] < -1.0f ? -1.0f : f[2] > 1.0f ? 1.0f : f[2]);
+}
+
+/* Rows I, J, K of the camera from yaw / pitch without roll, keeping the
+ * signs the engine uses for I and J. */
+static void write_rows(uint32_t cam, float yaw, float pitch)
+{
+    float f[3], r[3], u[3], i0[3], j0[3], si, sj;
+    const float z[3] = { 0.0f, 0.0f, 1.0f };
+    int i;
+    f[0] = cosf(pitch) * cosf(yaw); f[1] = cosf(pitch) * sinf(yaw); f[2] = sinf(pitch);
+    v_cross(f, z, r); v_norm(r); v_cross(r, f, u);
+    for (i = 0; i < 3; i++) {
+        i0[i] = GMEMF(cam + CAM_ROW_I + 4u * i);
+        j0[i] = GMEMF(cam + CAM_ROW_J + 4u * i);
+    }
+    si = v_dot(i0, r) < 0.0f ? -1.0f : 1.0f;
+    sj = v_dot(j0, u) < 0.0f ? -1.0f : 1.0f;
+    for (i = 0; i < 3; i++) {
+        GMEMF(cam + CAM_ROW_I + 4u * i) = si * r[i];
+        GMEMF(cam + CAM_ROW_J + 4u * i) = sj * u[i];
+        GMEMF(cam + CAM_ROW_K + 4u * i) = f[i];
+    }
+}
+
+static int menu_world(void)
+{
+    static double next;
+    static int in;
+    double now = fc_now();
+    if (now >= next) {
+        char wow[64];
+        resot_current_wow(wow, sizeof wow);
+        in = !strcmp(wow, "Menu");
+        next = now + 0.25;
+    }
+    return in;
+}
+
+static int menucam_get(const char *key, char *out, unsigned size)
+{
+#ifdef _WIN32
+    return resot_options_get_string("Menu", key, out, size);
+#else
+    (void)key; if (size) out[0] = 0; return 0;
+#endif
+}
+
+/* The modes: the PC port's poses (default), the player's own, the original. */
+enum { MC_PC, MC_OWN, MC_ORIGINAL };
+static const char *const s_mc_modes[3] = { "pc", "own", "original" };
+/* The user's menu picture and flight end of popsot-fixes on PC (popfix.ini,
+ * [menus] camera_start / camera_end, 2026-10-25): the same world, the same
+ * coordinates. */
+static const MenuPose s_pc_pose[2] = {
+    { 1, { -82.927f, 2.869f, -2.608f }, -2.9409f, 0.1740f },
+    { 1, { -93.671f, 0.653f, 4.524f }, -2.7889f, -0.0786f },
+};
+
+/* The poses and offsets of the current mode. */
+static void menucam_use(void)
+{
+    int i;
+    for (i = 0; i < 2; i++)
+        s_mc.pose[i] = s_mc.mode == MC_PC ? s_pc_pose[i] : s_mc.own[i];
+    if (s_mc.mode == MC_ORIGINAL) {
+        s_mc.pose[0].set = s_mc.pose[1].set = 0;
+        s_mc.forward = s_mc.up = s_mc.side = 0.0f;
+    } else {
+        s_mc.forward = s_mc.offset[0]; s_mc.up = s_mc.offset[1]; s_mc.side = s_mc.offset[2];
+    }
+    s_cheat_revision++;
+}
+
+static void menucam_load(void)
+{
+    char v[96];
+    const char *e;
+    int i;
+    if (s_mc.loaded) return;
+    s_mc.loaded = 1;
+    s_mc.offset[0] = 3.5f; s_mc.offset[1] = 6.25f; s_mc.offset[2] = 0.0f;
+    if (menucam_get("CameraForward", v, sizeof v)) s_mc.offset[0] = (float)atof(v);
+    if (menucam_get("CameraUp", v, sizeof v)) s_mc.offset[1] = (float)atof(v);
+    if (menucam_get("CameraSide", v, sizeof v)) s_mc.offset[2] = (float)atof(v);
+    for (i = 0; i < 2; i++) {
+        MenuPose *p = &s_mc.own[i];
+        /* RESOT_MENU_CAMERA_START / _END=<x y z yaw pitch> for test runs */
+        e = getenv(i ? "RESOT_MENU_CAMERA_END" : "RESOT_MENU_CAMERA_START");
+        if (e && *e) snprintf(v, sizeof v, "%s", e);
+        else if (!menucam_get(s_pose_keys[i], v, sizeof v)) continue;
+        p->set = sscanf(v, "%f %f %f %f %f", &p->pos[0], &p->pos[1], &p->pos[2], &p->yaw, &p->pitch) == 5;
+    }
+    s_mc.mode = MC_PC;
+    if (menucam_get("CameraMode", v, sizeof v))
+        for (i = 0; i < 3; i++)
+            if (!_stricmp(v, s_mc_modes[i])) s_mc.mode = i;
+    if ((e = getenv("RESOT_MENU_CAMERA")) && *e) {          /* pc, own, original or 0 */
+        s_mc.mode = *e == '0' ? MC_ORIGINAL : s_mc.mode;
+        for (i = 0; i < 3; i++)
+            if (!_stricmp(e, s_mc_modes[i])) s_mc.mode = i;
+    }
+    if (s_mc.mode == MC_OWN && !s_mc.own[0].set && !s_mc.own[1].set)
+        s_mc.mode = MC_PC;
+    menucam_use();
+    fprintf(stderr, "[MENUCAM] mode %s, start %s, end %s, offsets %.2f %.2f %.2f\n",
+            s_mc_modes[s_mc.mode], s_mc.pose[0].set ? "set" : "none", s_mc.pose[1].set ? "set" : "none",
+            s_mc.forward, s_mc.up, s_mc.side);
+}
+
+static void menucam_set(const char *key, const char *value)
+{
+#ifdef _WIN32
+    if (!resot_options_set_string("Menu", key, value))
+        fprintf(stderr, "[MENUCAM] %s not saved (scripted run or no INI)\n", key);
+#else
+    (void)key; (void)value;
+#endif
+}
+
+/* The free camera's pose as the menu picture (0) or the flight's end (1):
+ * the player's own poses from now on; the other one starts as the pose that
+ * was shown. */
+static void menucam_store(int which)
+{
+    MenuPose *p = &s_mc.own[which];
+    char v[96];
+    menucam_load();
+    if (!s_fc.started) return;
+    if (s_mc.mode != MC_OWN && s_mc.pose[!which].set && !s_mc.own[!which].set) {
+        const MenuPose *o = &s_mc.pose[!which];
+        s_mc.own[!which] = *o;
+        snprintf(v, sizeof v, "%.3f %.3f %.3f %.4f %.4f", o->pos[0], o->pos[1], o->pos[2], o->yaw, o->pitch);
+        menucam_set(s_pose_keys[!which], v);
+    }
+    memcpy(p->pos, s_fc.pos, sizeof p->pos);
+    p->yaw = s_fc.yaw;
+    p->pitch = s_fc.pitch;
+    p->set = 1;
+    snprintf(v, sizeof v, "%.3f %.3f %.3f %.4f %.4f", p->pos[0], p->pos[1], p->pos[2], p->yaw, p->pitch);
+    menucam_set(s_pose_keys[which], v);
+    s_mc.mode = MC_OWN;
+    menucam_set("CameraMode", s_mc_modes[MC_OWN]);
+    menucam_use();
+    fprintf(stderr, "[MENUCAM] %s %s\n", s_pose_keys[which], v);
+}
+
+/* The Debug page's entry: PC port -> original -> own (when stored) -> PC port. */
+static void menucam_cycle(void)
+{
+    menucam_load();
+    s_mc.mode = s_mc.mode == MC_PC ? MC_ORIGINAL
+              : s_mc.mode == MC_ORIGINAL && (s_mc.own[0].set || s_mc.own[1].set) ? MC_OWN : MC_PC;
+    menucam_set("CameraMode", s_mc_modes[s_mc.mode]);
+    menucam_use();
+    fprintf(stderr, "[MENUCAM] mode %s\n", s_mc_modes[s_mc.mode]);
+}
+
+static void menucam_label(char *out, unsigned size)
+{
+    static const char *const de_names[3] = { "PC-Port", "eigene", "Original" };
+    static const char *const en_names[3] = { "PC port", "own", "original" };
+    int de = resot_text_language() == 4;
+    menucam_load();
+    if (de)
+        snprintf(out, size, "Men" "\xFC" "kamera: %s", de_names[s_mc.mode]);
+    else
+        snprintf(out, size, "Menu camera: %s", en_names[s_mc.mode]);
+}
+
+/* Turns k so that the Prince, seen from `from` along k, is seen in the same
+ * place from `to`. */
+static void aim_at_prince(float *k, const float *from, const float *to)
+{
+    float a[3], b[3], axis[3], sn, angle, c, s, axv[3], d;
+    int i;
+    for (i = 0; i < 3; i++) { a[i] = s_prince_balcony[i] - from[i]; b[i] = s_prince_balcony[i] - to[i]; }
+    v_norm(a); v_norm(b);
+    v_cross(a, b, axis);
+    sn = sqrtf(v_dot(axis, axis));
+    if (sn < 1e-6f) return;
+    for (i = 0; i < 3; i++) axis[i] /= sn;
+    angle = atan2f(sn, v_dot(a, b));
+    c = cosf(angle); s = sinf(angle);
+    v_cross(axis, k, axv);
+    d = v_dot(axis, k);
+    for (i = 0; i < 3; i++) k[i] = k[i] * c + axv[i] * s + axis[i] * d * (1.0f - c);
+}
+
+static float wrap_pi(float a)
+{
+    while (a > 3.14159265f) a -= 6.28318531f;
+    while (a < -3.14159265f) a += 6.28318531f;
+    return a;
+}
+
+/* Where the main camera should be (0 = leave it); *look: also turn it. */
+static int menucam_target(const float *base, const float *k, float *out, int *look, float *yaw, float *pitch)
+{
+    const float zero[3] = { 0.0f, 0.0f, 0.0f };
+    const MenuPose *sp = &s_mc.pose[0], *ep = &s_mc.pose[1];
+    float d[3], e[3], off[3], s, endyaw, endpitch, w;
+    const float *end;
+    int i;
+    *look = 0;
+    if (!sp->set && !ep->set && s_mc.forward == 0.0f && s_mc.up == 0.0f && s_mc.side == 0.0f) return 0;
+    if (v_near(base, zero, 0.01f)) return 0;
+    if (v_near(base, s_menu_cam, 0.05f)) {
+        if (sp->set) {
+            memcpy(s_mc.start, sp->pos, sizeof s_mc.start);
+            s_mc.start_yaw = sp->yaw;
+            s_mc.start_pitch = sp->pitch;
+            *look = 1;
+        } else {
+            float right[3] = { k[1], -k[0], 0.0f };          /* k x Z */
+            v_norm(right);
+            for (i = 0; i < 3; i++) s_mc.start[i] = base[i] + s_mc.forward * k[i] + s_mc.side * right[i];
+            s_mc.start[2] += s_mc.up;
+            yaw_pitch(k, &s_mc.start_yaw, &s_mc.start_pitch);
+        }
+        memcpy(out, s_mc.start, sizeof s_mc.start);
+        *yaw = s_mc.start_yaw;
+        *pitch = s_mc.start_pitch;
+        s_mc.flight_done = s_mc.arrived = s_mc.handover = 0;
+        return 1;
+    }
+    if (s_mc.handover) {                 /* the game's camera moves on: blend over to it */
+        float t = (float)((fc_now() - s_mc.handover_start) / 0.75), gy, gp;
+        if (t >= 1.0f) { s_mc.handover = 0; return 0; }
+        w = t * t * (3.0f - 2.0f * t);
+        yaw_pitch(k, &gy, &gp);
+        for (i = 0; i < 3; i++) out[i] = ep->pos[i] + w * (base[i] - ep->pos[i]);
+        *yaw = ep->yaw + w * wrap_pi(gy - ep->yaw);
+        *pitch = ep->pitch + w * (gp - ep->pitch);
+        *look = 1;
+        return 1;
+    }
+    if (s_mc.flight_done) return 0;
+    if (s_mc.arrived) {                  /* the end pose, while the game's camera stays there */
+        if (!ep->set) { s_mc.flight_done = 1; return 0; }
+        if (!v_near(base, s_flight_end, 0.1f)) {
+            int blend = v_near(base, s_flight_end, 3.0f);
+            s_mc.flight_done = 1;
+            fprintf(stderr, "[MENUCAM] the game's camera leaves the flight's end (%s)\n",
+                    blend ? "blending over" : "cut");
+            if (!blend) return 0;
+            s_mc.handover = 1;
+            s_mc.handover_start = fc_now();
+            return menucam_target(base, k, out, look, yaw, pitch);
+        }
+        memcpy(out, ep->pos, sizeof ep->pos);
+        *yaw = ep->yaw; *pitch = ep->pitch; *look = 1;
+        return 1;
+    }
+    for (i = 0; i < 3; i++) { d[i] = base[i] - s_menu_cam[i]; e[i] = s_flight_end[i] - s_menu_cam[i]; }
+    s = v_dot(d, e) / v_dot(e, e);
+    for (i = 0; i < 3; i++) off[i] = d[i] - s * e[i];
+    if (v_dot(off, off) > 16.0f || s < -0.2f) return 0;     /* not on the flight path */
+    if (s >= 0.999f) {
+        if (ep->set) { s_mc.arrived = 1; return menucam_target(base, k, out, look, yaw, pitch); }
+        s_mc.flight_done = 1;            /* the game's camera until the menu returns */
+        return 0;
+    }
+    if (s < 0.0f) s = 0.0f;
+    end = ep->set ? ep->pos : s_flight_end;
+    for (i = 0; i < 3; i++) out[i] = s_mc.start[i] + s * (end[i] - s_mc.start[i]);
+    if (ep->set) {
+        endyaw = ep->yaw; endpitch = ep->pitch;
+        w = s * s * (3.0f - 2.0f * s);
+    } else {
+        float aimed[3] = { k[0], k[1], k[2] };
+        aim_at_prince(aimed, base, out);
+        yaw_pitch(aimed, &endyaw, &endpitch);
+        w = s / 0.15f;                   /* the aim comes in during the first part of the flight */
+        if (w > 1.0f) w = 1.0f;
+        w = w * w * (3.0f - 2.0f * w);
+    }
+    *yaw = s_mc.start_yaw + w * wrap_pi(endyaw - s_mc.start_yaw);
+    *pitch = s_mc.start_pitch + w * (endpitch - s_mc.start_pitch);
+    *look = 1;
+    return 1;
+}
+
+/* From CAM_Inverse's entry, main camera, free camera off. */
+static void menucam_apply(uint32_t cam)
+{
+    float pos[3], k[3], base[3], target[3], yaw, pitch;
+    int i, ours, look;
+    static int logged;
+    if (!menu_world()) {
+        s_mc.have_out = 0;
+        return;
+    }
+    menucam_load();
+    if (!logged++) fprintf(stderr, "[MENUCAM] main menu world\n");
+    for (i = 0; i < 3; i++) pos[i] = GMEMF(cam + CAM_POS + 4u * i);
+    ours = cam == s_mc.cam && s_mc.have_out && !memcmp(pos, s_mc.out, sizeof pos);
+    if (ours)                            /* the game left our camera as it was: undo our turn */
+        for (i = 0; i < 12; i++) GMEMF(cam + CAM_ROW_I + 4u * i) = s_mc.base_rows[i];
+    memcpy(base, ours ? s_mc.base : pos, sizeof base);
+    for (i = 0; i < 3; i++) k[i] = GMEMF(cam + CAM_ROW_K + 4u * i);
+    if (menucam_target(base, k, target, &look, &yaw, &pitch)) {
+        for (i = 0; i < 12; i++) s_mc.base_rows[i] = GMEMF(cam + CAM_ROW_I + 4u * i);
+        if (look) write_rows(cam, yaw, pitch);
+        for (i = 0; i < 3; i++) GMEMF(cam + CAM_POS + 4u * i) = target[i];
+        s_mc.cam = cam;
+        memcpy(s_mc.base, base, sizeof base);
+        memcpy(s_mc.out, target, sizeof target);
+        s_mc.have_out = 1;
+    } else if (ours) {
+        for (i = 0; i < 3; i++) GMEMF(cam + CAM_POS + 4u * i) = s_mc.base[i];
+        s_mc.have_out = 0;
+    }
+}
+
 /* The reSOT Debug page: the F5 panel, the free camera and the world freeze
  * (above), and the game speed. Retail's frame clock (sub_000DB740) scales
  * the frame time by two factors before it is stored (0x000DB850, 0x000DB861:
@@ -1943,6 +2474,9 @@ static void debug_label(int item, char *out, unsigned size)
     case DBG_SPEED:
         snprintf(out, size, "%s: %d%%", de ? "Spielgeschwindigkeit" : "Game speed", s_speeds[s_speed]);
         break;
+    case DBG_MENUCAM:
+        menucam_label(out, size);
+        break;
     default:
         snprintf(out, size, "?");
     }
@@ -1969,6 +2503,9 @@ static void debug_activate(int item)
     case DBG_SPEED:
         s_speed = (s_speed + 1) % (int)(sizeof s_speeds / sizeof s_speeds[0]);
         fprintf(stderr, "[DEBUG] game speed %d%%\n", s_speeds[s_speed]);
+        break;
+    case DBG_MENUCAM:
+        menucam_cycle();
         break;
     }
     s_cheat_revision++;

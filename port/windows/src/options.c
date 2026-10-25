@@ -135,6 +135,21 @@ extern void xbox_InputSetHostFilter(void (*)(void *, unsigned));
 static void mark_dirty(void) { InterlockedIncrement(&s_revision); InterlockedExchange(&s_dirty,1); }
 long resot_native_revision(void) { return InterlockedCompareExchange(&s_revision,0,0); }
 
+int resot_options_get_string(const char *section, const char *key, char *out, unsigned size)
+{
+    if (!size) return 0;
+    out[0] = 0;
+    if (s_path[0]) GetPrivateProfileStringA(section, key, "", out, size, s_path);
+    return out[0] != 0;
+}
+
+int resot_options_set_string(const char *section, const char *key, const char *value)
+{
+    /* as save_config: a scripted pad's run keeps its changes to itself */
+    if (!s_path[0] || getenv("RECOMP_PAD_SCRIPT") || getenv("RECOMP_PAD_LIVE")) return 0;
+    return WritePrivateProfileStringA(section, key, value && *value ? value : NULL, s_path) != 0;
+}
+
 void resot_options_summary(char *out, unsigned size)
 {
     AcquireSRWLockShared(&s_lock);

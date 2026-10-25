@@ -374,3 +374,15 @@ func 0x002FDDD0                     # CAM_SetCameraMatrix
 func 0x002FDD00                     # CAM_Inverse (camera in eax)
 ret 0x0002F7EB sub_002FDD00         # WOR_SetCam: the display's main camera (+0xD0)
 value 0x00400CC0                    # PS2 prototype CAM_Inverse (SLUS_207.43), for the layout
+
+# Prototype page: universe switches (target_hooks.c "The Prototype page")
+ref 0x001109C4 0x0044AA24           # script reference 0xCC00008E (universe) -> its AI instance
+call 0x00110DB1 sub_0026F1C0        # Prince_Bhv_BeforeMainTrack -> fn_iCheats (developer pad)
+func 0x0026F1C0                     # fn_iCheats
+ref 0x0026F2F1 0x0076BFEC           # fn_iCheats: its slot of universe +0xD8
+func 0x000DC4F0                     # pad code query (ecx code, edx pad)
+ref 0x00111DA6 0x0076C01C           # R3 ghost mode tests the +0xD8 slot
+func 0x002825F0                     # Prince_Bhv_GhostMode
+ref 0x00110DC5 0x0076C01C           # Back: death menu tests the +0xD8 slot
+insn 0x0026AEF4 add eax, 0xe0       # fn_RegenerateLife reads universe +0xE0
+insn 0x001BC4A4 mov dword ptr [edi + 0xe0], ebx   # Univers_Bhv_Init: the only write, 0

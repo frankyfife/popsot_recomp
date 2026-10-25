@@ -343,10 +343,35 @@ For tests, `RESOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
 them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of the level
 select) starts that level by itself once the main menu is up.
 
+### Main-menu camera (retail)
+
+The main menu's 3D set was built for 4:3 and runs out at the edges at 16:9.
+As in popsot-fixes on PC, the camera is moved: by default to the menu
+picture and flight end the PC port has in its `popfix.ini`, so the scene
+starts like there (same world, same coordinates; the picture can still
+differ slightly). In the main menu the free camera (Back or F8) places your
+own: X stores the menu picture, B the end of the New Game flight, both in
+`resot-options.ini` (`[Menu] CameraStart` / `CameraEnd`, `x y z yaw
+pitch`; `CameraMode=own`). New Game flies from the picture to the end at
+the game's pace. "reSOT Options" -> "Debug" -> "Menu camera" switches PC
+port, original and own. `[Menu] CameraForward` / `CameraUp` / `CameraSide`
+move the camera when a mode has no picture (defaults 3.5 / 6.25 / 0);
+`RESOT_MENU_CAMERA=0` (or `pc`, `own`, `original`) overrides the mode for
+one run.
+
+### Prototype page (retail)
+
+"reSOT Options" -> "Prototype": switches the PS2 prototype used that
+retail still reads but never sets. "Life regeneration" gives one life point
+per second; "Hide interface" hides the life bar and the hints. Not saved;
+`RESOT_PROTO=regen,nohud` switches them on at start.
+
+### Debug page (retail)
 ### Debug page (retail)
 
 "reSOT Options" -> "Debug", in the main and the pause menu: the F5 info
-panel, the free camera, the world freeze and the game speed (100 %, 50 %,
+panel, the free camera, the world freeze, the game speed and the main-menu
+camera (100 %, 50 %,
 25 %, through a clock factor the game reads but never writes; the scripts'
 own slow motion still works on top). Not saved; `RESOT_GAME_SPEED=50`
 starts at that speed and `RESOT_TIMER_DIAG=1` logs the game clock against

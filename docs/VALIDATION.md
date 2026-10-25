@@ -1,5 +1,30 @@
 # Validation log
 
+## 2026-10-25: HD font and button atlas edges (user report)
+
+The user saw small fragments at the edges of glyphs and buttons at 4K. A
+capture of the pause menu (3840x2160) showed a thin full-height line
+before the "U" of "Zurück". The font rectangles the game samples touch or
+overlap by half a texel (Z: u 246.5-262.0, [: 262.5-267.0), and
+`tools/hd-ui.py` clipped every glyph to its cell rounded outwards, so the
+bracket's stroke began at HD column 2096, exactly Z's right edge, where
+Z's bilinear sample read it. Now each glyph inks only its rectangle grown
+by 2 HD texels minus every other glyph's grown rectangle (the bracket now
+starts at 2098); codes with (nearly) the same rectangle, 170 and 186, are
+one area. The first try, one global mask after drawing, removed the line
+nowhere and whole glyphs where two codes share a rectangle; the per-glyph
+version keeps 99.1 % of the ink. Buttons keep ink within one original
+texel of the original shapes. Recaptured: the line is gone, the menu text
+is clean. The atlases in `bin/textures` were rebuilt locally (they are
+not in the repository).
+
+**Not yet found:** the polygon spikes and the far-offset glow/bloom
+ghosts of the user's recording. Its frames show at 13.9 s a soft light
+patch on the wall far left of a window for two frames; captures at
+3840x2160 with Ultra and High (6101 enemies, 0101 cutscene) showed the
+glow composite in register and every effect source of the frame current
+(`[FX-SOURCE]` age 0).
+
 ## 2026-10-25: 5.1 output and the I3DL2 room reverb (Windows)
 
 **Mixbins measured** (`RECOMP_APU_BINSTAT=1`, new: RMS of every mixbin each

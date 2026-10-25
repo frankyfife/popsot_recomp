@@ -902,7 +902,7 @@ static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50,
        T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141,
-       T_DEBUG = 150, T_DBG = 151, T_PROTO = 160, T_PRO = 161 };
+       T_DEBUG = 150, T_DBG = 151, T_PROTO = 160, T_PRO = 161, T_SOUND = 165, T_SND = 166 };
 static const char *const s_static_texts[] = {
     "reSOT Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
@@ -1042,6 +1042,12 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         cheat_sword_label(out, size);
     else if (index == T_DEBUG)
         snprintf(out, size, "Debug");
+    else if (index == T_SOUND)
+        snprintf(out, size, resot_text_language() == 4 ? "Ton" : "Sound");
+#ifdef _WIN32
+    else if (index >= T_SND && index < T_SND + 2)
+        resot_options_audio_label((int)(index - T_SND), out, size);
+#endif
     else if (index == T_PROTO)
         snprintf(out, size, resot_text_language() == 4 ? "Prototyp" : "Prototype");
     else if (index >= T_PRO && index < T_PRO + PROS) {
@@ -1084,7 +1090,7 @@ void sub_000F84A0(void)
 enum { DO_OPEN, DO_MSG };
 typedef struct { uint32_t text; int what; int arg; uint32_t choice; } NativeChoice;
 typedef struct { uint32_t title; float top, step; int n; NativeChoice c[12]; uint32_t page; } NativePage;
-enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS, P_PROTO, P_DEBUG,
+enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_SOUND, P_CHEATS, P_PROTO, P_DEBUG,
        P_LEVELS, P_LV0, P_LV1, P_LV2, P_LV3, P_PAGES };
 #define MSG_ID(page, item) ((uint32_t)(page) << 8 | (uint32_t)(item))
 #define MSG_RESET 0xFF00u
@@ -1103,12 +1109,20 @@ static void native_layout(void)
     int i, j;
     NativePage *p;
     memset(s_pages, 0, sizeof s_pages);
-    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 5;
-    native_choice(p, 0, T_GRAPHICS, DO_OPEN, P_GFX);
-    native_choice(p, 1, T_CONTROLS, DO_OPEN, P_CTRL);
-    native_choice(p, 2, T_CHEATS, DO_OPEN, P_CHEATS);
-    native_choice(p, 3, T_PROTO, DO_OPEN, P_PROTO);
-    native_choice(p, 4, T_DEBUG, DO_OPEN, P_DEBUG);
+    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 0;
+    native_choice(p, p->n++, T_GRAPHICS, DO_OPEN, P_GFX);
+#ifdef _WIN32
+    native_choice(p, p->n++, T_SOUND, DO_OPEN, P_SOUND);
+#endif
+    native_choice(p, p->n++, T_CONTROLS, DO_OPEN, P_CTRL);
+    native_choice(p, p->n++, T_CHEATS, DO_OPEN, P_CHEATS);
+    native_choice(p, p->n++, T_PROTO, DO_OPEN, P_PROTO);
+    native_choice(p, p->n++, T_DEBUG, DO_OPEN, P_DEBUG);
+#ifdef _WIN32
+    p = &s_pages[P_SOUND]; p->title = T_SOUND; p->top = 0.3833f; p->step = 0.0667f; p->n = 2;
+    for (i = 0; i < p->n; i++)
+        native_choice(p, i, T_SND + (uint32_t)i, DO_MSG, (int)MSG_ID(P_SOUND, i));
+#endif
     p = &s_pages[P_PROTO]; p->title = T_PROTO; p->top = 0.3833f; p->step = 0.0667f; p->n = PROS;
     for (i = 0; i < p->n; i++)
         native_choice(p, i, T_PRO + (uint32_t)i, DO_MSG, (int)MSG_ID(P_PROTO, i));
@@ -1464,6 +1478,10 @@ void sub_00039B20(void)
         s_sword_pending = 1;                      /* once the menu is closed */
     else if ((id >> 8) == P_DEBUG)
         debug_activate((int)(id & 0xFF));
+#ifdef _WIN32
+    else if ((id >> 8) == P_SOUND && (id & 0xFF) < 2)
+        resot_options_audio_activate((int)(id & 0xFF));
+#endif
     else if ((id >> 8) == P_PROTO && (id & 0xFF) < PROS) {
         s_proto[id & 0xFF] = !s_proto[id & 0xFF];
         s_cheat_revision++;
@@ -1676,6 +1694,7 @@ static void cheat_next_sword(void)
 
 static void debug_tick(void);
 static void proto_tick(void);
+static void sound_tick(void);
 
 static void cheats_tick(void)
 {
@@ -1718,6 +1737,7 @@ static void cheats_tick(void)
     cheat_spawn_bit(SPAWN_BHV_GLOBAL, CHEAT_BIT_ENDLESS, s_cheat[CHEAT_ENDLESS], &mine_endless);
     debug_tick();
     proto_tick();
+    sound_tick();
     if (!s_cheat[CHEAT_INVULNERABLE] && !s_cheat[CHEAT_SAND])
         return;
     if (!(v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4)))
@@ -1769,6 +1789,36 @@ void sub_0017A0C0_enter(void)
         return;
     if ((v = cheat_vars(obj, V_HITS + 4)) != 0 && (int32_t)GMEM32(v + V_HITS) > 0)
         GMEM32(v + V_HITS) = 0;
+}
+
+/* The game's room reverb. The XDK DirectSound keeps its settings in an
+ * object of 0xB4 bytes built by sub_003E73CC (called from 0x003E7CE2,
+ * stored at the DirectSound object's +8); +0x84 holds the current
+ * DSI3DL2LISTENER (12 DWORDs), which the constructor sets to the library's
+ * default, the I3DL2 "Generic" preset at 0x00401590. The host reverb
+ * (apu_xaudio2.c, xa2_set_i3dl2_listener) follows it: the object is taken
+ * at the constructor's entry and read at every input poll. */
+#define DS_SETTINGS_LISTENER 0x84u
+extern void xa2_set_i3dl2_listener(const void *listener48);
+static uint32_t s_ds_settings;
+
+void sub_003E73CC_enter(void)
+{
+    s_ds_settings = g_ecx;
+    fprintf(stderr, "[SOUND] DirectSound settings object %08X\n", s_ds_settings);
+}
+
+static void sound_tick(void)
+{
+    uint8_t l[48];
+    uint32_t i, w;
+    if (!s_ds_settings) return;
+    for (i = 0; i < 48; i += 4) {
+        if (!resot_guest_read_word(g_xbox_mem_offset, s_ds_settings + DS_SETTINGS_LISTENER + i, &w))
+            return;
+        memcpy(l + i, &w, 4);
+    }
+    xa2_set_i3dl2_listener(l);
 }
 
 /* The Prototype page: switches of the universe script object (0xCC00008E)

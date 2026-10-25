@@ -489,23 +489,56 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
      * mixer and the test tone are now added on top of them. */
     if (xa2_is_active()) {
         int i, peak = 0;
+        /* RE-SoT: what goes to XAudio2: the speakers (2 or 6, xa2_layout)
+         * and, with the host reverb, the I3DL2 send as the last channel. */
+        static int16_t out[MIXER_FRAME_SAMPLES * 8];
+        int speakers = 2, send = 0, chans;
+        xa2_layout(&speakers, &send);
+        chans = speakers + send;
 
-        if (g_audio_muted)
+        if (g_audio_muted) {
             memset(d->monitor.frame_buf, 0, sizeof(d->monitor.frame_buf));
-        else {
+            memset(d->monitor.frame6, 0, sizeof(d->monitor.frame6));
+            memset(d->monitor.reverb, 0, sizeof(d->monitor.reverb));
+        } else {
+            /* the test tone and the software mixer go to the front pair of
+             * both layouts */
+            static int16_t extra[MIXER_FRAME_SAMPLES][2];
+            memset(extra, 0, sizeof extra);
             if (g_test_tone.active) {
                 for (i = 0; i < MIXER_FRAME_SAMPLES; i++) {
                     int16_t s = (int16_t)(sin(g_test_tone.phase) * g_test_tone.amplitude);
-                    d->monitor.frame_buf[i][0] = s;
-                    d->monitor.frame_buf[i][1] = s;
+                    extra[i][0] = s;
+                    extra[i][1] = s;
                     g_test_tone.phase += g_test_tone.phase_inc;
                     if (g_test_tone.phase >= 2.0 * M_PI)
                         g_test_tone.phase -= 2.0 * M_PI;
                 }
+                for (i = 0; i < MIXER_FRAME_SAMPLES; i++) {   /* the tone replaces */
+                    d->monitor.frame_buf[i][0] = d->monitor.frame_buf[i][1] = 0;
+                    memset(d->monitor.frame6[i], 0, sizeof d->monitor.frame6[0]);
+                }
             }
-            mixer_render(d->monitor.frame_buf, MIXER_FRAME_SAMPLES);
+            mixer_render(extra, MIXER_FRAME_SAMPLES);
+            for (i = 0; i < MIXER_FRAME_SAMPLES; i++) {
+                int c;
+                for (c = 0; c < 2; c++) {
+                    int a = d->monitor.frame_buf[i][c] + extra[i][c];
+                    int b = d->monitor.frame6[i][c] + extra[i][c];
+                    d->monitor.frame_buf[i][c] = (int16_t)(a > 32767 ? 32767 : a < -32768 ? -32768 : a);
+                    d->monitor.frame6[i][c] = (int16_t)(b > 32767 ? 32767 : b < -32768 ? -32768 : b);
+                }
+            }
         }
-        xa2_submit_samples((const int16_t *)d->monitor.frame_buf, MIXER_FRAME_SAMPLES);
+        for (i = 0; i < MIXER_FRAME_SAMPLES; i++) {
+            if (speakers == 6)
+                memcpy(&out[i * chans], d->monitor.frame6[i], 6 * sizeof(int16_t));
+            else
+                memcpy(&out[i * chans], d->monitor.frame_buf[i], 2 * sizeof(int16_t));
+            if (send)
+                out[i * chans + speakers] = d->monitor.reverb[i];
+        }
+        xa2_submit_samples(out, MIXER_FRAME_SAMPLES);
 
         /* RE-SoT: RECOMP_APU_WAV=<file> keeps what is sent to the sound card
          * as a 48 kHz stereo WAV, so the output can be examined rather than
@@ -518,16 +551,22 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
                 const char *path = getenv("RECOMP_APU_WAV");
                 asked = 1;
                 if (path && *path && (wav = fopen(path, "wb")) != NULL) {
-                    static const uint8_t hdr[44] = {
+                    /* RE-SoT: as many channels as go to XAudio2 (the
+                     * reverb send last); 48 kHz, 16 bit. */
+                    uint8_t hdr[44] = {
                         'R','I','F','F', 0,0,0,0, 'W','A','V','E', 'f','m','t',' ',
                         16,0,0,0, 1,0, 2,0, 0x80,0xBB,0,0, 0x00,0xEE,0x02,0,
                         4,0, 16,0, 'd','a','t','a', 0,0,0,0 };
+                    uint32_t rate = 48000u * 2u * (uint32_t)chans;
+                    hdr[22] = (uint8_t)chans;
+                    memcpy(&hdr[28], &rate, 4);
+                    hdr[32] = (uint8_t)(2 * chans);
                     fwrite(hdr, 1, sizeof hdr, wav);
                 }
             }
             if (wav) {
-                fwrite(d->monitor.frame_buf, 4, MIXER_FRAME_SAMPLES, wav);
-                bytes += MIXER_FRAME_SAMPLES * 4;
+                fwrite(out, 2u * (unsigned)chans, MIXER_FRAME_SAMPLES, wav);
+                bytes += MIXER_FRAME_SAMPLES * 2u * (unsigned)chans;
                 if (++since >= 188) {
                     uint32_t riff = bytes + 36;
                     long at = ftell(wav);
@@ -798,8 +837,11 @@ static void *mcpx_apu_frame_thread(void *arg)
             /* Lightweight: just monitor frame (test tone + software mixer).
              * RE-SoT: nothing wrote this frame's voice output, so what the
              * buffer still holds is the last frame the front end mixed. */
-            if (((d->ep_frame_div + 1) % 8) == 0)
+            if (((d->ep_frame_div + 1) % 8) == 0) {
                 memset(d->monitor.frame_buf, 0, sizeof(d->monitor.frame_buf));
+                memset(d->monitor.frame6, 0, sizeof(d->monitor.frame6));
+                memset(d->monitor.reverb, 0, sizeof(d->monitor.reverb));
+            }
             mcpx_apu_monitor_frame(d);
             d->ep_frame_div++;
         }

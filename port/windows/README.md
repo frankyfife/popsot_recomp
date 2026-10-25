@@ -343,6 +343,19 @@ For tests, `RESOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
 them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of the level
 select) starts that level by itself once the main menu is up.
 
+### Sound: 5.1 and room reverb
+
+"reSOT Options" -> "Sound" (Windows): "Speakers" Stereo (default) or 5.1,
+used from the next start, and "Room reverb" On (default) / Off, at once.
+Saved in `resot-options.ini` (`[Audio] Speakers=stereo|5.1`, `Reverb=1|0`);
+`RESOT_SPEAKERS` and `RESOT_REVERB` override them for one run. The reverb
+is the Xbox's I3DL2 room reverb: the game sends a copy of its sounds to it
+and sets the room (the DSP that ran it on the Xbox is not emulated; the
+XAudio2 reverb takes its place with the game's own settings). 5.1 sends the
+game's six speaker channels to a 5.1 device; on a stereo device Windows
+gets them mixed down. `RECOMP_APU_WAV=<file>` records what is played, with
+every channel and the reverb send last.
+
 ### Main-menu camera (retail)
 
 The main menu's 3D set was built for 4:3 and runs out at the edges at 16:9.

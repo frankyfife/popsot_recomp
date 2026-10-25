@@ -386,3 +386,8 @@ func 0x002825F0                     # Prince_Bhv_GhostMode
 ref 0x00110DC5 0x0076C01C           # Back: death menu tests the +0xD8 slot
 insn 0x0026AEF4 add eax, 0xe0       # fn_RegenerateLife reads universe +0xE0
 insn 0x001BC4A4 mov dword ptr [edi + 0xe0], ebx   # Univers_Bhv_Init: the only write, 0
+
+# Room reverb: the DirectSound settings object (target_hooks.c "The game's room reverb")
+func 0x003E73CC                     # settings constructor (this in ecx), +0x84 the I3DL2 listener
+call 0x003E7CE2 sub_003E73CC        # the DirectSound initialisation builds it
+ref 0x003E7408 0x00401590           # the library's default listener (I3DL2 Generic)

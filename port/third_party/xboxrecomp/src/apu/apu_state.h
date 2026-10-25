@@ -509,6 +509,10 @@ struct MCPXAPUState {
     struct {
         McpxApuDebugMonitorPoint point;
         int16_t frame_buf[256][2];
+        /* RE-SoT: the same samples for 5.1 (FL FR FC LFE BL BR) and the
+         * I3DL2 reverb send (mixbin 10), for the XAudio2 output. */
+        int16_t frame6[256][6];
+        int16_t reverb[256];
         void *stream; /* SDL_AudioStream* - stubbed */
         int queued_bytes_low, queued_bytes_high;
     } monitor;

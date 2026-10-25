@@ -45,5 +45,9 @@ long resot_native_revision(void);
  * camera poses). An empty value removes the key; scripted runs do not write. */
 int resot_options_get_string(const char *section, const char *key, char *out, unsigned size);
 int resot_options_set_string(const char *section, const char *key, const char *value);
+/* The reSOT Sound page (retail, Windows): item 0 speakers (stereo / 5.1,
+ * from the next start), item 1 the room reverb (at once). */
+void resot_options_audio_label(int item, char *out, unsigned size);
+void resot_options_audio_activate(int item);
 
 #endif

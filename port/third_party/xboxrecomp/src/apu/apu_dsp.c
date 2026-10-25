@@ -25,6 +25,8 @@
 #include "apu_state.h"
 #include "fpconv.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -194,6 +196,32 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d,
 
     int off = (d->ep_frame_div % 8) * NUM_SAMPLES_PER_FRAME;
 
+    /* RE-SoT: RECOMP_APU_BINSTAT=1 logs every ten seconds the level of every
+     * mixbin (RMS in dBFS), to see where a title sends. */
+    {
+        static int on = -1, frames;
+        static double sum[NUM_MIXBINS];
+        if (on < 0) { const char *e = getenv("RECOMP_APU_BINSTAT"); on = e && *e && *e != '0'; }
+        if (on) {
+            int b, i;
+            for (b = 0; b < NUM_MIXBINS; b++)
+                for (i = 0; i < NUM_SAMPLES_PER_FRAME; i++)
+                    sum[b] += (double)mixbins[b][i] * mixbins[b][i];
+            if (++frames >= 15000) {             /* 32-sample frames: 10 s at 48 kHz */
+                char line[800];
+                int n = 0;
+                for (b = 0; b < NUM_MIXBINS; b++) {
+                    double rms = sqrt(sum[b] / ((double)frames * NUM_SAMPLES_PER_FRAME));
+                    n += snprintf(line + n, sizeof line - n, " %d:%.0f", b,
+                                  rms > 1e-9 ? 20.0 * log10(rms) : -180.0);
+                    sum[b] = 0;
+                }
+                fprintf(stderr, "[APU-BINSTAT] dBFS%s\n", line);
+                frames = 0;
+            }
+        }
+    }
+
     if (d->monitor.point != MCPX_APU_DEBUG_MON_VP) {
         for (int i = 0; i < NUM_SAMPLES_PER_FRAME; i++) {
             /* Bins 2..31 used to be computed and then dropped on the floor.
@@ -225,23 +253,50 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d,
              * mixdown that stops discarding audio. */
             float left, right;
             if (mcpx_apu_mixdown_all()) {
-                /* RE-SoT: by what the bins are (DSMIXBIN_*), not by parity.
-                 * 0-5 are the speakers (FL FR FC LFE BL BR) and 7-10 the
-                 * crosstalk pairs 3D voices are sent to (FL FR BL BR), which
-                 * the even/odd rule put on the wrong sides. Bin 6 is the
-                 * I3DL2 reverb send and 11-31 the effect sends: copies of the
-                 * signal for a DSP that is not here, and adding them dry
-                 * doubled every voice into clipping (the PoP demo peaked at
-                 * 32767 for minutes). Halved for the headroom the DSP's own
-                 * mix would have left. */
+                /* RE-SoT: by what the bins are (DSMIXBIN_*, XDK dsound.h),
+                 * not by parity. 0-5 are the speakers (FL FR FC LFE BL BR),
+                 * 6-9 the crosstalk pairs 3D voices are sent to (FL FR BL
+                 * BR), 10 the I3DL2 reverb send and 11-31 the effect sends:
+                 * copies of the signal for a DSP that is not here, and
+                 * adding them dry doubled every voice into clipping (the
+                 * PoP demo peaked at 32767 for minutes). Measured on
+                 * retail SoT (RECOMP_APU_BINSTAT, the main menu's balcony
+                 * scene): 2 -66, 6 -64, 7 -64, 10 -72 dBFS, 6 and 7 always
+                 * as a pair; an earlier version took 6 for the reverb send
+                 * and added 7-10, which dropped crosstalk front left and
+                 * put the reverb send dry on the right. The reverb send
+                 * goes to the host reverb (monitor.reverb, apu_xaudio2.c).
+                 * Halved for the headroom the DSP's own mix would have
+                 * left. */
                 float c = 0.7071f * (mixbins[2][i] + mixbins[3][i]);
+                float s6[6];
+                int k;
                 left  = 0.5f * (mixbins[0][i] + mixbins[4][i]
-                                + mixbins[7][i] + mixbins[9][i] + c);
+                                + mixbins[6][i] + mixbins[8][i] + c);
                 right = 0.5f * (mixbins[1][i] + mixbins[5][i]
-                                + mixbins[8][i] + mixbins[10][i] + c);
+                                + mixbins[7][i] + mixbins[9][i] + c);
+                s6[0] = 0.5f * (mixbins[0][i] + mixbins[6][i]);
+                s6[1] = 0.5f * (mixbins[1][i] + mixbins[7][i]);
+                s6[2] = 0.5f * mixbins[2][i];
+                s6[3] = 0.5f * mixbins[3][i];
+                s6[4] = 0.5f * (mixbins[4][i] + mixbins[8][i]);
+                s6[5] = 0.5f * (mixbins[5][i] + mixbins[9][i]);
+                for (k = 0; k < 6; k++) {
+                    float v = s6[k] > 1.0f ? 1.0f : s6[k] < -1.0f ? -1.0f : s6[k];
+                    d->monitor.frame6[off + i][k] = (int16_t)(v * 32767.0f);
+                }
+                {
+                    float r = 0.5f * mixbins[10][i];
+                    r = r > 1.0f ? 1.0f : r < -1.0f ? -1.0f : r;
+                    d->monitor.reverb[off + i] = (int16_t)(r * 32767.0f);
+                }
             } else {
                 left = mixbins[0][i];
                 right = mixbins[1][i];
+                memset(d->monitor.frame6[off + i], 0, sizeof d->monitor.frame6[0]);
+                d->monitor.frame6[off + i][0] = (int16_t)(left > 1.0f ? 32767 : left < -1.0f ? -32767 : left * 32767.0f);
+                d->monitor.frame6[off + i][1] = (int16_t)(right > 1.0f ? 32767 : right < -1.0f ? -32767 : right * 32767.0f);
+                d->monitor.reverb[off + i] = 0;
             }
             /* Clamp to [-1, 1] range */
             if (left > 1.0f) left = 1.0f;

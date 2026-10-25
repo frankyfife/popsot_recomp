@@ -135,6 +135,32 @@ extern void xbox_InputSetHostFilter(void (*)(void *, unsigned));
 static void mark_dirty(void) { InterlockedIncrement(&s_revision); InterlockedExchange(&s_dirty,1); }
 long resot_native_revision(void) { return InterlockedCompareExchange(&s_revision,0,0); }
 
+/* RE-SoT: [Audio] Speakers (stereo, the default, or 5.1; from the next
+ * start) and Reverb (the Xbox's I3DL2 room reverb, apu_xaudio2.c; on by
+ * default, switched at once). RESOT_SPEAKERS / RESOT_REVERB override. */
+extern void xa2_configure(int speakers, int reverb);
+extern void xa2_set_reverb(int on);
+static int s_speakers=2, s_speakers_saved=2, s_reverb=1;
+
+void resot_options_audio_label(int item, char *out, unsigned size)
+{
+    int de=native_german();
+    if (item==0)
+        snprintf(out,size,de?"Lautsprecher: %s%s":"Speakers: %s%s",s_speakers==6?"5.1":"Stereo",
+                 s_speakers!=s_speakers_saved?(de?" (nach Neustart)":" (after a restart)"):"");
+    else
+        snprintf(out,size,de?"Raumhall: %s":"Room reverb: %s",s_reverb?(de?"An":"On"):(de?"Aus":"Off"));
+}
+
+void resot_options_audio_activate(int item)
+{
+    if (item==0) s_speakers=s_speakers==6?2:6;
+    else { s_reverb=!s_reverb; xa2_set_reverb(s_reverb); }
+    fprintf(stderr,"[OPTIONS] audio: speakers %s (%s), reverb %s\n",s_speakers==6?"5.1":"stereo",
+            s_speakers!=s_speakers_saved?"after a restart":"in use",s_reverb?"on":"off");
+    mark_dirty();
+}
+
 int resot_options_get_string(const char *section, const char *key, char *out, unsigned size)
 {
     if (!size) return 0;
@@ -191,6 +217,8 @@ static int save_config(void)
     ok &= WritePrivateProfileStringA("Graphics","InternalResolutionPercent",value,s_path);
     snprintf(value,sizeof value,"%d",s_look_sensitivity);
     ok &= WritePrivateProfileStringA("Controls","LookSensitivityPercent",value,s_path);
+    ok &= WritePrivateProfileStringA("Audio","Speakers",s_speakers==6?"5.1":"stereo",s_path);
+    ok &= WritePrivateProfileStringA("Audio","Reverb",s_reverb?"1":"0",s_path);
     for (i=0;i<ACTIONS;i++) {
         snprintf(name,sizeof name,"Action%d",i);
         snprintf(value,sizeof value,"%d",s_keys[i]);
@@ -833,6 +861,12 @@ void resot_options_init(void)
     }
     s_console_logs=GetPrivateProfileIntA("Diagnostics","ConsoleLogs",0,s_path)!=0;
     if(s_console_logs)resot_console_logs_set(1);
+    GetPrivateProfileStringA("Audio","Speakers","stereo",name,sizeof name,s_path);
+    if((env=getenv("RESOT_SPEAKERS"))&&*env)snprintf(name,sizeof name,"%s",env);
+    s_speakers=s_speakers_saved=!strcmp(name,"5.1")||!strcmp(name,"6")?6:2;
+    s_reverb=GetPrivateProfileIntA("Audio","Reverb",1,s_path)!=0;
+    if((env=getenv("RESOT_REVERB"))&&*env)s_reverb=*env!='0';
+    xa2_configure(s_speakers,s_reverb);
     xbox_SetFrameLimit(s_fps);
     xbox_SetVSync(s_vsync);
     xbox_SetPostProcessing(s_texture_glow);

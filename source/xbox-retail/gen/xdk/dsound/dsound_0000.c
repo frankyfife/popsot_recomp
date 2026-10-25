@@ -7620,6 +7620,8 @@ loc_003E73C9: ;
  */
 void sub_003E73CC(void)
 {
+    extern void sub_003E73CC_enter(void);
+    sub_003E73CC_enter();
     uint32_t ebp = 0;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */

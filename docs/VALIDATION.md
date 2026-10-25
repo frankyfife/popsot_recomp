@@ -1,5 +1,55 @@
 # Validation log
 
+## 2026-10-25: 5.1 output and the I3DL2 room reverb (Windows)
+
+**Mixbins measured** (`RECOMP_APU_BINSTAT=1`, new: RMS of every mixbin each
+10 s). Menu music and the movies: bins 0/1 only. The main menu's balcony
+scene: 0/1 about -31, 2 -66, 6 -64, 7 -64, 10 -72 dBFS; 6 and 7 always as
+a pair. This is the XDK DSMIXBIN order: 0-5 speakers (FL FR FC LFE BL BR),
+6-9 crosstalk FL FR BL BR, 10 the I3DL2 send, 11-31 effect sends. The
+stereo mixdown (`apu_dsp.c`) took 6 for the reverb send and added 7-10: it
+dropped crosstalk front left and put the reverb send dry on the right. Now
+6/8 go left, 7/9 right, 10 to the reverb.
+
+**Reverb.** The game loads `sound\dsstdfx.bin` (log), so the Xbox ran the
+I3DL2 reverb on its GP DSP, which is a stub here. As in FuturamaPC
+(`src/host/audio/reverb_i3dl2.h`): the send (bin 10, halved like the other
+bins) is the last channel of the XAudio2 source voice, sent only to a
+one-channel submix with the XAudio2 reverb (100 % wet, 5.1 output, mapped
+to the output); `ReverbConvertI3DL2ToNative` with the game's listener. The
+XDK DirectSound keeps the listener in its settings object (0xB4 bytes,
+sub_003E73CC, called at 0x003E7CE2) at +0x84, set to the library's
+"Generic" preset (0x00401590) by the constructor; a new entry hook takes
+the object (re-lift: dsound_0000.c) and every input poll passes the 48
+bytes on. Seen in a run: the game sets room -10000 (off) after the boot,
+then fades to room -1030, hf -1000, decay 1.30 s, reflections -10000,
+reverb 187 in ten steps; every step was accepted ("set").
+
+**5.1.** XAudio2 master with the device's channels (6 here), the six
+speaker bins mapped one to one (stereo device: front + 0.7071 * centre,
+rear to their sides, LFE dropped). Stereo keeps the two-channel master.
+Recordings (`RECOMP_APU_WAV`, the channels as submitted):
+- stereo, 150 s from boot through New Game: L/R -26 to -45 dBFS, reverb
+  send from 20 s on, 11 to 15 dB under the dry signal;
+- 5.1, same route: FL/FR -27 to -41, FC -60 and the send -66 in the
+  balcony scene, LFE and the rear channels silent (the menu and the balcony
+  mix nothing to them).
+Sound page in the pause menu: "Lautsprecher: 5.1 (nach Neustart)" and
+"Raumhall: Aus" after A (log `[OPTIONS] audio`).
+
+**Not checked:** how it sounds (no ears, and no loopback recording of the
+reverb's output); rear channels and the reverb in a level, because of the
+two problems below.
+
+**Found on the way (open, not caused by these changes; seen with the
+statistic alone before them):**
+- after the level select (6101_couloir) the level is silent: no voice
+  output at all (peak 0 for 50 s), the listener stays off; a pause and
+  resume does not bring it back, and ChangeMap's eax is the same object as
+  New Game's;
+- New Game stops in the balcony scene after the camera flight: 140 s
+  without moving on (Start opens the pause menu there).
+
 ## 2026-10-25: main-menu camera and the Prototype page (retail)
 
 **Main-menu camera** (after popsot-fixes `src/menucam.cpp`, user request: on

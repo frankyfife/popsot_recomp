@@ -46,7 +46,14 @@ started no voice. The game's own ChangeMap callers (the AI library's
 0x0025B8A9 and 0x0025B921, used by level triggers such as the balcony
 door) call nothing sound-related before the change either, so the missing
 step is not right at the call. The sound banks (sound/soundx*.big/.fat)
-are all opened at startup, not per level. Open.
+are all opened at startup, not per level. The level's worlds are merged
+into the running world exactly as in the user's own New Game session
+(0101_Entree and the rest into the same destination, caller 0x0003399C),
+so the world loading matches too. A temporary trace in the map's sound
+behaviour (Snd_MapInit_bhv_init, 0x001D0320, from the AI2C name table)
+never fired after the level select, nor in the menu world; whether it
+fires on a normal level start is the next thing to check (a scripted pad
+did not get past the menu's balcony). Open.
 
 ## 2026-10-25: glow copies from padded bloom levels; German hint text
 

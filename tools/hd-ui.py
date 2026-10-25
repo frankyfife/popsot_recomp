@@ -38,8 +38,9 @@ HERE = ROOT / "tools" / "hd-ui"
 FONT_KEY = "61ae24597fbff11f"      # retail 512x128 menu font atlas
 BUTTON_KEY = "961c13f4b5867590"    # retail 512x256 button atlas
 FONT_SIZE = 19                     # AtlantisMF size of the original glyphs
-FONT_STROKE = 0.5                  # extra stroke, original pixels (the atlas is slightly bold;
-                                   # size 19 + 0.5 fits best, mean correlation 0.89)
+FONT_STROKE = 0.0                  # extra stroke, original pixels. 0.5 fits the atlas best
+                                   # (mean correlation 0.89), but looks too bold at 4K
+                                   # (user, 2026-10-25); the plain TTF weight is used.
 FALLBACK_BELOW = 0.6               # glyphs whose TTF shape differs keep the traced original
 DIAGRAM = (237, 0, 512, 256)       # controller drawing, upright atlas pixels
 

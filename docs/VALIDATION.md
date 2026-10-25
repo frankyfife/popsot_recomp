@@ -57,8 +57,10 @@ For finding such textures there are two further switches:
 **`tools/hd-ui.py`** writes both atlases at 8x (4096x1024 and 4096x2048).
 
 Font:
-- Each glyph comes from the TTF at size 19 plus a 0.5-px stroke. That fits
-  best: mean correlation against the original rose from 0.85 to 0.89.
+- Each glyph comes from the TTF at size 19. A 0.5-px stroke would match
+  the atlas best (mean correlation 0.85 -> 0.89), but it looked too bold
+  at 4K. The user chose the plain TTF weight after comparing 0.5, 0.25
+  and 0 in the game (2026-10-25).
 - It is centred on the original ink and clipped to its cell.
 - Four glyphs whose TTF design differs keep the original, traced along its
   iso-contour: grave accent, macron, AE and ae.

@@ -12858,6 +12858,8 @@ loc_001764C5: ;
  */
 void sub_001764E0(void)
 {
+    extern void sub_001764E0_enter(void);
+    sub_001764E0_enter();
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -20625,6 +20627,8 @@ loc_0017A08A: ;
  */
 void sub_0017A0C0(void)
 {
+    extern void sub_0017A0C0_enter(void);
+    sub_0017A0C0_enter();
     uint32_t ebp = 0;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */

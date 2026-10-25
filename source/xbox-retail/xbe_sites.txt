@@ -343,3 +343,14 @@ value 0xFF0F42DE                    # level select: world-list stream (prince.bf
 value 0xFF0F4E2C                    # level select: world-list stream (prince.bf)
 ret 0x002B18E2 sub_0025CF40        # New Game: map change after the opening film
 value 0x2200B526                    # New Game map (stream FF02B526, 0101_Entree)
+func 0x000E7C70                     # clears the main actors [0x67B6A0] / [0x67B6A4]
+ref 0x0026AEDA 0x0067B6A0           # script reference 1 -> main actor 1 (the prince)
+ref 0x0026AEE6 0x0067B6A4           # script reference 2 -> main actor 2
+func 0x0026AE40                     # Mdl000092EB_fn_RegenerateLife (object in eax)
+func 0x0026AFA0                     # Mdl000092EB_fn_AddSOT (object in eax)
+func 0x001764E0                     # Mdl00002077_fn_Combat_ProcessCurrentHurt (object in eax)
+f32 0x004294C4 1000.0               # the game's instant-kill damage
+func 0x0017A0C0                     # Mdl00007493_fn_ProcessMeeleeWeaponHits (cdecl object, message)
+func 0x0026CE80                     # Mdl000092EB_fn_SetWeapon (cdecl prince): next sword
+insn 0x001CAE51 test byte ptr       # Spawn_WP__MSG: inlined Cheat_Test, mask 3
+insn 0x0021F897 test byte ptr       # Spawn_WP_bhv_spawn: inlined Cheat_Test, mask 8

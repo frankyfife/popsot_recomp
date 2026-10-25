@@ -658,12 +658,14 @@ void sub_00417DAD(void)
  * reSOT Options labels catch up with a changed setting. */
 static void native_refresh(void);
 static void level_pending(void);
+static void cheats_tick(void);
 
 void sub_00417F85(void)
 {
     uint32_t st;
     native_refresh();
     level_pending();
+    cheats_tick();
     if (usb_input()) { sub_00417F85_gen(); return; }
     st = stdcall_arg(1);
     if (stdcall_arg(0) != PAD_HANDLE || !st) {
@@ -869,7 +871,7 @@ extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 #define RESOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
 #define RESOT_MSG_KIND     0x52E5u
 #define RESOT_TEXT_SLOT    96u
-#define RESOT_TEXTS        144u
+#define RESOT_TEXTS        150u
 
 static int hidden_menus(void)
 {
@@ -893,7 +895,7 @@ static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50,
-       T_LEVELS = 80, T_PART = 81, T_LV = 88 };
+       T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141 };
 static const char *const s_static_texts[] = {
     "reSOT Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
@@ -956,6 +958,15 @@ static const char *const s_part_names_de[LEVEL_PARTS] = {
     "Abschnitte 01-22", "Abschnitte 24-51", "Abschnitte 61-91", "Extras" };
 static uint32_t s_level_pending;
 
+/* RE-SoT: cheats (below), shown on their own reSOT page. */
+enum { CHEAT_INVULNERABLE, CHEAT_SAND, CHEAT_ONE_HIT, CHEATS };
+static int s_cheat[CHEATS];
+static long s_cheat_revision;
+static const char *const s_cheat_names[CHEATS] = {
+    "Invulnerable", "Infinite sand", "One-hit kills" };
+static const char *const s_cheat_names_de[CHEATS] = {
+    "Unverwundbar", "Unendlich Sand", "Ein Treffer t" "\xF6" "tet" };
+
 static void resot_text(uint32_t index, char *out, unsigned size)
 {
     /* RESOT_FONT_PROBE=<first>,<count>: the main menu's reSOT entry shows the
@@ -995,7 +1006,13 @@ static void resot_text(uint32_t index, char *out, unsigned size)
     else if (index >= T_PART && index < T_PART + LEVEL_PARTS)
         snprintf(out, size, "%s", resot_text_language() == 4 ? s_part_names_de[index - T_PART]
                                                              : s_part_names[index - T_PART]);
-    else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
+    else if (index == T_CHEATS)
+        snprintf(out, size, "Cheats");
+    else if (index >= T_CHEAT && index < T_CHEAT + CHEATS) {
+        int de = resot_text_language() == 4, c = (int)(index - T_CHEAT);
+        snprintf(out, size, "%s: %s", de ? s_cheat_names_de[c] : s_cheat_names[c],
+                 s_cheat[c] ? (de ? "An" : "On") : (de ? "Aus" : "Off"));
+    } else if (index >= T_LV && index < T_LV + (uint32_t)LEVELS) {
         char *c;
         snprintf(out, size, "%s", s_levels[index - T_LV].room);
         for (c = out; *c; c++)
@@ -1028,7 +1045,7 @@ void sub_000F84A0(void)
 enum { DO_OPEN, DO_MSG };
 typedef struct { uint32_t text; int what; int arg; uint32_t choice; } NativeChoice;
 typedef struct { uint32_t title; float top, step; int n; NativeChoice c[12]; uint32_t page; } NativePage;
-enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2,
+enum { P_ROOT, P_GFX, P_CTRL, P_K0, P_K1, P_K2, P_J0, P_J1, P_J2, P_CHEATS,
        P_LEVELS, P_LV0, P_LV1, P_LV2, P_LV3, P_PAGES };
 #define MSG_ID(page, item) ((uint32_t)(page) << 8 | (uint32_t)(item))
 #define MSG_RESET 0xFF00u
@@ -1047,9 +1064,14 @@ static void native_layout(void)
     int i, j;
     NativePage *p;
     memset(s_pages, 0, sizeof s_pages);
-    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 2;
+    p = &s_pages[P_ROOT]; p->title = T_ROOT; p->top = 0.3833f; p->step = 0.0667f; p->n = 3;
     native_choice(p, 0, T_GRAPHICS, DO_OPEN, P_GFX);
     native_choice(p, 1, T_CONTROLS, DO_OPEN, P_CTRL);
+    native_choice(p, 2, T_CHEATS, DO_OPEN, P_CHEATS);
+    p = &s_pages[P_CHEATS]; p->title = T_CHEATS; p->top = 0.3833f; p->step = 0.0667f;
+    p->n = CHEATS;
+    for (i = 0; i < p->n; i++)
+        native_choice(p, i, T_CHEAT + (uint32_t)i, DO_MSG, (int)MSG_ID(P_CHEATS, i));
     p = &s_pages[P_GFX]; p->title = T_GRAPHICS; p->top = 0.3833f; p->step = 0.0667f;
     p->n = RESOT_NATIVE_GRAPHICS_ITEMS;
     for (i = 0; i < p->n; i++)
@@ -1335,7 +1357,7 @@ static void native_refresh(void)
     static long seen;
     long revision;
     int i, j, n = 0;
-    if (!s_native_bound || (revision = resot_native_revision()) == seen)
+    if (!s_native_bound || (revision = resot_native_revision() + s_cheat_revision) == seen)
         return;
     seen = revision;
     for (i = 0; i < P_PAGES; i++)
@@ -1372,7 +1394,11 @@ void sub_00039B20(void)
     else if ((id >> 8) >= P_K0 && (id >> 8) <= P_J2)
         resot_native_activate((id >> 8) >= P_J0 ? RESOT_NATIVE_JOY : RESOT_NATIVE_KEYS,
                               (int)(id & 0xFF));
-    else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
+    else if ((id >> 8) == P_CHEATS && (id & 0xFF) < CHEATS) {
+        s_cheat[id & 0xFF] = !s_cheat[id & 0xFF];
+        s_cheat_revision++;
+        fprintf(stderr, "[CHEAT] %s %s\n", s_cheat_names[id & 0xFF], s_cheat[id & 0xFF] ? "on" : "off");
+    } else if ((id >> 8) >= P_LV0 && (id >> 8) <= P_LV3) {
         int n = s_part_first[(id >> 8) - P_LV0] + (int)(id & 0xFF);
         if (n < s_part_first[(id >> 8) - P_LV0 + 1])
             s_level_pending = (uint32_t)n + 1;
@@ -1397,6 +1423,24 @@ static void level_pending(void)
     GuestRegs saved;
     uint32_t args[3], flag, mgr, n, page;
     const Level *lv;
+    /* RESOT_START_LEVEL=<room, e.g. 6101_couloir, or world-list stream>:
+     * chosen by itself about three seconds after the main menu is built. */
+    static int start_polls = -1;
+    if (start_polls < 0) {
+        const char *e = getenv("RESOT_START_LEVEL");
+        int i;
+        start_polls = 0;
+        for (i = 0; e && *e && i < LEVELS; i++)
+            if (!_stricmp(e, s_levels[i].room) || strtoul(e, NULL, 16) == s_levels[i].stream)
+                start_polls = 1 + i;
+    }
+    if (start_polls > 0 && s_native_bound) {
+        static int polls;
+        if (++polls == 180) {
+            s_level_pending = (uint32_t)start_polls;
+            start_polls = 0;
+        }
+    }
     if (!s_level_pending)
         return;
     lv = &s_levels[s_level_pending - 1];
@@ -1424,4 +1468,176 @@ static void level_pending(void)
     GMEM32(MAP_CHANGE_STATE) = 0;
     guest_cdecl(sub_0025CF40, args, 2);
     regs_load(&saved);
+}
+
+/* Cheats, after popsot-fixes (src/cheats.cpp, docs/TECHNICAL.md:474), which rebuilt
+ * the PS2 prototype's cheat mode (Mdl0000186A_fn_Cheat_Set / Cheat_Test,
+ * Mdl000092EB_fn_iCheats in its MAPFILE.MAP). The retail XBE keeps only the
+ * test, inlined into the spawners (0x001CAE51, 0x0021F897). The variables
+ * are laid out as on PC:
+ * - main actors (script references 1, 2) at [0x67B6A0] / [0x67B6A4]
+ *   (cleared together in 0x000E7C70); an object's AI variables are
+ *   obj +0x18 -> +4 -> +0x44;
+ * - prince: life +0x19C, maximum +0x11F8 (fn_RegenerateLife, 0x0026AE40);
+ *   filled sand tanks +0x7AC, tanks +0xD24, sand in the current tank
+ *   +0xCA8, a full tank +0x122C (fn_AddSOT, 0x0026AFA0);
+ * - fn_Combat_ProcessCurrentHurt (0x001764E0, object in eax): in hurt
+ *   state 4 (+0x398) it takes the damage (float +0x208) off the life, and
+ *   1000.0 ([0x4294C4]) is the game's own instant kill;
+ * - sand creatures (model 0x7493) count melee hits in
+ *   fn_ProcessMeeleeWeaponHits (0x0017A0C0, cdecl object, message; the
+ *   message's +0 is the sender) at variable +0x7C;
+ * - fn_SetWeapon of the prince (0x0026CE80, cdecl prince) takes the next of
+ *   the four swords itself (index +0x73C wraps after 3; swords from +0x8B8)
+ *   without checking the slot.
+ * Invulnerable and infinite sand are kept at their maximum at every input
+ * poll; one-hit kills set the damage to 1000.0 for every hit on an object
+ * that is not a main actor (so Farah is never killed by a hit). Switched on
+ * the reSOT Cheats page or in play with Ctrl+F1 (invulnerable), Ctrl+F2
+ * (sand), Ctrl+F3 (one-hit kills); Ctrl+F4 gives the next sword. Not
+ * saved: every start begins with them off. */
+#define MAIN_ACTOR1     0x0067B6A0u
+#define MAIN_ACTOR2     0x0067B6A4u
+#define V_LIFE          0x19Cu
+#define V_LIFE_MAX      0x11F8u
+#define V_TANKS         0x7ACu
+#define V_TANKS_MAX     0xD24u
+#define V_SAND          0xCA8u
+#define V_SAND_FULL     0x122Cu
+#define V_HURT_STATE    0x398u
+#define V_HURT_DAMAGE   0x208u
+#define V_HITS          0x7Cu
+#define V_SWORD_INDEX   0x73Cu
+#define V_WEAPONS       0x8B8u
+extern void sub_0026CE80(void);
+extern int xbox_FramebufferKeyDown(int vk);
+
+static uint32_t cheat_word(uint32_t va, int *ok)
+{
+    uint32_t v = 0;
+    if (!va || !resot_guest_read_word(g_xbox_mem_offset, va, &v)) *ok = 0;
+    return v;
+}
+
+/* An object's AI variables, or 0; `size` bytes of them must be readable. */
+static uint32_t cheat_vars(uint32_t obj, uint32_t size)
+{
+    int ok = 1;
+    uint32_t ext = cheat_word(obj + 0x18, &ok), ai, vars;
+    ai = ok ? cheat_word(ext + 4, &ok) : 0;
+    vars = ok ? cheat_word(ai + 0x44, &ok) : 0;
+    if (ok) cheat_word(vars + size - 4, &ok);
+    return ok ? vars : 0;
+}
+
+static int cheat_in_play(void)
+{
+    int ok = 1;
+    uint32_t mgr = cheat_word(MENU_MANAGER, &ok);
+    return ok && cheat_word(mgr + 0xF0, &ok) == 0 && ok;
+}
+
+static void cheat_next_sword(void)
+{
+    GuestRegs saved;
+    uint32_t prince = GMEM32(MAIN_ACTOR1), v, idx, next, args[1];
+    if (!cheat_in_play() || !(v = cheat_vars(prince, V_SAND_FULL + 4))) {
+        fprintf(stderr, "[CHEAT] next sword: no prince in play\n");
+        return;
+    }
+    idx = GMEM32(v + V_SWORD_INDEX);
+    next = idx >= 3 ? 0 : idx + 1;
+    if (!GMEM32(v + V_WEAPONS + next * 4)) {
+        fprintf(stderr, "[CHEAT] next sword: slot %u is empty\n", next);
+        return;
+    }
+    regs_save(&saved);
+    g_esp -= 0x40;
+    args[0] = prince;
+    guest_cdecl(sub_0026CE80, args, 1);
+    regs_load(&saved);
+    fprintf(stderr, "[CHEAT] sword %u of 4\n", GMEM32(v + V_SWORD_INDEX) + 1);
+}
+
+static void cheats_tick(void)
+{
+    static const char *const names[CHEATS] = { "invulnerable", "infinite sand", "one-hit kills" };
+    static int was[4];
+    int ctrl = xbox_FramebufferKeyDown(0xA2) || xbox_FramebufferKeyDown(0xA3), i;
+    uint32_t v;
+    static int configured;
+    if (!configured) {                           /* RESOT_CHEATS=invulnerable,sand,onehit */
+        const char *e = getenv("RESOT_CHEATS");
+        configured = 1;
+        if (e && *e) {
+            s_cheat[CHEAT_INVULNERABLE] = strstr(e, "invulnerable") != NULL;
+            s_cheat[CHEAT_SAND] = strstr(e, "sand") != NULL;
+            s_cheat[CHEAT_ONE_HIT] = strstr(e, "onehit") != NULL;
+            s_cheat_revision++;
+        }
+    }
+    for (i = 0; i < 4; i++) {                    /* Ctrl+F1 .. Ctrl+F4 */
+        int down = ctrl && xbox_FramebufferKeyDown(0x70 + i);
+        if (down && !was[i]) {
+            if (i < CHEATS) {
+                s_cheat[i] = !s_cheat[i];
+                s_cheat_revision++;
+                fprintf(stderr, "[CHEAT] %s %s\n", names[i], s_cheat[i] ? "on" : "off");
+            } else {
+                cheat_next_sword();
+            }
+        }
+        was[i] = down;
+    }
+    if (!s_cheat[CHEAT_INVULNERABLE] && !s_cheat[CHEAT_SAND])
+        return;
+    if (!(v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4)))
+        return;
+    if (s_cheat[CHEAT_INVULNERABLE]) {
+        int32_t life = (int32_t)GMEM32(v + V_LIFE), max = (int32_t)GMEM32(v + V_LIFE_MAX);
+        if (max > 0 && max < 100000 && life > 0 && life < max)
+            GMEM32(v + V_LIFE) = (uint32_t)max;
+    }
+    if (s_cheat[CHEAT_SAND]) {
+        int32_t tanks = (int32_t)GMEM32(v + V_TANKS), max = (int32_t)GMEM32(v + V_TANKS_MAX);
+        if (max > 0 && max <= 10 && tanks >= 0 && tanks <= max) {
+            GMEM32(v + V_TANKS) = (uint32_t)max;
+            GMEM32(v + V_SAND) = GMEM32(v + V_SAND_FULL);
+        }
+    }
+    {                       /* once for each prince, and again ten seconds later */
+        static uint32_t prince;
+        static int polls;
+        if (prince != GMEM32(MAIN_ACTOR1)) { prince = GMEM32(MAIN_ACTOR1); polls = 0; }
+        if (polls == 0 || polls == 600)
+            fprintf(stderr, "[CHEAT] prince %08X: life %d of %d, sand tanks %d of %d\n", prince,
+                    (int)GMEM32(v + V_LIFE), (int)GMEM32(v + V_LIFE_MAX),
+                    (int)GMEM32(v + V_TANKS), (int)GMEM32(v + V_TANKS_MAX));
+        if (polls <= 600) polls++;
+    }
+}
+
+/* fn_Combat_ProcessCurrentHurt: the object in eax. */
+void sub_001764E0_enter(void)
+{
+    uint32_t obj = g_eax, v;
+    if (!s_cheat[CHEAT_ONE_HIT] || obj == GMEM32(MAIN_ACTOR1) || obj == GMEM32(MAIN_ACTOR2))
+        return;
+    if ((v = cheat_vars(obj, V_HURT_STATE + 4)) != 0 && GMEM32(v + V_HURT_STATE) == 4)
+        GMEMF(v + V_HURT_DAMAGE) = 1000.0f;
+}
+
+/* Mdl00007493_fn_ProcessMeeleeWeaponHits (cdecl object, message): a hit sent
+ * by the prince (reference 1 or the actor itself) finds the counter at 0. */
+void sub_0017A0C0_enter(void)
+{
+    uint32_t obj = GMEM32(g_esp + 4), msg = GMEM32(g_esp + 8), sender, v;
+    int ok = 1;
+    if (!s_cheat[CHEAT_ONE_HIT])
+        return;
+    sender = cheat_word(msg, &ok);
+    if (!ok || (sender != 1 && sender != GMEM32(MAIN_ACTOR1)))
+        return;
+    if ((v = cheat_vars(obj, V_HITS + 4)) != 0 && (int32_t)GMEM32(v + V_HITS) > 0)
+        GMEM32(v + V_HITS) = 0;
 }

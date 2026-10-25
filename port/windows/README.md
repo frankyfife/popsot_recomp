@@ -312,6 +312,16 @@ Special Load on PC. It is meant for testing: the Prince keeps whatever the
 menu had (sword, sand tanks), not what the story would have given him by
 then. `RESOT_HIDDEN_MENUS=0` hides it together with "reSOT Options".
 
+### Cheats (retail)
+
+Like popsot-fixes on PC, rebuilt from the PS2 prototype's cheat mode:
+invulnerable, infinite sand and one-hit kills (Farah is never killed by a
+hit). Switch them on the "Cheats" page of "reSOT Options" or in play with
+Ctrl+F1, Ctrl+F2 and Ctrl+F3; Ctrl+F4 gives the next of the four swords.
+They are not saved and start off. For tests, `RESOT_CHEATS=invulnerable,sand,onehit`
+switches them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of
+the level select) starts that level by itself once the main menu is up.
+
 ### Post processing quality and texture glow
 
 `Texture glow effect` uses `[Graphics] TextureGlowEffect=1` by default on

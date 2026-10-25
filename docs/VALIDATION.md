@@ -1,5 +1,44 @@
 # Validation log
 
+## 2026-10-25: cheats on xbox-retail
+
+popsot-fixes' cheats (src/cheats.cpp, TECHNICAL.md:474-536), rebuilt for
+retail. The retail anchors were found by matching script references and
+AI function ids against the PS2 prototype's MAPFILE.MAP names and checking
+each in the XBE:
+- main actors [0x67B6A0] / [0x67B6A4], the AI variables at
+  obj +0x18 -> +4 -> +0x44;
+- the variable offsets: identical to PC (life +0x19C / +0x11F8, sand
+  +0x7AC / +0xD24 / +0xCA8 / +0x122C, hurt state +0x398, damage +0x208,
+  melee hit counter +0x7C, sword index +0x73C, swords from +0x8B8);
+- functions: fn_Combat_ProcessCurrentHurt 0x001764E0 (object in eax,
+  not on the stack as on PC), fn_ProcessMeeleeWeaponHits 0x0017A0C0
+  (cdecl object, message), fn_SetWeapon 0x0026CE80 (cdecl prince only: it
+  takes the next sword itself), 1000.0 at 0x4294C4;
+- Cheat_Test is inlined into the two spawners (0x001CAE51, 0x0021F897);
+  nothing sets its bits, as on PC.
+
+`source/xbox-retail/target_hooks.c`: a reSOT "Cheats" page (Unverwundbar,
+Unendlich Sand, Ein Treffer toetet; On/Off labels), Ctrl+F1..F3 for the
+same and Ctrl+F4 for the next sword, entry hooks on 0x001764E0 and
+0x0017A0C0 (re-lift: two lines in gen/scripts/scripts_0003.c). Two test
+aids: `RESOT_CHEATS=invulnerable,sand,onehit` and
+`RESOT_START_LEVEL=<room>` (picks the level about three seconds after the
+main menu is built). `python tools/test-xbe-sites.py xbox-retail`: 325
+claims, 0 failed.
+
+**Checked.** Two runs into `6101_couloir` with X pressed every 0.7 s from
+60 s (`RESOT_START_LEVEL=6101_couloir`), one with all three cheats, one
+with `RESOT_CHEATS=none`:
+- with them: the attackers burst at the hits, the health bar and all four
+  sand tanks stayed full, the fight ended and the area went on;
+- without: the tanks were empty, the health ran down and the game showed
+  "Spielende / Erneut versuchen".
+The log shows `[CHEAT] prince 748D8B70: life 100 of 100, sand tanks 4 of
+4`. **Not checked:** Ctrl+F1..F4 (the pad script has no keyboard), the
+sword change at all, the Cheats page by pad (menu timing varies between
+runs: the profile screen comes only sometimes).
+
 ## 2026-10-25: level select ("Special Load Map") on xbox-retail
 
 The user asked for the game's debug level select first, so the later levels

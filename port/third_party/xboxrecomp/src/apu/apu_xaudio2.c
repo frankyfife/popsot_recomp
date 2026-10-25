@@ -62,6 +62,10 @@ static int                     g_xa2_speakers = 2, g_xa2_send = 0, g_xa2_out_cha
 static volatile LONG           g_xa2_reverb_on = 1;
 static uint8_t                 g_xa2_listener[48];
 static int                     g_xa2_have_listener;
+/* RE-SoT: a volume meter on the master voice, so the log says what reaches
+ * the device and not only what was submitted. */
+static int                     g_xa2_meter;
+static float                   g_xa2_peak;
 
 void xa2_configure(int speakers, int reverb)
 {
@@ -104,8 +108,11 @@ static void apply_reverb_send(void)
     if (!g_xa2_source || !g_xa2_reverb) return;
     for (c = 0; c < chans; c++)
         m[c] = c == g_xa2_speakers && InterlockedCompareExchange(&g_xa2_reverb_on, 0, 0) ? 1.0f : 0.0f;
-    IXAudio2SourceVoice_SetOutputMatrix(g_xa2_source, (IXAudio2Voice *)g_xa2_reverb, (UINT32)chans, 1, m,
-                                        XAUDIO2_COMMIT_NOW);
+    {
+        HRESULT hr = IXAudio2SourceVoice_SetOutputMatrix(g_xa2_source, (IXAudio2Voice *)g_xa2_reverb,
+                                                         (UINT32)chans, 1, m, XAUDIO2_COMMIT_NOW);
+        if (FAILED(hr)) fprintf(stderr, "[XA2] reverb send matrix rejected: 0x%08lX\n", hr);
+    }
 }
 
 void xa2_set_reverb(int on)
@@ -113,6 +120,26 @@ void xa2_set_reverb(int on)
     InterlockedExchange(&g_xa2_reverb_on, on != 0);
     if (g_xa2_initialized) apply_reverb_send();
 }
+
+/* The reverb's parameter block as XAudio2_9.dll 10.0.26100 reads it: 56
+ * bytes, without the SideDelay byte that xaudio2fx.h declares for
+ * _WIN32_WINNT >= WIN10 (57 bytes). Measured (GetEffectParameters of the
+ * defaults, 0xCD fill): 5000.0 RoomFilterFreq at offset 20, not 21, the
+ * position bytes 6 6 27 at offsets 10-12. Our 57-byte block put every
+ * value one field off and the effect silenced the whole output (the
+ * master's volume meter read 0). Which one the DLL has is told by the
+ * default PositionMatrixLeft (27) at offset 12 (legacy) or 13. */
+#pragma pack(push, 1)
+typedef struct {
+    float WetDryMix;
+    UINT32 ReflectionsDelay;
+    BYTE ReverbDelay, RearDelay, PositionLeft, PositionRight, PositionMatrixLeft, PositionMatrixRight,
+         EarlyDiffusion, LateDiffusion, LowEQGain, LowEQCutoff, HighEQGain, HighEQCutoff;
+    float RoomFilterFreq, RoomFilterMain, RoomFilterHF, ReflectionsGain, ReverbGain, DecayTime, Density, RoomSize;
+    BOOL DisableLateField;
+} ReverbLegacy;
+#pragma pack(pop)
+static int g_xa2_reverb_legacy;
 
 static void apply_listener(void)
 {
@@ -146,7 +173,34 @@ static void apply_listener(void)
     if (native.ReflectionsGain > XAUDIO2FX_REVERB_MAX_REFLECTIONS_GAIN)
         native.ReflectionsGain = XAUDIO2FX_REVERB_MAX_REFLECTIONS_GAIN;
     if (native.ReverbGain > XAUDIO2FX_REVERB_MAX_REVERB_GAIN) native.ReverbGain = XAUDIO2FX_REVERB_MAX_REVERB_GAIN;
-    hr = IXAudio2SubmixVoice_SetEffectParameters(g_xa2_reverb, 0, &native, sizeof native, XAUDIO2_COMMIT_NOW);
+    if (g_xa2_reverb_legacy) {
+        ReverbLegacy lg;
+        lg.WetDryMix = native.WetDryMix;
+        lg.ReflectionsDelay = native.ReflectionsDelay;
+        lg.ReverbDelay = native.ReverbDelay;
+        lg.RearDelay = native.RearDelay;
+        lg.PositionLeft = native.PositionLeft;
+        lg.PositionRight = native.PositionRight;
+        lg.PositionMatrixLeft = native.PositionMatrixLeft;
+        lg.PositionMatrixRight = native.PositionMatrixRight;
+        lg.EarlyDiffusion = native.EarlyDiffusion;
+        lg.LateDiffusion = native.LateDiffusion;
+        lg.LowEQGain = native.LowEQGain;
+        lg.LowEQCutoff = native.LowEQCutoff;
+        lg.HighEQGain = native.HighEQGain;
+        lg.HighEQCutoff = native.HighEQCutoff;
+        lg.RoomFilterFreq = native.RoomFilterFreq;
+        lg.RoomFilterMain = native.RoomFilterMain;
+        lg.RoomFilterHF = native.RoomFilterHF;
+        lg.ReflectionsGain = native.ReflectionsGain;
+        lg.ReverbGain = native.ReverbGain;
+        lg.DecayTime = native.DecayTime;
+        lg.Density = native.Density;
+        lg.RoomSize = native.RoomSize;
+        lg.DisableLateField = native.DisableLateField;
+        hr = IXAudio2SubmixVoice_SetEffectParameters(g_xa2_reverb, 0, &lg, sizeof lg, XAUDIO2_COMMIT_NOW);
+    } else
+        hr = IXAudio2SubmixVoice_SetEffectParameters(g_xa2_reverb, 0, &native, sizeof native, XAUDIO2_COMMIT_NOW);
     fprintf(stderr, "[XA2] I3DL2 listener: room %d hf %d, decay %.2f s (hf ratio %.2f), reflections %d"
                     " after %.3f s, reverb %d after %.3f s, diffusion %.0f density %.0f hf %.0f Hz (%s)\n",
             (int)i3.Room, (int)i3.RoomHF, i3.DecayTime, i3.DecayHFRatio, (int)i3.Reflections,
@@ -192,8 +246,25 @@ static int create_reverb(void)
     for (i = 0; i < g_xa2_out_channels; i++)
         for (j = 0; j < fx_out; j++)
             m[i * fx_out + j] = fx_out == 1 ? (i < 2 ? 1.0f : 0.0f) : speaker_gain(6, j, g_xa2_out_channels, i);
-    IXAudio2SubmixVoice_SetOutputMatrix(g_xa2_reverb, NULL, (UINT32)fx_out, (UINT32)g_xa2_out_channels, m,
-                                        XAUDIO2_COMMIT_NOW);
+    hr = IXAudio2SubmixVoice_SetOutputMatrix(g_xa2_reverb, NULL, (UINT32)fx_out, (UINT32)g_xa2_out_channels, m,
+                                             XAUDIO2_COMMIT_NOW);
+    if (FAILED(hr)) fprintf(stderr, "[XA2] reverb output matrix rejected: 0x%08lX\n", hr);
+    {
+        unsigned char def[64];
+        memset(def, 0xCD, sizeof def);
+        hr = IXAudio2SubmixVoice_GetEffectParameters(g_xa2_reverb, 0, def, sizeof(XAUDIO2FX_REVERB_PARAMETERS));
+        if (FAILED(hr) || (def[12] != 27 && def[13] != 27)) {
+            fprintf(stderr, "[XA2] reverb parameter layout unknown (0x%08lX, %02X %02X): no reverb\n",
+                    hr, def[12], def[13]);
+            g_xa2_reverb->lpVtbl->DestroyVoice(g_xa2_reverb);
+            g_xa2_reverb = NULL;
+            return 0;
+        }
+        g_xa2_reverb_legacy = def[12] == 27;
+        fprintf(stderr, "[XA2] reverb parameters: %s layout (%u bytes)\n",
+                g_xa2_reverb_legacy ? "56-byte" : "57-byte",
+                (unsigned)(g_xa2_reverb_legacy ? sizeof(ReverbLegacy) : sizeof(XAUDIO2FX_REVERB_PARAMETERS)));
+    }
     return 1;
 }
 
@@ -268,9 +339,24 @@ int xa2_init(void)
     for (i = 0; i < g_xa2_out_channels; i++)
         for (j = 0; j < chans; j++)
             m[i * chans + j] = j < g_xa2_speakers ? speaker_gain(g_xa2_speakers, j, g_xa2_out_channels, i) : 0.0f;
-    IXAudio2SourceVoice_SetOutputMatrix(g_xa2_source, (IXAudio2Voice *)g_xa2_master, (UINT32)chans,
-                                        (UINT32)g_xa2_out_channels, m, XAUDIO2_COMMIT_NOW);
+    hr = IXAudio2SourceVoice_SetOutputMatrix(g_xa2_source, (IXAudio2Voice *)g_xa2_master, (UINT32)chans,
+                                             (UINT32)g_xa2_out_channels, m, XAUDIO2_COMMIT_NOW);
+    if (FAILED(hr)) fprintf(stderr, "[XA2] speaker matrix rejected: 0x%08lX\n", hr);
     apply_reverb_send();
+    {   /* the volume meter on the master */
+        IUnknown *meter = NULL;
+        XAUDIO2_EFFECT_DESCRIPTOR md;
+        XAUDIO2_EFFECT_CHAIN mc;
+        if (SUCCEEDED(XAudio2CreateVolumeMeter(&meter, 0)) && meter) {
+            md.pEffect = meter;
+            md.InitialState = TRUE;
+            md.OutputChannels = (UINT32)g_xa2_out_channels;
+            mc.EffectCount = 1;
+            mc.pEffectDescriptors = &md;
+            g_xa2_meter = SUCCEEDED(IXAudio2MasteringVoice_SetEffectChain(g_xa2_master, &mc));
+            IUnknown_Release(meter);
+        }
+    }
     if (!g_xa2_have_listener) {
         /* DirectSound's own default until the game sets one: the I3DL2
          * "Generic" preset (DSOUND section 0x00401590 of the retail XBE). */
@@ -390,7 +476,25 @@ int xa2_submit_samples(const int16_t *samples, int num_samples)
 
     g_xa2_next_buf = (idx + 1) % XA2_NUM_BUFS;
     g_xa2_frames_written++;
+    if (g_xa2_meter) {
+        float peaks[XA2_MAX_CHANNELS] = { 0 };
+        XAUDIO2FX_VOLUMEMETER_LEVELS lv;
+        int c;
+        lv.pPeakLevels = peaks;
+        lv.pRMSLevels = NULL;
+        lv.ChannelCount = (UINT32)g_xa2_out_channels;
+        if (SUCCEEDED(IXAudio2MasteringVoice_GetEffectParameters(g_xa2_master, 0, &lv, sizeof lv)))
+            for (c = 0; c < g_xa2_out_channels; c++)
+                if (peaks[c] > g_xa2_peak) g_xa2_peak = peaks[c];
+    }
     return 1;
+}
+
+float xa2_take_output_peak(void)
+{
+    float p = g_xa2_meter ? g_xa2_peak : -1.0f;
+    g_xa2_peak = 0.0f;
+    return p;
 }
 
 int xa2_get_buffer_size(void)
@@ -418,5 +522,6 @@ void xa2_layout(int *speakers, int *reverb_send)      { *speakers = 2; *reverb_s
 void xa2_set_reverb(int on)                           { (void)on; }
 void xa2_set_i3dl2_listener(const void *l)            { (void)l; }
 int  xa2_output_channels(void)                        { return 0; }
+float xa2_take_output_peak(void)                      { return -1.0f; }
 
 #endif /* _WIN32 */

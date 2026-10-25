@@ -34,6 +34,9 @@ void xa2_set_reverb(int on);
 void xa2_set_i3dl2_listener(const void *listener48);
 /* The output's channel count (the device's, in 5.1 mode), 0 before init. */
 int xa2_output_channels(void);
+/* The loudest sample the master voice played since the last call (1.0 =
+ * full scale), -1 without the meter. */
+float xa2_take_output_peak(void);
 
 /* Get the preferred buffer size in samples. */
 int xa2_get_buffer_size(void);

@@ -596,7 +596,9 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
             if (!last) last = now;
             if (now - last >= 10000) {
                 int queued = 0, dropped = 0, starved = 0;
+                float device = xa2_take_output_peak();
                 xa2_get_stats(&queued, &dropped, &starved);
+                fprintf(stderr, "[APU] device output peak %.4f (1 = full scale; -1 = no meter)\n", device);
                 fprintf(stderr, "[APU] output over %.0f s: %d frames, %d not silent, peak %d/32767;"
                                 " XAudio2 queue %d, %d dropped, %d starved;"
                                 " late %d (max %.1f ms), block max %.1f ms, lock max %.1f ms,"

@@ -41,6 +41,22 @@ Sound page in the pause menu: "Lautsprecher: 5.1 (nach Neustart)" and
 reverb's output); rear channels and the reverb in a level, because of the
 two problems below.
 
+**Fix, same day: no sound at all** (user report with a recording: the
+recording's sound is at -90 dB). The APU log showed real levels handed
+to XAudio2 (peaks up to 29974), so the loss was after it. A volume meter
+on the master voice (new: `[APU] device output peak` every 10 s) read 0.
+Without the reverb submix, or with the reverb at its defaults, it read
+0.20-0.36; any SetEffectParameters silenced everything, Generic too.
+GetEffectParameters of the defaults (0xCD fill) showed why: XAudio2_9.dll
+10.0.26100 keeps the 56-byte layout without SideDelay (RoomFilterFreq
+5000.0 at offset 20, PositionMatrixLeft 27 at offset 12), while
+xaudio2fx.h declares 57 bytes for _WIN32_WINNT 0A00, so every value went
+one field off. The layout is now told from the defaults at start and the
+block written to match; afterwards the device peaks were 0.20-0.36 in
+stereo and 5.1 with the reverb on. My earlier check recorded what was
+submitted (RECOMP_APU_WAV), not what the device played: the meter closes
+that gap.
+
 **Found on the way (open, not caused by these changes; seen with the
 statistic alone before them):**
 - after the level select (6101_couloir) the level is silent: no voice

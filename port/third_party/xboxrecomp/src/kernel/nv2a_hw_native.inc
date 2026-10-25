@@ -785,6 +785,19 @@ static SDL_GPUTexture *ng_depth(NgSurface *s)
     depth->offset = s_gpu.zeta_offset; depth->w = w; depth->h = h;
     return s->depth;
 }
+/* RE-SoT: the guest size of the render target a stage samples (0: a
+ * texture). Retail's bloom tail declares 40x30, 20x15 and 10x7 textures on
+ * surfaces drawn 48x30, 32x15 and 16x7 wide (pitch padding; frame trace
+ * "[HW-TEX] declared=40x30 selected=48x30"). The host image spans the
+ * surface, so texel coordinates must be normalised by the surface's width:
+ * by the declared one, each level squeezed its picture 1.2 or 1.6 times
+ * towards the left edge, and the composite showed bright areas again as
+ * soft copies further left (user report 2026-10-25: window and sky glow
+ * repeated about a third of the screen to the left). Only a surface at
+ * least as large as the declaration counts (padding); the demo's 640x480
+ * declaration over a 320x240 drawing keeps the old stretch. */
+static uint32_t s_ng_rt_size[4][2];
+
 static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
 {
     const Texture *t = &s_gpu.texs[stage];
@@ -792,6 +805,7 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     NgTexture *c = NULL, *victim = NULL;
     uint32_t i, slot, hash, layers, face, *px, levels = 1;
     int reuse_image = 0; /* RE-SoT: SDL cycling preserves earlier sampled versions. */
+    s_ng_rt_size[stage & 3][0] = s_ng_rt_size[stage & 3][1] = 0;
     if (!t->valid || !t->width || !t->height || t->width > 4096 || t->height > 4096) return NULL;
     for (i = 0; !t->cube && i < HW_MAX_SURFACES; i++) {
         NgSurface *s = &s_ng.surfaces[i];
@@ -801,6 +815,7 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     }
     if (best) {
         hw_trace_effect_source(stage,best->offset,best->w,best->h,best->frame); /* RE-SoT */
+        if (best != target) { s_ng_rt_size[stage & 3][0] = best->w; s_ng_rt_size[stage & 3][1] = best->h; }
         return best == target ? NULL : best->color;
     }
     if (!hw_mem_ok(t->offset, t->cube ? 6*tex_face_stride(t) : hw_tex_bytes(t))) return NULL;
@@ -1134,6 +1149,12 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
         pc->tscale[i][0] = pc->tscale[i][1] = 1;
         if (t->valid && !tex_size_from_format(t->color)) {
             pc->tscale[i][0] = 1.0f/t->width; pc->tscale[i][1] = 1.0f/t->height;
+        }
+        if (image && t->valid && s_ng_rt_size[i][0] >= t->width && s_ng_rt_size[i][1] >= t->height
+                && (s_ng_rt_size[i][0] != t->width || s_ng_rt_size[i][1] != t->height)) {   /* RE-SoT: s_ng_rt_size */
+            int linear = !tex_size_from_format(t->color);
+            pc->tscale[i][0] = (linear ? 1.0f : (float)t->width) / (float)s_ng_rt_size[i][0];
+            pc->tscale[i][1] = (linear ? 1.0f : (float)t->height) / (float)s_ng_rt_size[i][1];
         }
         pc->tscale[i][2] = image ? 1.0f : 0;
         pc->tscale[i][3] = image && t->cube ? 1.0f : 0;

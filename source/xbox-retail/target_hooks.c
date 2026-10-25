@@ -1068,11 +1068,94 @@ static void resot_text(uint32_t index, char *out, unsigned size)
 
 /* References to RESOT_TEXT_GROUP are answered from a guest buffer that is
  * rewritten at every lookup, so a label shows the setting's current value. */
+/* RE-SoT: fixes of the German hint text (RESOT_TEXT_FIXES=0 keeps it).
+ * The German text bank's verb entries for \d4\ \d5\ \d6\ are "Tippt",
+ * "Ziehen", "ziehen" (FD5003DA and every other world's FD5 stream), while
+ * the sentences around them want the Ihr form of "press": "Lauft auf die
+ * Ecke zu und \d6\ \p5\A", "Ihr \d6\et \p5\A zu frueh" (-> "ziehenet"),
+ * "\d5\ \p5\C, um das Schwert zu ziehen". They become "Drueckt" /
+ * "drueckt", the same length. Fifteen hints also put
+ * the button in brackets ("\d5\ [\p5\C] zum Angriff"; the English text has
+ * none); the brackets are removed. Both in guest RAM, right after the
+ * world's text is loaded (sub_00069B10) or the language changed
+ * (sub_00069D50); user report 2026-10-25. */
+static int text_fixes(void)
+{
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("RESOT_TEXT_FIXES"); on = !(e && *e == '0'); }
+    return on;
+}
+
+/* One committed range of guest memory [lo, hi). */
+static void text_fix_range(uint32_t lo, uint32_t hi, unsigned *verbs, unsigned *buttons)
+{
+    static const char want[] = "\0Tippt\0Ziehen\0ziehen\0";
+    static const char fixed[] = "Tippt\0Dr\xFC" "ckt\0dr\xFC" "ckt";
+    uint8_t *ram = (uint8_t *)(uintptr_t)g_xbox_mem_offset;
+    uint32_t a, e;
+    for (a = lo + 1; a + sizeof want < hi; a++) {
+        const uint8_t *q = memchr(ram + a, 'T', hi - a - sizeof want);
+        if (!q) break;
+        a = (uint32_t)(q - ram);
+        if (!memcmp(ram + a - 1, want, sizeof want - 1)) {
+            memcpy(ram + a, fixed, sizeof fixed - 1);
+            (*verbs)++;
+        }
+    }
+    for (a = lo; a + 8 < hi; a++) {                   /* "[\p5\X]" -> "\p5\X" */
+        const uint8_t *q = memchr(ram + a, '[', hi - a - 8);
+        if (!q) break;
+        a = (uint32_t)(q - ram);
+        if (ram[a + 1] != '\\' || ram[a + 2] != 'p' || ram[a + 4] != '\\' || ram[a + 6] != ']') continue;
+        for (e = a + 7; e < hi - 1 && ram[e]; e++) ;
+        memmove(ram + a, ram + a + 1, 5);                     /* \p5\X */
+        memmove(ram + a + 5, ram + a + 7, e - (a + 7) + 1);   /* the rest, with its NUL */
+        ram[e - 1] = 0;
+        (*buttons)++;
+    }
+}
+
+extern int guest_vmem_accessible(uint32_t address, uint32_t bytes);
+
+/* After a world's text (or a language change) is loaded: the verbs and the
+ * bracketed buttons, wherever the banks lie: the first 64 MB, then every
+ * committed range of the extended guest heap above it. */
+static void text_fix_ram(void)
+{
+    unsigned verbs = 0, buttons = 0;
+    uint32_t va, run = 0;
+    if (resot_text_language() != 4 || !text_fixes()) return;
+    text_fix_range(0x10000u, 64u << 20, &verbs, &buttons);
+    for (va = 64u << 20; va && va < ~0xFFFFu; va += 0x1000u) {
+        int ok = guest_vmem_accessible(va, 0x1000u);
+        if (ok && !run) run = va;
+        if (!ok && run) { text_fix_range(run, va, &verbs, &buttons); run = 0; }
+    }
+    if (run) text_fix_range(run, va, &verbs, &buttons);
+    fprintf(stderr, "[LANG] German hint fixes: %u verb tables, %u bracketed buttons\n", verbs, buttons);
+}
+
+extern void sub_00069B10_gen(void);
+extern void sub_00069D50_gen(void);
+void sub_00069B10(void)
+{
+    sub_00069B10_gen();
+    text_fix_ram();
+}
+void sub_00069D50(void)
+{
+    sub_00069D50_gen();
+    text_fix_ram();
+}
+
 void sub_000F84A0(void)
 {
     uint32_t index;
     char text[RESOT_TEXT_SLOT];
-    if (GMEM32(g_edi) != RESOT_TEXT_GROUP) { sub_000F84A0_gen(); return; }
+    if (GMEM32(g_edi) != RESOT_TEXT_GROUP) {
+        sub_000F84A0_gen();
+        return;
+    }
     index = GMEM32(g_edi + 4);
     if (!s_text_va)
         s_text_va = xbox_ContiguousAlloc(RESOT_TEXT_SLOT * RESOT_TEXTS, 16);

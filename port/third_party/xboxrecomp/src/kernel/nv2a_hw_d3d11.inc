@@ -1541,6 +1541,19 @@ static void hw_texpack_note(HwTexture *c, const HwSurface *target, const Texture
     free(hd);
 }
 
+/* RE-SoT: the guest size of the render target a stage samples (0: a
+ * texture). Retail's bloom tail declares 40x30, 20x15 and 10x7 textures on
+ * surfaces drawn 48x30, 32x15 and 16x7 wide (pitch padding; frame trace
+ * "[HW-TEX] declared=40x30 selected=48x30"). The host image spans the
+ * surface, so texel coordinates must be normalised by the surface's width:
+ * by the declared one, each level squeezed its picture 1.2 or 1.6 times
+ * towards the left edge, and the composite showed bright areas again as
+ * soft copies further left (user report 2026-10-25: window and sky glow
+ * repeated about a third of the screen to the left). Only a surface at
+ * least as large as the declaration counts (padding); the demo's 640x480
+ * declaration over a 320x240 drawing keeps the old stretch. */
+static uint32_t s_rt_size[4][2];
+
 static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
 {
     const Texture *t = &s_gpu.texs[stage];
@@ -1552,6 +1565,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     int cache_reason;
     uint32_t upload_w, upload_h;
 
+    s_rt_size[stage & 3][0] = s_rt_size[stage & 3][1] = 0;
     if (!t->valid || t->width > 4096 || t->height > 4096)
         return NULL;
     /* A render target used as a texture. */
@@ -1578,6 +1592,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
                 best->drawn_frame, s_hw.frame, best == target);
         if (best) {
             hw_trace_effect_source(stage,best->offset,best->w,best->h,best->drawn_frame); /* RE-SoT */
+            if (best != target) { s_rt_size[stage & 3][0] = best->w; s_rt_size[stage & 3][1] = best->h; }
             return best == target ? NULL : best->srv;
         }
     }
@@ -1908,6 +1923,12 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
         if (t->valid && !tex_size_from_format(t->color)) {
             pc.tscale[st][0] = 1.0f / (float)t->width;
             pc.tscale[st][1] = 1.0f / (float)t->height;
+        }
+        if (srv[st] && t->valid && s_rt_size[st][0] >= t->width && s_rt_size[st][1] >= t->height
+                && (s_rt_size[st][0] != t->width || s_rt_size[st][1] != t->height)) {   /* RE-SoT: s_rt_size */
+            int linear = !tex_size_from_format(t->color);
+            pc.tscale[st][0] = (linear ? 1.0f : (float)t->width) / (float)s_rt_size[st][0];
+            pc.tscale[st][1] = (linear ? 1.0f : (float)t->height) / (float)s_rt_size[st][1];
         }
         pc.tscale[st][2] = srv[st] ? 1.0f : 0.0f;
         if (!srv[st])

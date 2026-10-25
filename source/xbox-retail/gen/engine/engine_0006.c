@@ -8983,13 +8983,13 @@ loc_00069B02: ;
 }
 
 /**
- * sub_00069B10
+ * sub_00069B10_gen
  * Original: 0x00069B10 - 0x00069B6F (95 bytes, 29 insns)
  * Folder: engine (between: 0x000698A0 and 0x00069DC0)
  * CC: cdecl, 0 params, returns int_or_void
  * Frame: fpo_leaf
  */
-void sub_00069B10(void)
+void sub_00069B10_gen(void)
 {
     extern void sub_00069B10_enter(void);
     sub_00069B10_enter();
@@ -9452,13 +9452,13 @@ loc_00069D43: ;
 }
 
 /**
- * sub_00069D50
+ * sub_00069D50_gen
  * Original: 0x00069D50 - 0x00069DBA (106 bytes, 32 insns)
  * Folder: engine (between: 0x000698A0 and 0x00069DC0)
  * CC: cdecl, 0 params, returns int_or_void
  * Frame: fpo_leaf
  */
-void sub_00069D50(void)
+void sub_00069D50_gen(void)
 {
     uint32_t ebp = 0;
     ebp = g_ebp;  /* frameless: caller's frame */

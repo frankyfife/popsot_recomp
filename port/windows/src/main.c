@@ -1,5 +1,5 @@
 /**
- * reSOT - host entry point shared by every recompiled Xbox target.
+ * POPSoT - host entry point shared by every recompiled Xbox target.
  *
  * Loads the user's XBE for its data sections, maps the Xbox address space,
  * brings up the kernel replacement and calls the lifted entry point. Nothing
@@ -64,18 +64,18 @@ extern ptrdiff_t g_xbox_mem_offset;
 
 #include "target.h"   /* source/<target>/target.h: this build's XBE facts */
 
-#define YOUR_GAME_ENTRY_POINT   RESOT_ENTRY_POINT
-#define YOUR_GAME_DIR           resot_game_dir()
+#define YOUR_GAME_ENTRY_POINT   POPSOT_ENTRY_POINT
+#define YOUR_GAME_DIR           popsot_game_dir()
 
 /* Portable installs use the executable's own folder. Without game files
  * there, the launcher (launcher.c) installs them from the game's Xbox ISO;
- * RESOT_ASSET_DIR is an explicit override (run.ps1, and the launcher when it
+ * POPSOT_ASSET_DIR is an explicit override (run.ps1, and the launcher when it
  * hands over to the other target's executable). */
 static char s_game_dir[MAX_PATH];
-static const char *resot_game_dir(void)
+static const char *popsot_game_dir(void)
 {
     char *local = s_game_dir;
-    const char *env = getenv("RESOT_ASSET_DIR");
+    const char *env = getenv("POPSOT_ASSET_DIR");
     if (local[0]) return local;
     if (env && *env) {
         if (GetFullPathNameA(env, MAX_PATH, local, NULL) >= MAX_PATH) return env;
@@ -104,17 +104,17 @@ static const char *resot_game_dir(void)
         slash = strrchr(local, '\\');
         if (!slash) { local[0] = 0; return "."; }
         *slash = 0;
-        /* RE-SoT: started from a source checkout's bin\ (a double click,
+        /* POPSoT: started from a source checkout's bin\ (a double click,
          * without run.ps1): the game files are in ..\Assets\<target>, where
-         * run.ps1 points RESOT_ASSET_DIR, so use them rather than offering
+         * run.ps1 points POPSOT_ASSET_DIR, so use them rather than offering
          * to install the game again (user report 2026-10-26). */
         {
             char probe[MAX_PATH], dev[MAX_PATH];
             snprintf(probe, sizeof probe, "%s\\prince.bf", local);
             if (GetFileAttributesA(probe) == INVALID_FILE_ATTRIBUTES) {
-                snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s\\prince.bf", local, RESOT_TARGET_ID);
+                snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s\\prince.bf", local, POPSOT_TARGET_ID);
                 if (GetFileAttributesA(probe) != INVALID_FILE_ATTRIBUTES) {
-                    snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s", local, RESOT_TARGET_ID);
+                    snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s", local, POPSOT_TARGET_ID);
                     if (GetFullPathNameA(probe, MAX_PATH, dev, NULL) < MAX_PATH)
                         snprintf(local, MAX_PATH, "%s", dev);
                 }
@@ -123,7 +123,7 @@ static const char *resot_game_dir(void)
     }
     return local;
 }
-static void resot_redirect_log(FILE *stream, const char *path)
+static void popsot_redirect_log(FILE *stream, const char *path)
 {
     FILE *reopened = NULL, *log;
     const char *mode = "w";
@@ -145,21 +145,21 @@ static void resot_redirect_log(FILE *stream, const char *path)
     log = _fsopen(path, mode, _SH_DENYNO);
     if (log) {
         if(_dup2(_fileno(log), _fileno(stream))==0)
-            resot_console_log_path(stream,path);
+            popsot_console_log_path(stream,path);
         fclose(log);
     }
 }
 
-static const char *resot_missing_game_file(void)
+static const char *popsot_missing_game_file(void)
 {
     static const struct { const char *name; int directory; } required[] = {
         {"prince.bf", 0}, {"video", 1}, {"sound", 1}, {"shaders.bin", 0}
     };
-    unsigned i, count = strcmp(RESOT_TARGET_ID, "xbox-retail") == 0 ? 4 : 3;
+    unsigned i, count = strcmp(POPSOT_TARGET_ID, "xbox-retail") == 0 ? 4 : 3;
     for (i = 0; i < count; ++i) {
         char path[MAX_PATH];
         DWORD attributes;
-        snprintf(path, sizeof path, "%s\\%s", resot_game_dir(), required[i].name);
+        snprintf(path, sizeof path, "%s\\%s", popsot_game_dir(), required[i].name);
         attributes = GetFileAttributesA(path);
         if (attributes == INVALID_FILE_ATTRIBUTES
             || (required[i].directory != !!(attributes & FILE_ATTRIBUTE_DIRECTORY)))
@@ -170,7 +170,7 @@ static const char *resot_missing_game_file(void)
 
 /* The same merged input report the guest receives, including non-XInput
  * pads and developer pad scripts. Only the focused game can skip a movie. */
-int resot_movie_skip_down(void)
+int popsot_movie_skip_down(void)
 {
     extern void *xbox_FramebufferWindowHandle(void);
     extern int xbox_FramebufferKeyDown(int vk);
@@ -184,7 +184,7 @@ int resot_movie_skip_down(void)
 
 /* ── Every thread's call chain ─────────────────────────────── */
 
-/* RESOT_THREAD_DUMP_SECS=<n>: every n seconds, print the host call chain of
+/* POPSOT_THREAD_DUMP_SECS=<n>: every n seconds, print the host call chain of
  * every thread in the process.
  *
  * The runtime's watchdog shows the guest stack of the thread that runs the
@@ -195,7 +195,7 @@ int resot_movie_skip_down(void)
  * stack is read. */
 #include <tlhelp32.h>
 
-static DWORD WINAPI resot_thread_dump_main(LPVOID param)
+static DWORD WINAPI popsot_thread_dump_main(LPVOID param)
 {
     DWORD secs = (DWORD)(uintptr_t)param, self = GetCurrentThreadId();
     DWORD pid = GetCurrentProcessId();
@@ -267,18 +267,18 @@ static DWORD WINAPI resot_thread_dump_main(LPVOID param)
     }
 }
 
-/* RESOT_PROFILE_MS=<n>: a sampling profiler. Every ten seconds the two
+/* POPSOT_PROFILE_MS=<n>: a sampling profiler. Every ten seconds the two
  * threads that used the most CPU in the previous ten are chosen (the game's
  * own thread and the one executing the pushbuffer, in practice) and sampled
  * every n milliseconds; the report says where the samples fell, by the
  * innermost routine of this executable (system DLL frames are walked past),
  * as a share of that thread's samples. Lifted routines appear as
  * sub_XXXXXXXX. */
-#define RESOT_PROF_SLOTS 2048
-typedef struct { DWORD64 addr; char name[64]; unsigned hits; } ResotProfSlot;
-typedef struct { DWORD tid; HANDLE h; ULONGLONG cpu, used; } ResotProfThread;
+#define POPSOT_PROF_SLOTS 2048
+typedef struct { DWORD64 addr; char name[64]; unsigned hits; } PopsotProfSlot;
+typedef struct { DWORD tid; HANDLE h; ULONGLONG cpu, used; } PopsotProfThread;
 
-static ULONGLONG resot_thread_cpu(HANDLE h)
+static ULONGLONG popsot_thread_cpu(HANDLE h)
 {
     FILETIME c, e, k, u;
     if (!GetThreadTimes(h, &c, &e, &k, &u))
@@ -287,10 +287,10 @@ static ULONGLONG resot_thread_cpu(HANDLE h)
          + (((ULONGLONG)u.dwHighDateTime << 32) | u.dwLowDateTime);
 }
 
-static DWORD WINAPI resot_profile_main(LPVOID param)
+static DWORD WINAPI popsot_profile_main(LPVOID param)
 {
-    static ResotProfSlot slot[2][RESOT_PROF_SLOTS];
-    static ResotProfThread th[128];
+    static PopsotProfSlot slot[2][POPSOT_PROF_SLOTS];
+    static PopsotProfThread th[128];
     DWORD ms = (DWORD)(uintptr_t)param, self = GetCurrentThreadId();
     DWORD pid = GetCurrentProcessId(), last = GetTickCount();
     DWORD64 lo = (DWORD64)(uintptr_t)GetModuleHandle(NULL), hi = lo;
@@ -343,9 +343,9 @@ static DWORD WINAPI resot_profile_main(LPVOID param)
                 sym->SizeOfStruct = sizeof(SYMBOL_INFO);
                 sym->MaxNameLen = 255;
                 if (SymFromAddr(GetCurrentProcess(), pc, &disp, sym)) {
-                    unsigned hsh = (unsigned)(sym->Address >> 4) % RESOT_PROF_SLOTS;
-                    for (i = 0; i < RESOT_PROF_SLOTS; i++, hsh = (hsh + 1) % RESOT_PROF_SLOTS) {
-                        ResotProfSlot *e = &slot[t][hsh];
+                    unsigned hsh = (unsigned)(sym->Address >> 4) % POPSOT_PROF_SLOTS;
+                    for (i = 0; i < POPSOT_PROF_SLOTS; i++, hsh = (hsh + 1) % POPSOT_PROF_SLOTS) {
+                        PopsotProfSlot *e = &slot[t][hsh];
                         if (!e->addr) {
                             e->addr = sym->Address;
                             strncpy(e->name, sym->Name, sizeof e->name - 1);
@@ -370,12 +370,12 @@ static DWORD WINAPI resot_profile_main(LPVOID param)
                     (unsigned long)th[target[t]].tid,
                     (double)th[target[t]].used / 1e5, total[t]);
             for (n = 0; n < 28; n++) {
-                unsigned best = RESOT_PROF_SLOTS;
-                for (i = 0; i < RESOT_PROF_SLOTS; i++)
+                unsigned best = POPSOT_PROF_SLOTS;
+                for (i = 0; i < POPSOT_PROF_SLOTS; i++)
                     if (slot[t][i].hits
-                        && (best == RESOT_PROF_SLOTS || slot[t][i].hits > slot[t][best].hits))
+                        && (best == POPSOT_PROF_SLOTS || slot[t][i].hits > slot[t][best].hits))
                         best = i;
-                if (best == RESOT_PROF_SLOTS || slot[t][best].hits * 250 < total[t])
+                if (best == POPSOT_PROF_SLOTS || slot[t][best].hits * 250 < total[t])
                     break;
                 fprintf(stderr, " %s %.1f%%", slot[t][best].name,
                         100.0 * slot[t][best].hits / total[t]);
@@ -403,7 +403,7 @@ static DWORD WINAPI resot_profile_main(LPVOID param)
                         th[k].tid = te.th32ThreadID;
                         th[k].h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT
                                              | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
-                        th[k].cpu = th[k].h ? resot_thread_cpu(th[k].h) : 0;
+                        th[k].cpu = th[k].h ? popsot_thread_cpu(th[k].h) : 0;
                         if (th[k].h)
                             nth++;
                     }
@@ -412,7 +412,7 @@ static DWORD WINAPI resot_profile_main(LPVOID param)
             }
             target[0] = target[1] = -1;
             for (t = 0; t < nth; t++) {
-                ULONGLONG now = resot_thread_cpu(th[t].h);
+                ULONGLONG now = popsot_thread_cpu(th[t].h);
                 th[t].used = now >= th[t].cpu ? now - th[t].cpu : 0;
                 th[t].cpu = now;
                 if (target[0] < 0 || th[t].used > th[target[0]].used) {
@@ -426,32 +426,32 @@ static DWORD WINAPI resot_profile_main(LPVOID param)
     }
 }
 
-static void resot_thread_dump_start(void)
+static void popsot_thread_dump_start(void)
 {
     {
-        const char *p = getenv("RESOT_PROFILE_MS");
+        const char *p = getenv("POPSOT_PROFILE_MS");
         int ms = p ? atoi(p) : 0;
         if (ms > 0) {
-            HANDLE th = CreateThread(NULL, 0, resot_profile_main,
+            HANDLE th = CreateThread(NULL, 0, popsot_profile_main,
                                      (LPVOID)(uintptr_t)ms, 0, NULL);
             if (th)
                 CloseHandle(th);
         }
     }
     {
-    const char *e = getenv("RESOT_THREAD_DUMP_SECS");
+    const char *e = getenv("POPSOT_THREAD_DUMP_SECS");
     int secs = e ? atoi(e) : 0;
     HANDLE th;
 
     if (secs <= 0)
         return;
-    th = CreateThread(NULL, 0, resot_thread_dump_main, (LPVOID)(uintptr_t)secs, 0, NULL);
+    th = CreateThread(NULL, 0, popsot_thread_dump_main, (LPVOID)(uintptr_t)secs, 0, NULL);
     if (th)
         CloseHandle(th);
     }
 }
 
-static DWORD WINAPI resot_log_flush_main(LPVOID unused)
+static DWORD WINAPI popsot_log_flush_main(LPVOID unused)
 {
     (void)unused;
     for (;;) {
@@ -673,20 +673,20 @@ static LONG CALLBACK veh_handler(PEXCEPTION_POINTERS ep)
                         (unsigned long long)mbi.RegionSize, mbi.State, mbi.Protect, mbi.Type);
         }
 
-#ifdef RESOT_JADE_WORLD_CURRENT
+#ifdef POPSOT_JADE_WORLD_CURRENT
         /* Jade world state: the world being updated,
          * the active-world table and the object table 0x1C9B0 walks. */
         {
             const uint8_t *m = (const uint8_t *)(uintptr_t)g_xbox_mem_offset;
             #define GM32(a) (*(const uint32_t *)(m + (uint32_t)(a)))
-            uint32_t w = GM32(RESOT_JADE_WORLD_CURRENT), a;
+            uint32_t w = GM32(POPSOT_JADE_WORLD_CURRENT), a;
             fprintf(stderr, "  world cur=0x%08X active=[0x%08X..0x%08X) pending=0x%02X"
-                            " state=%u\n", w, GM32(RESOT_JADE_ACTIVE_BEGIN), GM32(RESOT_JADE_ACTIVE_END),
-                    GM32(RESOT_JADE_PENDING_MODE) & 0xFF,
-                    GM32(RESOT_JADE_STATE_PTR) > 0x10000 && GM32(RESOT_JADE_STATE_PTR) < 0x04000000
-                        ? GM32(GM32(RESOT_JADE_STATE_PTR) + RESOT_JADE_STATE_FIELD) : 0xFFFFFFFFu);
-            for (a = GM32(RESOT_JADE_ACTIVE_BEGIN); a && a < GM32(RESOT_JADE_ACTIVE_END)
-                     && a < 0x04000000 && a - GM32(RESOT_JADE_ACTIVE_BEGIN) < 0x80; a += 8)
+                            " state=%u\n", w, GM32(POPSOT_JADE_ACTIVE_BEGIN), GM32(POPSOT_JADE_ACTIVE_END),
+                    GM32(POPSOT_JADE_PENDING_MODE) & 0xFF,
+                    GM32(POPSOT_JADE_STATE_PTR) > 0x10000 && GM32(POPSOT_JADE_STATE_PTR) < 0x04000000
+                        ? GM32(GM32(POPSOT_JADE_STATE_PTR) + POPSOT_JADE_STATE_FIELD) : 0xFFFFFFFFu);
+            for (a = GM32(POPSOT_JADE_ACTIVE_BEGIN); a && a < GM32(POPSOT_JADE_ACTIVE_END)
+                     && a < 0x04000000 && a - GM32(POPSOT_JADE_ACTIVE_BEGIN) < 0x80; a += 8)
                 fprintf(stderr, "    active %08X flags %08X\n", GM32(a), GM32(a + 4));
             if (w > 0x10000 && w < 0x04000000 - 0x430) {
                 fprintf(stderr, "  world+0x000: %08X %08X %08X %08X\n",
@@ -758,8 +758,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     /* Resolve an explicit relative asset path before changing directory.
      * Caches and diagnostics belong to this application, independent of the
      * directory from which Explorer/a shortcut/the terminal launched it. */
-    resot_options_prepare_config();
-    resot_game_dir();
+    popsot_options_prepare_config();
+    popsot_game_dir();
     {
         char directory[MAX_PATH];
         DWORD n = GetModuleFileNameA(NULL, directory, sizeof directory);
@@ -770,8 +770,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             if (!GetStdHandle(STD_ERROR_HANDLE)
                 || GetStdHandle(STD_ERROR_HANDLE) == INVALID_HANDLE_VALUE) {
                 CreateDirectoryA("logs", NULL);
-                resot_redirect_log(stderr, "logs\\" RESOT_TARGET_ID "-err.txt");
-                resot_redirect_log(stdout, "logs\\" RESOT_TARGET_ID "-out.txt");
+                popsot_redirect_log(stderr, "logs\\" POPSOT_TARGET_ID "-err.txt");
+                popsot_redirect_log(stdout, "logs\\" POPSOT_TARGET_ID "-out.txt");
             }
         }
     }
@@ -781,7 +781,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
      * started without them, this executable hands over to it, or says where
      * it looked when there is none. */
     {
-        const char *missing = resot_missing_game_file();
+        const char *missing = popsot_missing_game_file();
         if (missing) {
             char launcher[MAX_PATH], message[900];
             DWORD n = GetModuleFileNameA(NULL, launcher, sizeof launcher);
@@ -796,24 +796,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             snprintf(message, sizeof message,
                 "The game files were not found.\n\n%s\n\nMissing: %s\n\n"
                 "Install the game with POPSoT Launcher (popsot-launcher.exe) from your Xbox ISO.",
-                resot_game_dir(), missing);
+                popsot_game_dir(), missing);
             MessageBoxA(NULL, message, "POPSoT Recomp - Game files", MB_ICONWARNING);
             return 0;
         }
     }
 
-    /* RE-SoT: the German bonus films (CINE_90n4, tools/german-speech.py
+    /* POPSoT: the German bonus films (CINE_90n4, tools/german-speech.py
      * from the European disc) are only asked for when they are installed. */
     {
         char path[MAX_PATH];
-        snprintf(path, sizeof path, "%s\\video\\CINE_9014.INT", resot_game_dir());
-        if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES && !getenv("RESOT_GERMAN_BONUS"))
-            _putenv_s("RESOT_GERMAN_BONUS", "1");
+        snprintf(path, sizeof path, "%s\\video\\CINE_9014.INT", popsot_game_dir());
+        if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES && !getenv("POPSOT_GERMAN_BONUS"))
+            _putenv_s("POPSOT_GERMAN_BONUS", "1");
     }
 
     /* A packaged executable has the same working defaults as run.ps1.
      * The developer launcher supplies its own full configuration. */
-    if (!getenv("RESOT_LAUNCHER_CONFIGURED")) {
+    if (!getenv("POPSOT_LAUNCHER_CONFIGURED")) {
         const char *defaults[][2] = {
             {"RECOMP_PB_EXEC", "1"}, {"RECOMP_FB_WINDOW", "1"},
             {"RECOMP_VBLANK", "1"}, {"RECOMP_HW", "1"},
@@ -825,16 +825,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             if (!getenv(defaults[i][0]))
                 _putenv_s(defaults[i][0], defaults[i][1]);
     }
-#if defined(RESOT_DEFAULT_EXT_VMA) && RESOT_DEFAULT_EXT_VMA
+#if defined(POPSOT_DEFAULT_EXT_VMA) && POPSOT_DEFAULT_EXT_VMA
     if (!getenv("RECOMP_EXT_VMA"))
         _putenv_s("RECOMP_EXT_VMA", "1");
 #endif
     {
-        extern void resot_current_wow(char *, size_t);
+        extern void popsot_current_wow(char *, size_t);
         extern void xbox_FramebufferSetWowProvider(void (*)(char *, size_t));
-        xbox_FramebufferSetWowProvider(resot_current_wow);
+        xbox_FramebufferSetWowProvider(popsot_current_wow);
     }
-    resot_options_init();
+    popsot_options_init();
 
     /* 1 ms scheduler granularity: the runtime's timer thread drives the
      * 60 Hz vertical blank and the title's timed waits with Sleep(1), which
@@ -844,15 +844,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         timeBeginPeriod(1);
     }
 
-    /* The picture shape this executable was built with (CMake RESOT_ASPECT),
+    /* The picture shape this executable was built with (CMake POPSOT_ASPECT),
      * unless RECOMP_HW_ASPECT already chooses one: the renderer and the
      * target's projection hook both read the variable. */
-#ifdef RESOT_DEFAULT_ASPECT
+#ifdef POPSOT_DEFAULT_ASPECT
     if (!getenv("RECOMP_HW_ASPECT"))
-        _putenv_s("RECOMP_HW_ASPECT", RESOT_DEFAULT_ASPECT);
+        _putenv_s("RECOMP_HW_ASPECT", POPSOT_DEFAULT_ASPECT);
 #endif
 
-#ifdef RESOT_PROJECTED_UI
+#ifdef POPSOT_PROJECTED_UI
     if (!getenv("RECOMP_HW_PROJECTED_UI"))
         _putenv_s("RECOMP_HW_PROJECTED_UI", "1");
 #endif
@@ -869,23 +869,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
      * crash handler). Unbuffered, every fprintf was one or more blocking
      * writes to the pipe run.ps1 redirects stderr into, on whichever thread
      * printed -- the profiler put the pushbuffer thread in fprintf for half
-     * of its time. RESOT_LOG_UNBUFFERED=1 restores immediate output, for a
+     * of its time. POPSOT_LOG_UNBUFFERED=1 restores immediate output, for a
      * fault that kills the process before the handler runs. */
     setvbuf(stdout, NULL, _IONBF, 0);
-    if (getenv("RESOT_LOG_UNBUFFERED")) {
+    if (getenv("POPSOT_LOG_UNBUFFERED")) {
         setvbuf(stderr, NULL, _IONBF, 0);
     } else {
         HANDLE th;
         setvbuf(stderr, NULL, _IOFBF, 1 << 16);
-        th = CreateThread(NULL, 0, resot_log_flush_main, NULL, 0, NULL);
+        th = CreateThread(NULL, 0, popsot_log_flush_main, NULL, 0, NULL);
         if (th)
             CloseHandle(th);
     }
 
-    printf("=== " RESOT_TARGET_NAME " - static recompilation ===\n");
+    printf("=== " POPSOT_TARGET_NAME " - static recompilation ===\n");
     fprintf(stderr, "[SESSION] target=%s pid=%lu ext-vma=%s xbe=%s\n",
-            RESOT_TARGET_ID, GetCurrentProcessId(),
-            getenv("RECOMP_EXT_VMA") ? getenv("RECOMP_EXT_VMA") : "0", RESOT_XBE_SHA256);
+            POPSOT_TARGET_ID, GetCurrentProcessId(),
+            getenv("RECOMP_EXT_VMA") ? getenv("RECOMP_EXT_VMA") : "0", POPSOT_XBE_SHA256);
     printf("Loading compiled Xbox image...\n");
 
     /* Install VEH handler (first handler in chain) */
@@ -905,7 +905,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
     /* The game folder was checked by the launcher above. */
     printf("Embedded Xbox image loaded: %zu bytes\n", xbe_size);
-    fprintf(stderr, "[BOOT] game folder: %s\n", resot_game_dir());
+    fprintf(stderr, "[BOOT] game folder: %s\n", popsot_game_dir());
 
     /* Step 2: Initialize Xbox memory layout */
     printf("Initializing Xbox memory layout...\n");
@@ -951,17 +951,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
      * of the last fence time issued and the offset of the pointer to the dword
      * the GPU writes back through BACK_END_WRITE_SEMAPHORE_RELEASE. Without
      * this the first Present spins waiting for a fence nothing signals. */
-#ifdef RESOT_D3D_DEVICE_GLOBAL
-    xbox_Nv2aMirrorFence(RESOT_D3D_DEVICE_GLOBAL, RESOT_D3D_FENCE_ISSUED,
-                         RESOT_D3D_FENCE_GPU_PTR);
+#ifdef POPSOT_D3D_DEVICE_GLOBAL
+    xbox_Nv2aMirrorFence(POPSOT_D3D_DEVICE_GLOBAL, POPSOT_D3D_FENCE_ISSUED,
+                         POPSOT_D3D_FENCE_GPU_PTR);
 #else
     fprintf(stderr, "[BOOT] no D3D fence layout for this target yet\n");
 #endif
 
     /* DirectSound's buffers in ordinary RAM need physical addresses the
      * audio processor cannot mistake for contiguous memory. */
-#ifdef RESOT_DSOUND_CODE_BEGIN
-    xbox_SetApuPhysicalCallers(RESOT_DSOUND_CODE_BEGIN, RESOT_DSOUND_CODE_END);
+#ifdef POPSOT_DSOUND_CODE_BEGIN
+    xbox_SetApuPhysicalCallers(POPSOT_DSOUND_CODE_BEGIN, POPSOT_DSOUND_CODE_END);
 #endif
 
     /* Gamepad: unprotects nothing and changes nothing unless RECOMP_USB is
@@ -1014,7 +1014,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
      * silently inert, and the one diagnostic that tells a hang from slowness
      * does nothing while appearing to be set. */
     xbox_WatchdogStart();
-    resot_thread_dump_start();
+    popsot_thread_dump_start();
 
     /* Step 7: Call the recompiled entry point */
     printf("\nStarting game...\n");
@@ -1057,13 +1057,13 @@ static BOOL load_embedded_xbe(void **out_data, size_t *out_size)
             && BCryptHashData(hash, data, (ULONG)size, 0) >= 0
             && BCryptFinishHash(hash, digest, sizeof digest, 0) >= 0) {
             for (i = 0; i < 32; ++i) sprintf_s(hex + i * 2, 3, "%02X", digest[i]);
-            ok = strcmp(hex, RESOT_XBE_SHA256) == 0;
+            ok = strcmp(hex, POPSOT_XBE_SHA256) == 0;
         }
         if (hash) BCryptDestroyHash(hash);
         if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
         if (!ok) {
-            fprintf(stderr, "Unsupported default.xbe for " RESOT_TARGET_ID
-                    "; expected SHA-256 " RESOT_XBE_SHA256 "\n");
+            fprintf(stderr, "Unsupported default.xbe for " POPSOT_TARGET_ID
+                    "; expected SHA-256 " POPSOT_XBE_SHA256 "\n");
             free(data);
             return FALSE;
         }

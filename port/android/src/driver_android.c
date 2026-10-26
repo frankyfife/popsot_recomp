@@ -1,4 +1,4 @@
-/* reSOT: app-local Adreno driver selection, before SDL first loads Vulkan. */
+/* POPSoT: app-local Adreno driver selection, before SDL first loads Vulkan. */
 #include <SDL3/SDL.h>
 #include <adrenotools/driver.h>
 #include <vulkan/vulkan.h>
@@ -6,10 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void SDLCALL RESOT_SetAndroidVulkanGetInstanceProcAddr(SDL_FunctionPointer);
+extern void SDLCALL POPSOT_SetAndroidVulkanGetInstanceProcAddr(SDL_FunctionPointer);
 static void *s_driver; /* Keep the isolated namespace and hooks alive. */
 
-void resot_android_driver_init(int argc, char **argv)
+void popsot_android_driver_init(int argc, char **argv)
 {
     const char *hooks=NULL, *dir=NULL, *name=NULL;
     for (int i=1;i+1<argc;i++) {
@@ -30,7 +30,7 @@ void resot_android_driver_init(int argc, char **argv)
     if (get) {
         PFN_vkCreateInstance create=(PFN_vkCreateInstance)get(VK_NULL_HANDLE,"vkCreateInstance");
         VkInstance instance=VK_NULL_HANDLE;
-        VkApplicationInfo app={.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO,.pApplicationName="reSOT driver probe",.apiVersion=VK_API_VERSION_1_0};
+        VkApplicationInfo app={.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO,.pApplicationName="POPSoT driver probe",.apiVersion=VK_API_VERSION_1_0};
         VkInstanceCreateInfo ci={.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,.pApplicationInfo=&app};
         if (create && create(&ci,NULL,&instance)==VK_SUCCESS) {
             PFN_vkEnumeratePhysicalDevices enumerate=(PFN_vkEnumeratePhysicalDevices)get(instance,"vkEnumeratePhysicalDevices");
@@ -55,6 +55,6 @@ void resot_android_driver_init(int argc, char **argv)
         fprintf(stderr,"[DRIVER] custom %s unavailable/incompatible; using system Vulkan (%s)\n",name,dlerror()?"loader error":"no Vulkan device");
         return;
     }
-    RESOT_SetAndroidVulkanGetInstanceProcAddr((SDL_FunctionPointer)get);
+    POPSOT_SetAndroidVulkanGetInstanceProcAddr((SDL_FunctionPointer)get);
     fprintf(stderr,"[DRIVER] custom Vulkan loader requested: %s from %s (check probe GPU and adrenotools logcat for fallback)\n",name,dir);
 }

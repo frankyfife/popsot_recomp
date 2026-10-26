@@ -1,4 +1,4 @@
-/* RE-SoT: serialize the demo DirectSound scopes (XBE 0x002E9F30 / 0x002E9F52)
+/* POPSoT: serialize the demo DirectSound scopes (XBE 0x002E9F30 / 0x002E9F52)
  * with its APU ISR (0x002EE410). The console has one CPU; host guest threads
  * can otherwise raise IRQL after the ISR's mask check and edit a voice list
  * concurrently. Keep this gate specific to audio, rather than holding a
@@ -6,8 +6,8 @@
  * Recursive acquisition is needed by nested scopes inside the ISR itself.
  * All transitive ISR imports were checked: no guest wait or critical-section
  * acquisition; it may allocate pool memory and queue a deferred callback. */
-#ifndef RESOT_APU_GUEST_GATE_H
-#define RESOT_APU_GUEST_GATE_H
+#ifndef POPSOT_APU_GUEST_GATE_H
+#define POPSOT_APU_GUEST_GATE_H
 #include <windows.h>
 
 static INIT_ONCE s_apu_guest_once = INIT_ONCE_STATIC_INIT;

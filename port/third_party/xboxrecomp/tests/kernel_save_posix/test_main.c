@@ -1,7 +1,7 @@
-/* RE-SoT: real POSIX backend, only host syscalls adapted to Windows CRT.
+/* POPSoT: real POSIX backend, only host syscalls adapted to Windows CRT.
  * Reproduce retail's 20-byte signed pop2.sav and 28-byte options.cfg layout. */
 #include "kernel.h"
-#include "resot_file_access.h"
+#include "popsot_file_access.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +11,7 @@
 #include <direct.h>
 #include <errno.h>
 #include <sys/stat.h>
-#define RESOT_RUNTIME_RETAIL 1
+#define POPSOT_RUNTIME_RETAIL 1
 #define __ANDROID__ 1
 typedef intptr_t ssize_t;
 #define off_t __int64

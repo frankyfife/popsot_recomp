@@ -1,9 +1,9 @@
 # Knowledge from popsot-fixes and FuturamaPC
 
 This document collects what two related projects already established and
-what it means for reSOT, so that it does not have to be found again. It
+what it means for POPSoT, so that it does not have to be found again. It
 records knowledge, values, causes and methods. It is not a claim that any of
-it has been applied or checked in reSOT, except where a check is named.
+it has been applied or checked in POPSoT, except where a check is named.
 
 | Source | What it is | Commit read | Local copy |
 | --- | --- | --- | --- |
@@ -37,17 +37,17 @@ is popsot-fixes `src/`; `F:<path>` is a FuturamaPC path; `LD` is FuturamaPC
   its own licence. Most of what is useful here is method and tooling, not code.
 - An item moves from here into the README status table and
   [VALIDATION.md](VALIDATION.md) only when it has been done and observed in
-  reSOT, as AGENTS.md requires.
+  POPSoT, as AGENTS.md requires.
 
 ## Rendering and effects
 
 ### Effect buffers at internal resolution
 
-**reSOT now.** `hw_surface_scale`
+**POPSoT now.** `hw_surface_scale`
 (`port/third_party/xboxrecomp/src/kernel/nv2a_hw_d3d11.inc:909-933`) scales
 only surfaces at least 640 wide with `InternalResolutionPercent`. Narrower
 targets get the effect-quality budget (25–100 %, never more,
-`resot_effect_quality.h:10-16`). The comment gives the reason: enlarging
+`popsot_effect_quality.h:10-16`). The comment gives the reason: enlarging
 targets without converting the guest's texel offsets gave "layers out of
 register" (RECOMP.md:349-356, VALIDATION.md:3423). At 1440p every blur, bloom
 and shadow buffer therefore stays at 480p size or smaller.
@@ -62,9 +62,9 @@ and shadow buffer therefore stays at 480p size or smaller.
   `afb12e9`).
 - Enlarging only the destination made each pass cover the top-left corner and
   left "a small ghost in the screen corner" (commit `de8d146`). That is the
-  same family of symptom reSOT recorded.
+  same family of symptom POPSoT recorded.
 
-**For reSOT.** At NV2A level the equivalent question is per draw: is a vertex
+**For POPSoT.** At NV2A level the equivalent question is per draw: is a vertex
 position in target pixels (pre-transformed, `w==1`) or is a texture coordinate
 unnormalised (in texels, as with Xbox rectangle textures)? Both need the scale
 factor. Normalised coordinates do not. This is the first candidate for an
@@ -90,7 +90,7 @@ vtable `0x7b18e4`, blur pass `0x66b540`, quad helper `0x66b300`, kernel
 - An emulator that steps the kernel in texels of enlarged targets makes the
   halo shrink with resolution.
 
-**For reSOT.** The Xbox soft-focus pass is not identified yet. The demo's
+**For POPSoT.** The Xbox soft-focus pass is not identified yet. The demo's
 320×240 ping-pong passes (POST-PROCESSING.md:49-51) are a candidate, not a
 finding. Once found, two choices need options, both off by default:
 
@@ -105,9 +105,9 @@ reads exactly on a texel border, so each level shifts half a texel and the
 glow ends up-left after five levels. Forcing linear filtering when a render
 target is sampled into a smaller one fixes it (pf:proxy.cpp:362-372).
 
-**For reSOT.** Check whether the Xbox chains (demo 640 → 320 → 160 → 80;
+**For POPSoT.** Check whether the Xbox chains (demo 640 → 320 → 160 → 80;
 retail down to 10×7, RECOMP.md:536, POST-PROCESSING.md:49-51) use point
-sampling for their downsamples. reSOT collapses guest min/mag/mip filtering to
+sampling for their downsamples. POPSoT collapses guest min/mag/mip filtering to
 one linear-or-point bit (`nv2a_hw_d3d11.inc:1550-1566`), so a point downsample
 would drift the same way. Note also that `TextureGlowEffect=0` is the default
 on both hosts (`port/*/default-options.ini`), so the default picture has no
@@ -130,7 +130,7 @@ Established for the Xbox (T:22-81, pf:proxy.cpp:923-967):
 - **Pixel shader.** An `lrp` chain. Combiner constants: water colour 0.086,
   specular 0.102.
 
-**For reSOT.** The scales are in **pixels**: the frame copy is sampled with
+**For POPSoT.** The scales are in **pixels**: the frame copy is sampled with
 unnormalised texture coordinates. When the frame copy follows internal
 resolution, those coordinates and the refraction offsets must be multiplied by
 the same factor. Otherwise refraction is too weak by that factor, or only the
@@ -151,7 +151,7 @@ this before any change to how the frame copy is scaled. The xemu capture under
   exception table, and keeps the frontend at 4:3 because Hor+ revealed parked
   menu panels (F:docs/g3_report.md:16-62).
 
-**reSOT now.** reSOT has its own heuristic (RECOMP.md:379-405,
+**POPSoT now.** POPSoT has its own heuristic (RECOMP.md:379-405,
 `nv2a_hud_layout.h`): `w==1` geometry centred at 4:3, flat side pieces in the
 top and bottom bands shifted toward the edge. The right-side and bottom HUD
 elements, other aspect ratios and all HUD states are unchecked
@@ -178,7 +178,7 @@ narrowing the view:
   Hold the end pose while the balcony camera rests. Blend over 0.75 s if the
   next camera is within 3 units, otherwise cut.
 
-**reSOT now.** In the demo the garden is not modelled past its 4:3 edge, so
+**POPSoT now.** In the demo the garden is not modelled past its 4:3 edge, so
 the black clear colour shows at the lower left (VALIDATION.md:3454-3456).
 Retail's menu scene is not documented. The PC offsets apply to the retail
 `menu3D` world if the data matches. The demo menu is a different scene.
@@ -194,13 +194,13 @@ On PC (T:310-321, pf:menucam.cpp:9-17; offsets to check in the Xbox XBE):
 - GOG's widescreen patch replaces the projection's tangent factor 0.5 and
   divisor 2.0.
 
-reSOT already does Hor+ with its own projection and culling hooks
+POPSoT already does Hor+ with its own projection and culling hooks
 (`source/<target>/target_hooks.c`). These offsets matter for the free camera
 and the menu camera.
 
 ### Anti-aliasing and filtering
 
-reSOT has no MSAA, no supersampling beyond the internal scale, and no
+POPSoT has no MSAA, no supersampling beyond the internal scale, and no
 anisotropic filtering (`nv2a_hw_d3d11.inc:1067,1277,1322`,
 `nv2a_hw_native.inc:292,927`). FuturamaPC's recipes are backend-level and
 apply to D3D11, D3D12 and Vulkan alike (LD 8.6 G3–G6, 8.8 R1/R3):
@@ -237,13 +237,13 @@ apply to D3D11, D3D12 and Vulkan alike (LD 8.6 G3–G6, 8.8 R1/R3):
   the Jade texture key instead of content. Known pack defects: 32 empty
   textures, about 0.8 brightness, and a font atlas reduced to 256×64.
 
-**For reSOT.** Hash at first use of an NV2A texture: unswizzled level 0 plus
+**For POPSoT.** Hash at first use of an NV2A texture: unswizzled level 0 plus
 format and size, cached by address and content. The Xbox D3D has no unlock to
 signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
 
 ### Movies
 
-- **reSOT now.** The game's own Bink decoder writes YUY2 to the overlay, and
+- **POPSoT now.** The game's own Bink decoder writes YUY2 to the overlay, and
   the host converts it to RGB on the CPU and shows it at 4:3
   (`video/fb_present.c:723-845`). There is no replacement path.
 - **popsot-fixes method** (T:428-457, pf:video.cpp), PC Bink 1:
@@ -265,7 +265,7 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
 
 ## Input and vibration
 
-- **Pad.** reSOT exposes one pad on port 0 only. `XGetDevices` returns 1 and
+- **Pad.** POPSoT exposes one pad on port 0 only. `XGetDevices` returns 1 and
   `XGetDeviceChanges` always returns 0 (`source/xbox-retail/target_hooks.c:328-340`).
   Hot-plug is host-side only.
 - **Xbox pad map** (T:228-258, retail `0x000DC160`): action bits
@@ -277,10 +277,10 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
   Movement uses actions `0x25`–`0x28`, the camera `0x29`–`0x2C`.
 - **Modern layout.** The Xbox pad had no shoulder buttons. popsot-fixes follows
   the PS2 version: LB = left trigger (rewind), RB = right trigger (special
-  action), LT = Black (alternate view), RT = White (look). If reSOT offers this
+  action), LT = Black (alternate view), RT = White (look). If POPSoT offers this
   as a preset, the `l`/`r`/`L`/`R` button glyphs in font 5 (`\p5\<c>`,
   T:294-308) no longer match and need other art.
-- **Vibration has never been validated in reSOT** (VALIDATION.md:3413). The
+- **Vibration has never been validated in POPSoT** (VALIDATION.md:3413). The
   Xbox side is known (T:260-292, all retail):
   - large motor `0x000DC700` (pad in EAX, strength 0–255 in EDX);
   - small motor `0x000DC6A0` (pad in ESI, on/off in ECX);
@@ -297,11 +297,11 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
   pads: buttons are ORed, the larger analog value wins. It reloads XInput at
   run time with throttled hot-plug polling, sends rumble to the last pad
   actually used, and maps the mouse through the inverse of the game's stick
-  curve. All of it is host-side and fits behind reSOT's pad report.
+  curve. All of it is host-side and fits behind POPSoT's pad report.
 
 ## Timing
 
-- **reSOT now.**
+- **POPSoT now.**
   - Retail runs variable-step after the timestep fix
     (`source/xbox-retail/target_hooks.c:29-74`).
   - "Whether the demo's simulation speed is correct above 60 fps was not
@@ -315,7 +315,7 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
   - a pacer coupled to the display rate;
   - an inventory of per-tick versus per-second code before any rate change.
 - **Interpolation needs object-level data.** At NV2A level only matrices in
-  vertex-shader constants are visible. In reSOT it would mean overriding the
+  vertex-shader constants are visible. In POPSoT it would mean overriding the
   Jade camera and matrix submission in `port/game`, keyed by call site and
   vertex buffer. That is a project of its own.
 - **Pitfalls worth reusing:**
@@ -327,7 +327,7 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
 
 ## Audio
 
-- **reSOT now.** reSOT emulates the APU voice processor at register level. The
+- **POPSoT now.** POPSoT emulates the APU voice processor at register level. The
   GP/EP DSP is a stub: effects are bypassed, sends dropped, mixbins folded to
   stereo (`apu/apu_dsp.c:1-14`, RECOMP.md:430-440). There is no reverb.
   Retail missing sounds and music or speech dropouts are open
@@ -347,7 +347,7 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
 
 ## Saves
 
-- **reSOT now.** The guest signs saves with `XboxSignatureKey` and all other
+- **POPSoT now.** The guest signs saves with `XboxSignatureKey` and all other
   kernel keys set to zero (`kernel/kernel_bridge.c:333-343`). Saves will
   probably not verify on a console or in a keyed xemu (not tested). There is
   no verify or resign tool, and the full save/load cycle is unvalidated.
@@ -376,7 +376,7 @@ signal writes (LD 2.2), so dynamic textures need dirty tracking or re-hashing.
   - freeze through the main-loop pause flag (PC `0xAF4498`; while it is set
     the loop only renders).
 
-  The Xbox addresses need finding. In reSOT this is an override in
+  The Xbox addresses need finding. In POPSoT this is an override in
   `port/game`, simpler than a detour.
 - **Cheats** (T:474-536, pf:cheats.cpp).
   - **Symbols.** The PS2 prototype SLUS_207.43 (2003-08-19) ships
@@ -426,7 +426,7 @@ with the game executable (IF 4.21:773-847):
 - **Result screen.** Shows the cause, the last 30 log lines, and buttons to
   open the log or folder and to retry.
 
-reSOT has a GDI launcher with SHA-256 detection and ISO installation, the F7
+POPSoT has a GDI launcher with SHA-256 detection and ISO installation, the F7
 panel and in-game option pages. There is no setup wizard and no crash result
 screen: the exception handler only logs (`port/windows/src/main.c:438-625`).
 AGENTS.md requires launcher parity with Android, so the contract (schema,
@@ -435,12 +435,12 @@ only.
 
 ## Verification methods
 
-This is where FuturamaPC is furthest ahead and where reSOT's README is
+This is where FuturamaPC is furthest ahead and where POPSoT's README is
 weakest ("Checked against the console ⚪").
 
 ### xemu reference comparison
 
-Not planned for reSOT as a general method (user, 2026-10-21): only for
+Not planned for POPSoT as a general method (user, 2026-10-21): only for
 special cases. FuturamaPC tools: `F:tools/xemu_capture.py`, `F:tools/m3_check.py:95-112,134-203`.
 
 - **Capture.** Start xemu without touching its config. Grab the client area
@@ -471,7 +471,7 @@ environment variable and asserts the exact bytes at every hook and probe site,
 vtable slots, string operands and `ret N`. It is skipped when the XBE is
 absent. 18 test files use the pattern.
 
-reSOT now has this as `tools/test-xbe-sites.py` (2026-10-21). It checks
+POPSoT now has this as `tools/test-xbe-sites.py` (2026-10-21). It checks
 claims (call targets, operands, function starts) rather than raw bytes, so
 no game code is written into the repository.
 
@@ -489,7 +489,7 @@ FuturamaPC runs a text DSL on a virtual pad (F:tools/input_scripts/README.md:14-
   criteria. Every check also fails on any error, warning, "unimplemented" or
   trap line.
 
-reSOT's `RECOMP_PAD_SCRIPT` uses fixed milliseconds (`usb_gamepad.c:366-410`).
+POPSoT's `RECOMP_PAD_SCRIPT` uses fixed milliseconds (`usb_gamepad.c:366-410`).
 Condition waits would make the scripted runs in VALIDATION.md repeatable.
 
 ### Reports and dead ends
@@ -504,7 +504,7 @@ Two habits worth copying:
   referenced by scripts but absent from the data, stub natives, and the diff
   between prototype and retail. Each finding becomes an option that is off by
   default, so "every option off" stays the original game. This works on Jade
-  AI code too: reSOT's `gen/ai` and `gen/scripts` are already C.
+  AI code too: POPSoT's `gen/ai` and `gen/scripts` are already C.
 
 ### Generic tools
 
@@ -631,12 +631,12 @@ English.
 
 ## Game logic at 60 Hz
 
-reSOT's own analysis (RECOMP.md:559-568, VALIDATION.md:3076-3100):
+POPSoT's own analysis (RECOMP.md:559-568, VALIDATION.md:3076-3100):
 
 - **Original.** The retail frame clock `sub_000DB740` computes a fixed
   timestep 1,000,000 / (int(refresh) >> 1) µs. At NTSC 60 Hz that is
   33,333 µs: the console's game logic runs at 30 Hz.
-- **reSOT.** The refresh field is zero in reSOT, so the target hook replaces
+- **POPSoT.** The refresh field is zero in POPSoT, so the target hook replaces
   that step with the measured frame interval. Logic therefore runs at the
   picture rate, for example 120 Hz at 120 fps, with the original 1 ms minimum
   and 160 ms cap.
@@ -666,7 +666,7 @@ FuturamaPC's method (F:docs/tote_enden.md) applies to the lifted Jade code in
 - names referenced but absent from the data;
 - stub natives.
 
-Sources for reSOT:
+Sources for POPSoT:
 
 - the PS2 prototype SLUS_207.43 with its `MAPFILE.MAP` symbols (popsot-fixes,
   T:474-536);
@@ -713,7 +713,7 @@ Each step ends with a VALIDATION.md entry.
 
 Not yet ranked into the order above.
 
-- **Native renderer, if it is faster.** reSOT already has optional native
+- **Native renderer, if it is faster.** POPSoT already has optional native
   D3D12 and Vulkan back ends through SDL GPU, chosen in F7 with a restart
   (README status: 🟡). Retail Vulkan measured a menu executor of 4.6–6.7 ms
   against 16.2–16.6 ms for the CPU vertex interpreter, and 66–124 FPS in the
@@ -738,7 +738,7 @@ and `PostProcessingQuality=1` (Low), so the final glow composite is off and
 blur/bloom run at half their original buffer size. The user noticed the
 missing post-processing (2026-10-21). With glow on and High, the effects
 are the original ones at their original, low buffer resolution, because
-reSOT keeps effect buffers unscaled to avoid misregistered copies, as the
+POPSoT keeps effect buffers unscaled to avoid misregistered copies, as the
 PC port shows. Rendering them at full resolution is order step 6
 ([effect buffers](#effect-buffers-at-internal-resolution)).
 
@@ -773,7 +773,7 @@ the same table in an XBE by its keys:
 
 | Target | Table at | Names | Output |
 | --- | --- | --- | --- |
-| Retail | `0x0043B178`, right after `RESOT_JADE_COMPILED_BF` | 872 | `source/xbox-retail/ai2c_names.tsv` |
+| Retail | `0x0043B178`, right after `POPSOT_JADE_COMPILED_BF` | 872 | `source/xbox-retail/ai2c_names.tsv` |
 | Demo, from the PAL demo copy with the same code | `0x00340100` | 610 | `source/xbox-demo/ai2c_names.tsv` |
 
 Every named address is a lifted function. One example is

@@ -87,7 +87,7 @@ extern ptrdiff_t g_xbox_mem_offset;
  */
 /* ── Tracing indirectly called routines ──────────────────────────────────
  *
- * RESOT_TRACE_ICALLS=<va>[,<va>...] (hexadecimal, up to 16) logs every call
+ * POPSOT_TRACE_ICALLS=<va>[,<va>...] (hexadecimal, up to 16) logs every call
  * that reaches one of those routines through a pointer -- a virtual call, a
  * callback -- with ecx on entry and eax on return. It is how "which
  * implementation answered that virtual call, and with what" gets settled
@@ -97,15 +97,15 @@ extern ptrdiff_t g_xbox_mem_offset;
 #include <string.h>
 
 #if defined(_MSC_VER)
-#define RESOT_TLS __declspec(thread)
+#define POPSOT_TLS __declspec(thread)
 #else
-#define RESOT_TLS __thread
+#define POPSOT_TLS __thread
 #endif
-extern RESOT_TLS uint32_t g_eax, g_ecx, g_esp;
+extern POPSOT_TLS uint32_t g_eax, g_ecx, g_esp;
 extern recomp_func_t recomp_lookup(uint32_t xbox_va);
 
-#define RESOT_TRACE_SLOTS 16
-static struct { uint32_t va; recomp_func_t fn; unsigned calls; } s_trace[RESOT_TRACE_SLOTS];
+#define POPSOT_TRACE_SLOTS 16
+static struct { uint32_t va; recomp_func_t fn; unsigned calls; } s_trace[POPSOT_TRACE_SLOTS];
 static int s_trace_count = -1;
 
 static void trace_run(int i)
@@ -121,12 +121,12 @@ static void trace_run(int i)
                 s_trace[i].va, n, ecx, sp[0], sp[1], sp[2], sp[3], g_eax);
 }
 
-#define RESOT_TRACE_FN(i) static void trace_fn_##i(void) { trace_run(i); }
-RESOT_TRACE_FN(0)  RESOT_TRACE_FN(1)  RESOT_TRACE_FN(2)  RESOT_TRACE_FN(3)
-RESOT_TRACE_FN(4)  RESOT_TRACE_FN(5)  RESOT_TRACE_FN(6)  RESOT_TRACE_FN(7)
-RESOT_TRACE_FN(8)  RESOT_TRACE_FN(9)  RESOT_TRACE_FN(10) RESOT_TRACE_FN(11)
-RESOT_TRACE_FN(12) RESOT_TRACE_FN(13) RESOT_TRACE_FN(14) RESOT_TRACE_FN(15)
-static const recomp_func_t s_trace_fn[RESOT_TRACE_SLOTS] = {
+#define POPSOT_TRACE_FN(i) static void trace_fn_##i(void) { trace_run(i); }
+POPSOT_TRACE_FN(0)  POPSOT_TRACE_FN(1)  POPSOT_TRACE_FN(2)  POPSOT_TRACE_FN(3)
+POPSOT_TRACE_FN(4)  POPSOT_TRACE_FN(5)  POPSOT_TRACE_FN(6)  POPSOT_TRACE_FN(7)
+POPSOT_TRACE_FN(8)  POPSOT_TRACE_FN(9)  POPSOT_TRACE_FN(10) POPSOT_TRACE_FN(11)
+POPSOT_TRACE_FN(12) POPSOT_TRACE_FN(13) POPSOT_TRACE_FN(14) POPSOT_TRACE_FN(15)
+static const recomp_func_t s_trace_fn[POPSOT_TRACE_SLOTS] = {
     trace_fn_0, trace_fn_1, trace_fn_2, trace_fn_3, trace_fn_4, trace_fn_5,
     trace_fn_6, trace_fn_7, trace_fn_8, trace_fn_9, trace_fn_10, trace_fn_11,
     trace_fn_12, trace_fn_13, trace_fn_14, trace_fn_15
@@ -134,11 +134,11 @@ static const recomp_func_t s_trace_fn[RESOT_TRACE_SLOTS] = {
 
 static void trace_init(void)
 {
-    const char *spec = getenv("RESOT_TRACE_ICALLS");
+    const char *spec = getenv("POPSOT_TRACE_ICALLS");
     char *end;
 
     s_trace_count = 0;
-    while (spec && *spec && s_trace_count < RESOT_TRACE_SLOTS) {
+    while (spec && *spec && s_trace_count < POPSOT_TRACE_SLOTS) {
         uint32_t va = (uint32_t)strtoul(spec, &end, 16);
         if (end == spec)
             break;

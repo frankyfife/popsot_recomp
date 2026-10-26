@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- reSOT: the retail button atlas (512x256, upright) redrawn as vectors.
+<!-- POPSoT: the retail button atlas (512x256, upright) redrawn as vectors.
      Every icon sits in the rectangle of the original element, so the game's
      texture coordinates stay valid. The controller line drawing on the
      right (x 237..512) is traced from the user's own atlas by
-     tools/hd-ui.py and is not part of this file. Drawn for reSOT. -->
+     tools/hd-ui.py and is not part of this file. Drawn for POPSoT. -->
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="256" viewBox="0 0 512 256">
   <defs>
     <radialGradient id="gA" cx="0.38" cy="0.32" r="0.75">

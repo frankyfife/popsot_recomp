@@ -574,7 +574,7 @@ class FunctionDetector:
                              or self.engine.probes_as_constant_stub(target)
                              or self.engine.probes_as_vcall_thunk(target))):
                 continue
-            # RE-SoT: nor can it justify a function that begins in the middle
+            # POPSoT: nor can it justify a function that begins in the middle
             # of straight-line code. A routine whose address is taken starts
             # where the one before it ended -- after a ret, an unconditional
             # jmp or padding. The PoP demo's sound code holds the constants

@@ -1,5 +1,5 @@
 # Pinned SDL GPU + DXC SDKs. Build SDL's native query extension from published
-# reSOT sources; only SDL3.dll is needed at runtime, not the compiler/SDKs.
+# POPSoT sources; only SDL3.dll is needed at runtime, not the compiler/SDKs.
 param()
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -40,11 +40,11 @@ Copy-Item -LiteralPath (Join-Path $sdlBuild 'Release/SDL3.dll') -Destination $bi
 Copy-Item -LiteralPath (Join-Path $cache 'SDL3-3.4.18/LICENSE.txt') `
     -Destination (Join-Path $bin 'LICENSE-SDL3.txt') -Force
 @'
-SDL3 3.4.18, altered by reSOT: native D3D12/Vulkan occlusion queries, ABI 1.
+SDL3 3.4.18, altered by POPSoT: native D3D12/Vulkan occlusion queries, ABI 1.
 Upstream source archive SHA-256: 9CD42377704398796071B8597CD7E21DA254A43BAD98C4199739647ADC13FA6F
 Published additions: port/third_party/sdl-gpu-query/ and tools/patch-sdl-gpu-query.py
 Build: tools/setup-native-gpu.ps1. Licence: LICENSE-SDL3.txt.
-'@ | Set-Content -LiteralPath (Join-Path $bin 'SDL3-RESOT.txt') -Encoding utf8
+'@ | Set-Content -LiteralPath (Join-Path $bin 'SDL3-POPSOT.txt') -Encoding utf8
 Write-Output 'Native D3D12/Vulkan SDKs and retail query ABI ready. Rebuild with tools/recomp.ps1 -BuildOnly.'
 
 & (Join-Path $PSScriptRoot "setup-shader-compiler.ps1")

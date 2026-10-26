@@ -1,6 +1,6 @@
-/* RE-SoT: regression for full-access save headers being appended on Android.
+/* POPSoT: regression for full-access save headers being appended on Android.
  * Exercise the production access policy through the host's equivalent I/O. */
-#include "../../src/kernel/resot_file_access.h"
+#include "../../src/kernel/popsot_file_access.h"
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
@@ -13,7 +13,7 @@ int main(void)
     char data[8]={0};
     for(unsigned i=0;i<sizeof masks/sizeof masks[0];i++) {
         int flags=_O_CREAT|_O_TRUNC|_O_RDWR|_O_BINARY;
-        if(resot_append_only(masks[i])) flags|=_O_APPEND;
+        if(popsot_append_only(masks[i])) flags|=_O_APPEND;
         int fd=_open(path,flags,_S_IREAD|_S_IWRITE);
         if(fd<0 || _write(fd,"old-body",8)!=8 || _lseek(fd,0,SEEK_SET)!=0 ||
            _write(fd,"new",3)!=3 || _commit(fd)!=0 || _close(fd)!=0) return 1;
@@ -22,7 +22,7 @@ int main(void)
            _read(fd,data,1)!=0 || _close(fd)!=0) return 2;
     }
     remove(path);
-    if(!resot_append_only(4u) || resot_append_only(0u)) return 3;
+    if(!popsot_append_only(4u) || popsot_append_only(0u)) return 3;
     puts("Full-access save header survives close and reopen");
     return 0;
 }

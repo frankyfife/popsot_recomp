@@ -113,9 +113,9 @@ static void *g_mcpx_memory = NULL;
  * fault, and this is the half that has an obviously right answer. */
 #define XBOX_FLASH_BASE 0xFF000000u
 #define XBOX_FLASH_SIZE (1u * 1024u * 1024u)
-#define XBOX_FLASH_MIRROR_SIZE (16u * 1024u * 1024u) /* RE-SoT: to 0xFFFFFFFF */
+#define XBOX_FLASH_MIRROR_SIZE (16u * 1024u * 1024u) /* POPSoT: to 0xFFFFFFFF */
 static void *g_flash_memory = NULL;
-static uint32_t g_flash_size;   /* RE-SoT: what was mapped, see the init */
+static uint32_t g_flash_size;   /* POPSoT: what was mapped, see the init */
 /* The contiguous window's backing section. It is a file mapping rather than
  * plain committed memory for one reason: the tiled aperture has to be a
  * second view of the very same bytes, and only a mapping can be mapped
@@ -157,7 +157,7 @@ static size_t xbox_TiledApertureSize(void)
 static HANDLE g_nv2a_ack_thread = NULL;
 static volatile LONG g_nv2a_ack_stop = 0;
 
-/* RE-SoT: the ack thread used to spin (Sleep(0) between ticks) and the title,
+/* POPSoT: the ack thread used to spin (Sleep(0) between ticks) and the title,
  * waiting in XDK D3D's KickOff for the flush bit to clear, spun on another
  * core: about one and a half cores busy at 60 fps, most of it waiting for the
  * executor to come back from Present. Now the thread sleeps until it is
@@ -174,7 +174,7 @@ void xbox_Nv2aKick(void)
         SetEvent(g_nv2a_kick_ev);
 }
 
-/* RE-SoT: where a frame's time goes between the title and the executor, for
+/* POPSoT: where a frame's time goes between the title and the executor, for
  * a ten-second [KICK] line: how often the title waited in KickOff and for how
  * long, and how long the ack thread spent executing segments and presenting.
  * The title thread writes the wait figures, the ack thread the rest and the
@@ -462,7 +462,7 @@ static void ac97_arm_write_trap(void)
         return;
     g_ac97_page = (char *)g_mcpx_memory + AC97_NABM_OFFSET;
 #if defined(__ANDROID__)
-    /* RE-SoT: no vectored handlers or trap flag on Android. The host's
+    /* POPSoT: no vectored handlers or trap flag on Android. The host's
      * SIGSEGV handler calls xbox_Ac97HandleFault, which performs the write
      * itself (below). */
     if (!VirtualProtect(g_ac97_page, AC97_TRAP_BYTES, PAGE_READONLY, &old)) {
@@ -497,7 +497,7 @@ static void ac97_arm_write_trap(void)
 }
 
 #if defined(__ANDROID__) && defined(__aarch64__)
-/* RE-SoT: the Android half of the trap. The faulting store is decoded
+/* POPSoT: the Android half of the trap. The faulting store is decoded
  * (platform/mmio_decode.h) and performed with the page briefly writable,
  * then RR is masked as the single-step path does. The protection covers a
  * whole host page, which on 16 KB-page devices is more than AC97_TRAP_BYTES;
@@ -904,13 +904,13 @@ static void frame_counters_tick(void)
     }
 }
 
-/* RE-SoT: ordered completion prevents the timer from releasing
+/* POPSoT: ordered completion prevents the timer from releasing
  * arrays before the executor copies them. Opt-in for both targets: on retail
  * until its interaction with host presentation timing is validated (some
- * vsynced runs fell to 30 fps); on the demo see resot_ordered_fences. */
-static uint32_t g_resot_fence_offset;
+ * vsynced runs fell to 30 fps); on the demo see popsot_ordered_fences. */
+static uint32_t g_popsot_fence_offset;
 
-/* RE-SoT: comparison settings are fixed at startup, not sampled per fence.
+/* POPSoT: comparison settings are fixed at startup, not sampled per fence.
  *
  * Off by default in the demo since 2026-10-17. With ordered release the
  * executor, which runs a whole submission behind the title, left the
@@ -918,29 +918,29 @@ static uint32_t g_resot_fence_offset;
  * the title then omitted some objects' draws for that frame (the Prince's
  * sword, props and wall vegetation in the first level blinked and sometimes
  * distorted; paired traces showed the draws absent). With
- * RESOT_ORDERED_FENCES=0 the user saw no flicker at the same place.
- * RESOT_ORDERED_FENCES=1 restores ordered release for comparison. */
-static int resot_ordered_fences(void)
+ * POPSOT_ORDERED_FENCES=0 the user saw no flicker at the same place.
+ * POPSOT_ORDERED_FENCES=1 restores ordered release for comparison. */
+static int popsot_ordered_fences(void)
 {
     static int ordered = -1;
     if (ordered < 0) {
-        const char *setting = getenv("RESOT_ORDERED_FENCES");
-        const char *legacy = getenv("RESOT_LEGACY_FENCES"); /* RE-SoT: 0 disables the override. */
+        const char *setting = getenv("POPSOT_ORDERED_FENCES");
+        const char *legacy = getenv("POPSOT_LEGACY_FENCES"); /* POPSoT: 0 disables the override. */
         ordered = setting && atoi(setting) != 0 && (!legacy || atoi(legacy) == 0);
         fprintf(stderr, "  [NV2A] ordered GPU fences: %s\n", ordered ? "on" : "off");
     }
     return ordered;
 }
 
-/* RE-SoT: the executor owns this state and calls both methods in GPU order. */
+/* POPSoT: the executor owns this state and calls both methods in GPU order. */
 void xbox_Nv2aFenceOffset(uint32_t offset)
 {
-    g_resot_fence_offset = offset;
+    g_popsot_fence_offset = offset;
 }
 
 void xbox_Nv2aFenceRelease(uint32_t value)
 {
-    if (g_resot_fence_offset != 0 || !resot_ordered_fences()) return;
+    if (g_popsot_fence_offset != 0 || !popsot_ordered_fences()) return;
     for (int i = 0; i < g_fence_mirror_count; i++) {
         uint32_t dev, get_ptr;
         if (!fence_readable(g_fence_mirrors[i].device_ptr_va, 4)) continue;
@@ -954,12 +954,12 @@ void xbox_Nv2aFenceRelease(uint32_t value)
 
 static void fence_mirrors_tick(void)
 {
-    /* RE-SoT: offset-zero GPU-time is released by decoded methods. The
+    /* POPSoT: offset-zero GPU-time is released by decoded methods. The
      * variable is read once: this runs on every ack-thread tick, and getenv
      * there was 15% of that thread's samples (xbox-demo, bath fight). */
     static int pb_exec = -1;
     if (pb_exec < 0) pb_exec = getenv("RECOMP_PB_EXEC") != NULL;
-    if (pb_exec && resot_ordered_fences()) return;
+    if (pb_exec && popsot_ordered_fences()) return;
     for (int i = 0; i < g_fence_mirror_count; i++) {
         uint32_t dev, get_ptr;
 
@@ -1078,7 +1078,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
             }
         }
         if (acked && g_nv2a_ack_ev)
-            SetEvent(g_nv2a_ack_ev);           /* RE-SoT: wake a waiting title */
+            SetEvent(g_nv2a_ack_ev);           /* POPSoT: wake a waiting title */
         for (size_t i = 0; i < sizeof(NV2A_IDLE) / sizeof(NV2A_IDLE[0]); i++) {
             volatile uint32_t *r =
                 (volatile uint32_t *)((char *)regs + NV2A_IDLE[i].offset);
@@ -1162,7 +1162,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
                     if (!put_lo || put < put_lo) put_lo = put;
                     if (put > put_hi) put_hi = put;
                     if (!last_put && put) {
-                        /* RE-SoT: the first submission. There is no previous
+                        /* POPSoT: the first submission. There is no previous
                          * PUT to start from, and skipping it dropped the whole
                          * D3D initialisation stream -- including
                          * SET_SEMAPHORE_OFFSET, without which no fence is ever
@@ -1179,7 +1179,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
                                 base, put_va);
                         nv2a_pb_scan(base, put_va);
                     } else if (last_put && put != last_put) {
-                        /* RE-SoT: walk from the last PUT to this one the way
+                        /* POPSoT: walk from the last PUT to this one the way
                          * the GPU does -- through whatever JUMPs lie between.
                          * The walk used to end at the first JUMP and the rest
                          * was reconstructed from guessed ring bounds, which
@@ -1227,7 +1227,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
                     *get = put;
                 }
                 last_put = put; last_put_ms = now_ms;
-                /* RE-SoT: optional host presentation waits only after the
+                /* POPSoT: optional host presentation waits only after the
                  * submission's fences and GET are visible to the title. */
                 {
                     extern void nv2a_hw_flush_present(void);
@@ -1245,7 +1245,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
                  * in its device struct rather than assuming 0xFD800000, and
                  * mirroring the wrong block leaves it spinning on a GET that
                  * never moves. */
-                /* RE-SoT: only when tracing was asked for by name. RECOMP_PB_EXEC
+                /* POPSoT: only when tracing was asked for by name. RECOMP_PB_EXEC
                  * arms s_nv2a_trace too (for the periodic report), and a line
                  * plus a flush per submission is hundreds of disk writes a
                  * second on the thread that executes the pushbuffer. */
@@ -1289,7 +1289,7 @@ static DWORD WINAPI nv2a_ack_thread(LPVOID param)
         *(volatile uint32_t *)((uintptr_t)(XBOX_KERNEL_DATA_BASE + KDATA_TICK_COUNT)
                                + g_memory_offset) = GetTickCount();
 
-        /* RE-SoT: sleep until kicked (a new PUT, a busy bit) or for a
+        /* POPSoT: sleep until kicked (a new PUT, a busy bit) or for a
          * millisecond, instead of yielding in a loop on a core of its own. */
         if (g_nv2a_kick_ev)
             WaitForSingleObject(g_nv2a_kick_ev, 1);
@@ -1304,7 +1304,7 @@ static void xbox_Nv2aAckStart(void)
     dsp_ack_init();
     poke_init();
     g_nv2a_ack_stop = 0;
-    /* RE-SoT: RECOMP_NV2A_ACK_SPIN=1 keeps the old spinning loop. */
+    /* POPSoT: RECOMP_NV2A_ACK_SPIN=1 keeps the old spinning loop. */
     if (!getenv("RECOMP_NV2A_ACK_SPIN")) {
         g_nv2a_kick_ev = CreateEventA(NULL, FALSE, FALSE, NULL);
         g_nv2a_ack_ev = CreateEventA(NULL, FALSE, FALSE, NULL);
@@ -1372,7 +1372,7 @@ extern volatile uint32_t g_icall_trace_idx;
 void recomp_abi_violation_log(uint32_t va, uint32_t ebx0, uint32_t esi0,
                               uint32_t edi0, uint32_t esp0)
 {
-    enum { SLOTS = 256 };                  /* RE-SoT: was 32 */
+    enum { SLOTS = 256 };                  /* POPSoT: was 32 */
     static uint32_t seen[SLOTS];
     static uint64_t hits[SLOTS];
     static int count;
@@ -2033,7 +2033,7 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
 #ifndef _WIN32
         g_span_size = g_memory_size * (size_t)(1 + XBOX_NUM_MIRRORS);
 #if defined(__ANDROID__)
-        /* RE-SoT: reserve the whole 4 GB guest space. The contiguous window,
+        /* POPSoT: reserve the whole 4 GB guest space. The contiguous window,
          * NV2A, MCPX and flash apertures are fixed offsets from the base, and
          * an Android process has ART and its libraries wherever the kernel
          * put them; inside a range we own they cannot collide. */
@@ -2417,7 +2417,7 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
          * only worked while page zero was mapped. Pointing at real zeroed
          * memory says the same thing to the title and survives that page being
          * unmapped, which is what makes a genuine null dereference visible. */
-        /* RE-SoT: the old fixed blocks at 0x00761000/0x00760000
+        /* POPSoT: the old fixed blocks at 0x00761000/0x00760000
          * overlap the retail PoP image. Put synthetic structures in the heap. */
         uint32_t fake_prcb = xbox_HeapAlloc(0x400, 16);
         uint32_t fake_thread = xbox_HeapAlloc(0x200, 16);
@@ -2432,7 +2432,7 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
          * to its data area. The compatibility data now lives in a heap block,
          * rather than using fixed addresses inside a larger title's image.
          */
-        /* RE-SoT: FS:[0x28] is the current KTHREAD. Retail XAPI
+        /* POPSoT: FS:[0x28] is the current KTHREAD. Retail XAPI
          * GetCurrentThreadId (0x00331F07/0x00331F0D) reads its UniqueThread
          * at +0x12C. Preserve the old +0x28 compatibility pointer as well. */
         MEM32_INIT(XBOX_FS_BASE + 0x28, fake_thread);
@@ -2711,7 +2711,7 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
     {
         uintptr_t flash_native = XBOX_FLASH_BASE + g_memory_offset;
 
-        /* RE-SoT: the console mirrors flash up to 0xFFFFFFFF. Demo ISR
+        /* POPSoT: the console mirrors flash up to 0xFFFFFFFF. Demo ISR
          * 0x002EF6CD (+0x22C) reads a voice's neighbour handle through a
          * zero list link, at 0xFFFFFFB4 + 0xA: a ROM read on hardware, a
          * SIGSEGV past the 1 MB window here (8 Android tombstones,
@@ -3226,7 +3226,7 @@ uint32_t xbox_AllocThreadTib(void)
     uint32_t tib, block, thread_data, total, kthread, template_thread;
 
     total = g_tls_total;
-    /* RE-SoT: every TIB needs its own KTHREAD, even without image TLS.
+    /* POPSoT: every TIB needs its own KTHREAD, even without image TLS.
      * Sharing FS:[0x28] made the retail loader identify its main thread as
      * its worker and deadlock (retail 0x00034410 compares thread IDs). */
     tib = xbox_HeapAlloc(tib_size + total + g_tls_thread_size + kthread_size, 16);
@@ -3366,7 +3366,7 @@ static void contig_insert(int at, uint32_t addr, uint32_t size, int is_free)
     g_contig_block_count++;
 }
 
-/* RE-SoT: start addresses of bump allocations, in ascending order. The
+/* POPSoT: start addresses of bump allocations, in ascending order. The
  * pushbuffer survey needs the base of the block a first DMA_PUT points into:
  * everything from that base to the first PUT it observes is the D3D
  * initialisation stream, which sets state the rest of the run depends on
@@ -3441,7 +3441,7 @@ uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment)
             contig_insert(g_contig_block_count, result, size, 0);
         }
         g_contig_next = result + size;
-        /* RE-SoT: remember where bump allocations start (see
+        /* POPSoT: remember where bump allocations start (see
          * xbox_ContiguousBlockStart). */
         if (g_contig_start_count < CONTIG_MAX_STARTS)
             g_contig_starts[g_contig_start_count++] = result;
@@ -3449,7 +3449,7 @@ uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment)
     if (reclaim)
         ReleaseSRWLockExclusive(&g_contig_lock);
 
-    /* RE-SoT: a reused block may still carry the protection its last owner
+    /* POPSoT: a reused block may still carry the protection its last owner
      * set. Retail PoP marks texture pages PAGE_READONLY|PAGE_WRITECOMBINE
      * (0x402, MmSetAddressProtect from 0x000D63E1), frees them after the
      * intro movies, and the next allocation's zeroing faulted at 0x808EB020.
@@ -3737,7 +3737,7 @@ HANDLE xbox_GetMappingHandle(void)
     return g_mapping_handle;
 }
 
-/* RE-SoT: F6 diagnostics, in KB: heap bump extent, live heap blocks' bytes,
+/* POPSoT: F6 diagnostics, in KB: heap bump extent, live heap blocks' bytes,
  * heap window size, contiguous bump extent, live contiguous bytes, arena
  * size; then the live block counts of each. The allocators take these locks
  * only with RECOMP_HEAP_RECLAIM, so without it the sums are a moment's

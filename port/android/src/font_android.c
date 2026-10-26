@@ -1,4 +1,4 @@
-/* reSOT - text for the FPS panel (fb_present.c) on Android: drawn by the
+/* POPSoT - text for the FPS panel (fb_present.c) on Android: drawn by the
  * platform's own font through GameActivity.drawPanelText, where Windows uses
  * GDI. The panel is redrawn five times a second at most. */
 #include <SDL3/SDL.h>
@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
-void resot_host_draw_text(uint32_t *bits, int w, int h, int x, int y,
+void popsot_host_draw_text(uint32_t *bits, int w, int h, int x, int y,
                           const char *text, uint32_t argb)
 {
     static jclass cls;

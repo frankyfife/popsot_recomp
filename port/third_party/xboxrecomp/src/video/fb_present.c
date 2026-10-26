@@ -16,7 +16,7 @@
  */
 #include <stdint.h>
 
-/* RE-SoT: Android shares everything here except the window itself: the
+/* POPSoT: Android shares everything here except the window itself: the
  * PVIDEO overlay, the frame limiter and the options/panel callbacks are the
  * same code; the window, its messages and GDI are Windows-only, and the
  * Android host (port/android/src) supplies the SDL window, the keys and the
@@ -26,17 +26,17 @@
 #include <windows.h>
 #else
 #include "../platform/win32_compat.h"
-#include <time.h> /* RE-SoT: precise mobile frame pacing without a busy tail. */
+#include <time.h> /* POPSoT: precise mobile frame pacing without a busy tail. */
 #endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../kernel/resot_runtime.h" /* RE-SoT: per-target behaviour. */
+#include "../kernel/popsot_runtime.h" /* POPSoT: per-target behaviour. */
 
 extern ptrdiff_t xbox_GetMemoryOffset(void);
 
 static volatile LONG s_fb_running;
-static volatile LONG s_hw_mode; /* RE-SoT: also selects the flip pacing owner. */
+static volatile LONG s_hw_mode; /* POPSoT: also selects the flip pacing owner. */
 static uint32_t      s_fb_va, s_fb_pitch, s_fb_width = 640, s_fb_height = 480;
 static uint32_t     *s_rgb;           /* converted 32-bit copy for GDI */
 
@@ -130,24 +130,24 @@ static wchar_t       s_title[48] = L"Xbox Recomp";
 static volatile LONG s_flips;
 static volatile LONG s_frame_draws;
 
-/* RE-SoT: a host-only F5 panel, composed after movies as well as game frames.
+/* POPSoT: a host-only F5 panel, composed after movies as well as game frames.
  * The optional provider keeps target addresses out of the shared runtime.
  * Register it before starting the window; it writes a bounded scene name. */
 static volatile LONG s_debug_panel;
-/* RE-SoT: Android touch controls hide their FPS button while this panel
+/* POPSoT: Android touch controls hide their FPS button while this panel
  * occupies the same corner. Read the real state, including keyboard F5. */
 int xbox_FramebufferFpsVisible(void)
 {
     return InterlockedCompareExchange(&s_debug_panel, 0, 0) != 0;
 }
-/* Android's FPS button and the retail reSOT Debug page switch it as F5 does. */
+/* Android's FPS button and the retail POPSoT Debug page switch it as F5 does. */
 void xbox_FramebufferToggleDebugPanel(void)
 {
     InterlockedExchange(&s_debug_panel, !InterlockedCompareExchange(&s_debug_panel, 0, 0));
 }
 static void (*s_wow_provider)(char *, size_t);
 
-/* RE-SoT: report the backend that initialized successfully, including a
+/* POPSoT: report the backend that initialized successfully, including a
  * native-backend fallback, rather than the saved renderer preference. */
 extern int nv2a_hw_backend(void);
 static const char *fb_renderer_name(void)
@@ -160,17 +160,17 @@ static const char *fb_renderer_name(void)
     }
 }
 
-/* RE-SoT: optional host options own the topmost panel and native input while
+/* POPSoT: optional host options own the topmost panel and native input while
  * open. Callbacks keep the standalone runtime independent of the host UI. */
 static int (*s_options_panel)(const uint32_t **, uint32_t *, uint32_t *);
 static int (*s_options_event)(void *, unsigned, uintptr_t, intptr_t);
-/* RE-SoT: live VSync preference, independent of the original flip/idle
+/* POPSoT: live VSync preference, independent of the original flip/idle
  * presentation request. -1 retains the runtime's environment default. */
 static volatile LONG s_host_vsync = -1;
 void xbox_SetVSync(int enabled)
 {
     LONG value = enabled ? 1 : 0;
-    /* RE-SoT: record actual live preference changes, not each present. */
+    /* POPSoT: record actual live preference changes, not each present. */
     if (InterlockedExchange(&s_host_vsync, value) != value)
         fprintf(stderr, "  [VIDEO] host VSync %s\n", value ? "on" : "off");
 }
@@ -194,7 +194,7 @@ void xbox_FramebufferSetWowProvider(void (*provider)(char *, size_t))
 int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
                                  uint32_t *height)
 {
-    enum { PANEL_W = 280, PANEL_H = 111 }; /* RE-SoT: include active renderer. */
+    enum { PANEL_W = 280, PANEL_H = 111 }; /* POPSoT: include active renderer. */
     static HDC dc;
     static uint32_t *bits;
     static DWORD refreshed, sampled;
@@ -204,7 +204,7 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
     char scene[256] = "Not loaded", line[300];
     RECT text;
 
-    /* RE-SoT: F6 is composed over both the game and movies, above F5. */
+    /* POPSoT: F6 is composed over both the game and movies, above F5. */
     if (s_options_panel && s_options_panel(pixels, width, height)) return 1;
     if (!InterlockedCompareExchange(&s_debug_panel, 0, 0))
         return 0;
@@ -235,12 +235,12 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
     }
     if (!refreshed || now - refreshed >= 200) {
         size_t i;
-        /* RE-SoT: translucent background, with text kept fully readable. */
+        /* POPSoT: translucent background, with text kept fully readable. */
         for (i = 0; i < (size_t)PANEL_W * PANEL_H; i++) bits[i] = 0xA0151C29u;
         if (s_wow_provider) s_wow_provider(scene, sizeof scene);
         scene[sizeof scene - 1] = 0;
         text.left = 12; text.top = 10; text.right = PANEL_W - 12; text.bottom = 30;
-        DrawTextA(dc, "reSOT  |  F5", -1, &text, DT_SINGLELINE | DT_NOPREFIX);
+        DrawTextA(dc, "POPSoT  |  F5", -1, &text, DT_SINGLELINE | DT_NOPREFIX);
         snprintf(line, sizeof line, "FPS: %.1f", fps);
         text.top = 33; text.bottom = 53;
         DrawTextA(dc, line, -1, &text, DT_SINGLELINE | DT_NOPREFIX);
@@ -251,7 +251,7 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
         text.top = 79; text.bottom = 100;
         DrawTextA(dc, line, -1, &text, DT_SINGLELINE | DT_NOPREFIX);
         GdiFlush();
-        /* RE-SoT: GDI clears text pixels' alpha; restore opaque glyphs after
+        /* POPSoT: GDI clears text pixels' alpha; restore opaque glyphs after
          * drawing, retaining 63% opacity on untouched background pixels. */
         for (i = 0; i < (size_t)PANEL_W * PANEL_H; i++)
             bits[i] = (bits[i] & 0xFFFFFFu) |
@@ -262,15 +262,15 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
     return 1;
 }
 #else
-/* RE-SoT (Android): the same panel, with text from the host's font
- * (resot_host_draw_text, port/android/src/font_android.c). Wider than on
+/* POPSoT (Android): the same panel, with text from the host's font
+ * (popsot_host_draw_text, port/android/src/font_android.c). Wider than on
  * Windows: the font is fixed-width. */
-extern void resot_host_draw_text(uint32_t *bits, int w, int h, int x, int y,
+extern void popsot_host_draw_text(uint32_t *bits, int w, int h, int x, int y,
                                  const char *text, uint32_t argb);
 int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
                                  uint32_t *height)
 {
-    enum { PANEL_W = 440, PANEL_H = 114 }; /* RE-SoT: same fourth row as Windows. */
+    enum { PANEL_W = 440, PANEL_H = 114 }; /* POPSoT: same fourth row as Windows. */
     static uint32_t bits[PANEL_W * PANEL_H];
     static DWORD refreshed, sampled;
     static LONG last_flips;
@@ -293,13 +293,13 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
         for (i = 0; i < (size_t)PANEL_W * PANEL_H; i++) bits[i] = 0xA0151C29u;
         if (s_wow_provider) s_wow_provider(scene, sizeof scene);
         scene[sizeof scene - 1] = 0;
-        resot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 8, "reSOT  |  FPS", 0xFFEBEFF8u);
+        popsot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 8, "POPSoT  |  FPS", 0xFFEBEFF8u);
         snprintf(line, sizeof line, "FPS: %.1f", fps);
-        resot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 34, line, 0xFFEBEFF8u);
+        popsot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 34, line, 0xFFEBEFF8u);
         snprintf(line, sizeof line, "Current WOW: %s", scene);
-        resot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 60, line, 0xFFEBEFF8u);
+        popsot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 60, line, 0xFFEBEFF8u);
         snprintf(line, sizeof line, "Renderer: %s", fb_renderer_name());
-        resot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 86, line, 0xFFEBEFF8u);
+        popsot_host_draw_text(bits, PANEL_W, PANEL_H, 12, 86, line, 0xFFEBEFF8u);
         refreshed = now;
     }
     *pixels = bits; *width = PANEL_W; *height = PANEL_H;
@@ -307,7 +307,7 @@ int xbox_FramebufferDebugPanelGet(const uint32_t **pixels, uint32_t *width,
 }
 #endif
 
-/* RE-SoT: software presentation uses the same panel pixels as Direct3D. */
+/* POPSoT: software presentation uses the same panel pixels as Direct3D. */
 static void fb_debug_panel_compose(void)
 {
     const uint32_t *pixels;
@@ -315,7 +315,7 @@ static void fb_debug_panel_compose(void)
     if (!s_rgb || !xbox_FramebufferDebugPanelGet(&pixels, &w, &h)) return;
     if (s_fb_width <= 8 || s_fb_height <= 8) return;
     copy_w = w < s_fb_width - 8 ? w : s_fb_width - 8;
-    /* RE-SoT: software path follows the D3D panel's straight-alpha blend. */
+    /* POPSoT: software path follows the D3D panel's straight-alpha blend. */
     for (y = 0; y < h && y + 8 < s_fb_height; y++) {
         uint32_t *dst = s_rgb + (size_t)(y + 8) * s_fb_width + 8;
         const uint32_t *src = pixels + (size_t)y * w;
@@ -338,14 +338,14 @@ void xbox_FramebufferWindowSetTitle(const uint16_t *name, int max_chars)
         s_title[i] = 0;
 }
 
-/* RE-SoT: user-selected upper frame limit. This wait runs at a completed
+/* POPSoT: user-selected upper frame limit. This wait runs at a completed
  * guest flip, before acquiring the D3D lock, and never changes guest clocks.
  * Late frames reset the deadline instead of trying to catch up with bursts. */
 static volatile LONG s_frame_limit, s_frame_limit_generation;
 
-/* RE-SoT: graphics options are safe before renderer initialization and can
+/* POPSoT: graphics options are safe before renderer initialization and can
  * change live. Only the verified post-processing composite consults this. */
-/* RE-SoT: glow is opt-in on both hosts; old INI preferences do not enable it. */
+/* POPSoT: glow is opt-in on both hosts; old INI preferences do not enable it. */
 static volatile LONG s_post_processing = 0;
 
 void xbox_SetPostProcessing(int enabled)
@@ -360,7 +360,7 @@ int xbox_FramebufferPostProcessing(void)
     return InterlockedCompareExchange(&s_post_processing, 0, 0) != 0;
 }
 
-/* RE-SoT: how strongly the composite switched above is laid over, percent of
+/* POPSoT: how strongly the composite switched above is laid over, percent of
  * the title's own (1..100). At 4K over a sharp image the 160x120 copy reads
  * as a wide halo where the title raises it (user report 2026-10-26). */
 static volatile LONG s_soft_focus_strength = 100;
@@ -382,12 +382,12 @@ void xbox_SetFrameLimit(int fps)
     InterlockedExchange(&s_frame_limit, fps);
     InterlockedIncrement(&s_frame_limit_generation);
 #if defined(__ANDROID__)
-    /* RE-SoT: avoid driving a high-refresh mobile display for a capped game;
+    /* POPSoT: avoid driving a high-refresh mobile display for a capped game;
      * the Android host requests the lowest supported mode meeting this cap. */
-    extern void resot_android_set_frame_limit(int);
-    resot_android_set_frame_limit(fps);
+    extern void popsot_android_set_frame_limit(int);
+    popsot_android_set_frame_limit(fps);
 #endif
-    /* RE-SoT: record the actual selected limit for performance comparisons. */
+    /* POPSoT: record the actual selected limit for performance comparisons. */
     fprintf(stderr, "  [FBWIN] FPS limit: %d (0 = None)\n", fps);
 }
 
@@ -412,14 +412,14 @@ static void fb_limit_frame(void)
             return;
         }
 #if defined(__ANDROID__)
-        /* RE-SoT: sleep through the final remainder on mobile instead of
+        /* POPSoT: sleep through the final remainder on mobile instead of
          * polling a core while Android's compositor also needs CPU time. */
         struct timespec pause = {0, (long)(remaining * 1000000000LL / frequency)};
         pause.tv_sec = pause.tv_nsec / 1000000000L;
         pause.tv_nsec %= 1000000000L;
         nanosleep(&pause, NULL);
 #else
-        /* RE-SoT: leave a millisecond for scheduler jitter, yielding to
+        /* POPSoT: leave a millisecond for scheduler jitter, yielding to
          * other ready threads during the short final remainder. */
         if (remaining > frequency / 500)
             Sleep((DWORD)(remaining * 1000 / frequency - 1));
@@ -431,16 +431,16 @@ static void fb_limit_frame(void)
     last = now.QuadPart;
 }
 
-/* RE-SoT: defer the host wait until post-flip fences and DMA_GET are visible.
+/* POPSoT: defer the host wait until post-flip fences and DMA_GET are visible.
  * This setting is fixed at startup; the user FPS limit remains live.
  * Default on for xbox-demo, off for xbox-retail (as each was validated);
- * RESOT_DEFER_PRESENT=0/1 overrides either. */
+ * POPSOT_DEFER_PRESENT=0/1 overrides either. */
 int xbox_FramebufferDeferPresent(void)
 {
     static int enabled = -1;
     if (enabled < 0) {
-        const char *value = getenv("RESOT_DEFER_PRESENT");
-#if RESOT_RUNTIME_DEMO
+        const char *value = getenv("POPSOT_DEFER_PRESENT");
+#if POPSOT_RUNTIME_DEMO
         enabled = !value || atoi(value) != 0;
 #else
         enabled = value && *value && strcmp(value, "0");
@@ -450,11 +450,11 @@ int xbox_FramebufferDeferPresent(void)
     return enabled;
 }
 
-void xbox_FramebufferLimitFrame(void) { fb_limit_frame(); } /* RE-SoT */
+void xbox_FramebufferLimitFrame(void) { fb_limit_frame(); } /* POPSoT */
 
 void xbox_FramebufferWindowFrameStats(uint32_t draws)
 {
-    /* RE-SoT: deferred hardware presentation owns its wait after decoding. */
+    /* POPSoT: deferred hardware presentation owns its wait after decoding. */
     if (!s_hw_mode || !xbox_FramebufferDeferPresent()) fb_limit_frame();
     InterlockedIncrement(&s_flips);
     InterlockedExchange(&s_frame_draws, (LONG)draws);
@@ -467,7 +467,7 @@ int xbox_FramebufferKeyDown(int vk)
     return s_key_down[vk] != 0;
 }
 
-/* RE-SoT: the mouse's movement, in raw counts, since the input layer last
+/* POPSoT: the mouse's movement, in raw counts, since the input layer last
  * took it; the camera is driven by it as the PC version's is. Raw input
  * rather than WM_MOUSEMOVE, which stops at the screen's edge. */
 static volatile LONG s_mouse_dx, s_mouse_dy;
@@ -479,7 +479,7 @@ void xbox_FramebufferTakeMouse(int *dx, int *dy)
 }
 
 #if defined(_WIN32)
-/* RE-SoT: WM_KEYDOWN says VK_SHIFT/VK_CONTROL/VK_MENU for either side, and
+/* POPSoT: WM_KEYDOWN says VK_SHIFT/VK_CONTROL/VK_MENU for either side, and
  * with NumLock off the numeric pad arrives as the navigation keys. The
  * keyboard layout binds the left and right keys and the pad separately
  * (Left Shift walks, Right Shift rewinds, Keypad 1 cancels, End is the
@@ -513,11 +513,11 @@ static unsigned fb_vk_sided(WPARAM w, LPARAM l)
     return (unsigned)w;
 }
 
-/* RE-SoT: Alt+Enter or F11 switches between the window and a borderless
+/* POPSoT: Alt+Enter or F11 switches between the window and a borderless
  * window over the whole monitor. A maximised window keeps its title bar, so
  * its client area is not the picture's shape and the picture gets bars at
  * the sides; over the whole monitor it fills a 16:9 screen. */
-/* RE-SoT: synchronize the SDL wrapper as well as the underlying HWND. */
+/* POPSoT: synchronize the SDL wrapper as well as the underlying HWND. */
 extern void nv2a_hw_set_window_frame(int bordered);
 static void fb_toggle_fullscreen(HWND h)
 {
@@ -555,13 +555,13 @@ static void fb_toggle_fullscreen(HWND h)
 
 static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
-    /* RE-SoT: keep the sole fullscreen toggle available while F7 or a
+    /* POPSoT: keep the sole fullscreen toggle available while F7 or a
      * binding capture consumes game input; never bind F11 to a game action. */
     if ((m==WM_KEYDOWN || m==WM_KEYUP) && w==VK_F11) {
         if (m==WM_KEYDOWN && !(l & (1 << 30))) fb_toggle_fullscreen(h);
         return 0;
     }
-    /* RE-SoT: a host options panel consumes its mouse/keyboard messages and
+    /* POPSoT: a host options panel consumes its mouse/keyboard messages and
      * releases game-held input, so opening/rebinding cannot drive the Prince. */
     if (s_options_event && s_options_event(h, m, (uintptr_t)w, (intptr_t)l)) {
         memset((void *)s_key_down, 0, sizeof s_key_down);
@@ -572,18 +572,18 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
 
     switch (m) {
     case WM_SYSKEYDOWN:
-        /* RE-SoT: route Alt+F4 explicitly, including the borderless popup
+        /* POPSoT: route Alt+F4 explicitly, including the borderless popup
          * window, to the same process-close path as the title-bar button. */
         if (w == VK_F4 && (l & (1 << 29))) {
             PostMessageA(h, WM_CLOSE, 0, 0);
             return 0;
         }
-        /* RE-SoT: F11 is the only fullscreen toggle. */
+        /* POPSoT: F11 is the only fullscreen toggle. */
         break;
     }
     switch (m) {
     case WM_CLOSE:
-        /* RE-SoT: this is the application's game window. Stopping only the
+        /* POPSoT: this is the application's game window. Stopping only the
          * presentation thread leaves the lifted Xbox main loop, GPU and audio
          * threads alive forever: a console title has no Windows quit loop.
          * End the process as HalReturnToFirmware does; do not tear down guest
@@ -600,13 +600,7 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
 
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        /* RE-SoT: autorepeat must not repeatedly open and close the panel. */
-        if (w == VK_F5) {
-            if (!(l & (1L << 30)))
-                InterlockedExchange(&s_debug_panel, !s_debug_panel);
-            return 0;
-        }
-        /* RE-SoT: F9 traces the next frame and dumps its render targets
+        /* POPSoT: F9 traces the next frame and dumps its render targets
          * (logs/capture/, D3D11 renderer), for reports from play. */
         if (w == VK_F9) {
             extern void xbox_RequestFrameCapture(void);
@@ -651,11 +645,11 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
         return m == WM_SYSKEYUP ? DefWindowProcA(h, m, w, l) : 0;
     }
 
-    /* RE-SoT: the mouse buttons are recorded like keys (VK_LBUTTON,
+    /* POPSoT: the mouse buttons are recorded like keys (VK_LBUTTON,
      * VK_RBUTTON, VK_MBUTTON), so the input layer maps them the same way.
      * The capture keeps the release from being lost if it happens outside
      * the window. */
-    /* RE-SoT: CS_DBLCLKS is needed by F6; outside it, a double-click is
+    /* POPSoT: CS_DBLCLKS is needed by F6; outside it, a double-click is
      * still a normal second game button press rather than a lost attack. */
     case WM_LBUTTONDOWN:
     case WM_LBUTTONDBLCLK:
@@ -677,14 +671,14 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
             ReleaseCapture();
         return 0;
 
-    /* RE-SoT: side buttons can be rebound by the host options. */
+    /* POPSoT: side buttons can be rebound by the host options. */
     case WM_XBUTTONDOWN:
     case WM_XBUTTONDBLCLK:
     case WM_XBUTTONUP:
         s_key_down[HIWORD(w) == XBUTTON1 ? VK_XBUTTON1 : VK_XBUTTON2] = m != WM_XBUTTONUP;
         return TRUE;
 
-    /* RE-SoT: mouse movement for the camera, only while the window has the
+    /* POPSoT: mouse movement for the camera, only while the window has the
      * focus (raw input is registered without RIDEV_INPUTSINK). */
     case WM_INPUT: {
         RAWINPUT ri;
@@ -699,7 +693,7 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
         break;                      /* DefWindowProc does the cleanup */
     }
 
-    /* RE-SoT: the pointer is hidden over the picture, since the mouse turns
+    /* POPSoT: the pointer is hidden over the picture, since the mouse turns
      * the camera rather than pointing at anything. */
     case WM_SETCURSOR:
         if (LOWORD(l) == HTCLIENT) {
@@ -748,7 +742,7 @@ static void fb_convert(const uint8_t *src, uint32_t bpp)
     }
 }
 
-/* ── RE-SoT: the PVIDEO overlay ─────────────────────────────────────────
+/* ── POPSoT: the PVIDEO overlay ─────────────────────────────────────────
  *
  * Bink movies on the Xbox are not drawn through the 3D pipeline: D3D's
  * UpdateOverlay points the NV2A video overlay at a YUY2 surface and the CRTC
@@ -775,7 +769,7 @@ static uint32_t  s_ovl_out_x, s_ovl_out_y, s_ovl_out_w, s_ovl_out_h;
 static int       s_ovl_active;
 static volatile LONG s_ovl_serial;     /* bumped whenever s_ovl_rgb changes */
 
-/* RE-SoT: the Direct3D 11 rasteriser (src/kernel/nv2a_hw_d3d11.inc) owns the
+/* POPSoT: the Direct3D 11 rasteriser (src/kernel/nv2a_hw_d3d11.inc) owns the
  * window's pixels when it is up. This thread then only pumps messages, keeps
  * the overlay latched and asks the rasteriser to repaint. */
 static HWND          s_hwnd;
@@ -827,7 +821,7 @@ static void overlay_latch(int buf)
     /* The overlay base is physical; the contiguous window is that view. */
     src = (const uint8_t *)((uintptr_t)(0x80000000u | addr)
                             + xbox_GetMemoryOffset());
-    /* RE-SoT: RECOMP_OVL_DUMP=<prefix> writes the raw overlay surface of the
+    /* POPSoT: RECOMP_OVL_DUMP=<prefix> writes the raw overlay surface of the
      * first 400 distinct latches (16-byte header: address, width, height,
      * pitch), to tell a decoder fault from a conversion or timing fault. */
     {
@@ -1007,11 +1001,11 @@ static DWORD WINAPI fb_thread(LPVOID unused)
     {
         WNDCLASSA wc;
         memset(&wc, 0, sizeof(wc));
-        wc.style = CS_DBLCLKS; /* RE-SoT: double-click rebinding in F6. */
+        wc.style = CS_DBLCLKS; /* POPSoT: double-click rebinding in F6. */
         wc.lpfnWndProc   = fb_wndproc;
         wc.hInstance     = GetModuleHandleA(NULL);
         wc.hCursor       = LoadCursorA(NULL, IDC_ARROW);
-        /* RE-SoT: the executable's own icon (resource 1, port/windows/res)
+        /* POPSoT: the executable's own icon (resource 1, port/windows/res)
          * on the window and the taskbar; NULL, the default, when absent. */
         wc.hIcon         = LoadIconA(wc.hInstance, MAKEINTRESOURCEA(1));
         wc.lpszClassName = "XboxRecompFramebuffer";
@@ -1031,7 +1025,7 @@ static DWORD WINAPI fb_thread(LPVOID unused)
     hdc = GetDC(hwnd);
     s_hwnd = hwnd;
     {
-        /* RE-SoT: raw mouse movement for the camera (WM_INPUT above). */
+        /* POPSoT: raw mouse movement for the camera (WM_INPUT above). */
         RAWINPUTDEVICE rid;
         rid.usUsagePage = 0x01;     /* generic desktop */
         rid.usUsage     = 0x02;     /* mouse */
@@ -1140,7 +1134,7 @@ static DWORD WINAPI fb_thread(LPVOID unused)
     return 0;
 }
 #else
-/* RE-SoT (Android): the host made the SDL window and pumps its events on
+/* POPSoT (Android): the host made the SDL window and pumps its events on
  * its own thread; this one does what fb_thread does besides the window:
  * latch the movie overlay and repaint while the title is not flipping. */
 void xbox_FramebufferAndroidSetWindow(void *sdl_window) { s_hwnd = (HWND)sdl_window; }

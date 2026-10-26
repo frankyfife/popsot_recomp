@@ -10,11 +10,11 @@ fails when a claim does not hold in the XBE, and when target.h or
 target_hooks.c names an address (any hex literal of 0x10000 or more, code or
 comment, and every sub_XXXXXXXX) that no line of xbe_sites.txt covers. Some
 checks need only the generated source; the others need the user's XBE,
-Assets/<target>/default.xbe (or RESOT_XBE_<TARGET>, e.g. RESOT_XBE_XBOX_DEMO).
+Assets/<target>/default.xbe (or POPSOT_XBE_<TARGET>, e.g. POPSOT_XBE_XBOX_DEMO).
 Without it those checks are skipped and reported as skipped, except that a
 "ret" claim is then checked in the generated code, which pushes each call's
 return address; --require-xbe makes a missing XBE a failure. The XBE is only read, and its SHA-256 must match
-RESOT_XBE_SHA256 in target.h.
+POPSOT_XBE_SHA256 in target.h.
 
 Claims (addresses in hex, "#" starts a note):
     func A          A starts a lifted function (gen/recomp_funcs.h, not an
@@ -171,11 +171,11 @@ class Target:
         return self.gen_text
 
     def sha256(self):
-        m = re.search(r'RESOT_XBE_SHA256\s+"([0-9A-Fa-f]{64})"', (self.dir / "target.h").read_text())
+        m = re.search(r'POPSOT_XBE_SHA256\s+"([0-9A-Fa-f]{64})"', (self.dir / "target.h").read_text())
         return m.group(1).upper()
 
     def xbe_path(self):
-        env = os.environ.get("RESOT_XBE_" + self.name.upper().replace("-", "_"))
+        env = os.environ.get("POPSOT_XBE_" + self.name.upper().replace("-", "_"))
         return Path(env) if env else ROOT / "Assets" / self.name / "default.xbe"
 
 

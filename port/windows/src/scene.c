@@ -30,7 +30,7 @@ static int scene_range(uint32_t address, uint32_t bytes)
 
 static SRWLOCK s_scene_lock = SRWLOCK_INIT;
 static uint32_t s_scene_world, s_scene_key;
-static char s_scene_name[RESOT_JADE_WORLD_NAME_SIZE];
+static char s_scene_name[POPSOT_JADE_WORLD_NAME_SIZE];
 
 /* The game's accessor searches sorted 8-byte key/value pairs. Keep this
  * read-only: the guest helper also writes its last-search global. */
@@ -58,14 +58,14 @@ static uint32_t lookup(uintptr_t base, uint32_t table, uint32_t key)
 
 static uint32_t resolve_world(uintptr_t base, uint32_t key)
 {
-    uint32_t index = lookup(base, RESOT_JADE_KEY_INDEX_TABLE, key);
+    uint32_t index = lookup(base, POPSOT_JADE_KEY_INDEX_TABLE, key);
     if (index == UINT32_MAX &&
-        ((*(const volatile uint32_t *)(base + RESOT_JADE_DYNAMIC_LOAD) &&
-          *(const volatile uint32_t *)(base + RESOT_JADE_LOAD_MODE) == 2) ||
-         *(const volatile uint32_t *)(base + RESOT_JADE_COMPILED_BF)))
+        ((*(const volatile uint32_t *)(base + POPSOT_JADE_DYNAMIC_LOAD) &&
+          *(const volatile uint32_t *)(base + POPSOT_JADE_LOAD_MODE) == 2) ||
+         *(const volatile uint32_t *)(base + POPSOT_JADE_COMPILED_BF)))
         index = key;
     return index == UINT32_MAX ? UINT32_MAX :
-        lookup(base, RESOT_JADE_LOADED_TABLES +
+        lookup(base, POPSOT_JADE_LOADED_TABLES +
                (((index >> 8) + index) & 255u) * 16u, index);
 }
 
@@ -74,12 +74,12 @@ static int read_name(uintptr_t base, uint32_t world, char *name)
     size_t i;
     name[0] = '\0';
     if ((world & 3u) ||
-        !scene_range(world, RESOT_JADE_WORLD_NAME + RESOT_JADE_WORLD_NAME_SIZE))
+        !scene_range(world, POPSOT_JADE_WORLD_NAME + POPSOT_JADE_WORLD_NAME_SIZE))
         return 0;
     __try {
         const volatile unsigned char *source =
-            (const volatile unsigned char *)(base + world + RESOT_JADE_WORLD_NAME);
-        for (i = 0; i < RESOT_JADE_WORLD_NAME_SIZE - 1; ++i) {
+            (const volatile unsigned char *)(base + world + POPSOT_JADE_WORLD_NAME);
+        for (i = 0; i < POPSOT_JADE_WORLD_NAME_SIZE - 1; ++i) {
             unsigned char c = source[i];
             name[i] = (char)c;
             if (!c) break;
@@ -88,7 +88,7 @@ static int read_name(uintptr_t base, uint32_t world, char *name)
                 return 0;
             }
         }
-        name[RESOT_JADE_WORLD_NAME_SIZE - 1] = '\0';
+        name[POPSOT_JADE_WORLD_NAME_SIZE - 1] = '\0';
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         name[0] = '\0';
@@ -99,11 +99,11 @@ static int read_name(uintptr_t base, uint32_t world, char *name)
 
 /* Called on the guest thread before a world merge, while the source still
  * owns its BF name. Cache identity includes the aggregate and primary key. */
-void resot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller)
+void popsot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller)
 {
-    char name[RESOT_JADE_WORLD_NAME_SIZE] = {0};
+    char name[POPSOT_JADE_WORLD_NAME_SIZE] = {0};
     uintptr_t base = (uintptr_t)g_xbox_mem_offset;
-    uint32_t key = *(const volatile uint32_t *)(base + RESOT_JADE_PRIMARY_WOW_KEY);
+    uint32_t key = *(const volatile uint32_t *)(base + POPSOT_JADE_PRIMARY_WOW_KEY);
     if (!read_name(base, source, name)) return;
     fprintf(stderr, "[WOW] merge name=%s source=%08X destination=%08X key=%08X primary=%d caller=%08X\n",
             name, source, destination, key, primary, caller);
@@ -115,9 +115,9 @@ void resot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint
     ReleaseSRWLockExclusive(&s_scene_lock);
 }
 
-void resot_current_wow(char *out, size_t size)
+void popsot_current_wow(char *out, size_t size)
 {
-    char name[RESOT_JADE_WORLD_NAME_SIZE] = {0};
+    char name[POPSOT_JADE_WORLD_NAME_SIZE] = {0};
     const char *result = "None";
     uintptr_t base = (uintptr_t)g_xbox_mem_offset;
     size_t length;
@@ -125,16 +125,16 @@ void resot_current_wow(char *out, size_t size)
     if (xbox_GetMemoryBase()) {
         __try {
             const volatile uint32_t *loaded =
-                (const volatile uint32_t *)(base + RESOT_JADE_WORLD_LOADED);
+                (const volatile uint32_t *)(base + POPSOT_JADE_WORLD_LOADED);
             uint32_t world = *loaded;
-            uint32_t key = *(const volatile uint32_t *)(base + RESOT_JADE_PRIMARY_WOW_KEY);
-            uint32_t worker = *(const volatile uint32_t *)(base + RESOT_JADE_STREAM_WORKER);
+            uint32_t key = *(const volatile uint32_t *)(base + POPSOT_JADE_PRIMARY_WOW_KEY);
+            uint32_t worker = *(const volatile uint32_t *)(base + POPSOT_JADE_STREAM_WORKER);
             uint32_t stream_key = UINT32_MAX;
             if (world && !(worker & 3u) &&
-                scene_range(worker, RESOT_JADE_STREAM_WOW_KEY + 4u)) {
+                scene_range(worker, POPSOT_JADE_STREAM_WOW_KEY + 4u)) {
                 /* Streaming keeps the root WOW separately from the initial
                  * _Start_Demo/menu aggregate and its helper dependencies. */
-                stream_key = *(const volatile uint32_t *)(base + worker + RESOT_JADE_STREAM_WOW_KEY);
+                stream_key = *(const volatile uint32_t *)(base + worker + POPSOT_JADE_STREAM_WOW_KEY);
                 if (stream_key && stream_key != UINT32_MAX)
                     read_name(base, resolve_world(base, stream_key), name);
             }
@@ -146,10 +146,10 @@ void resot_current_wow(char *out, size_t size)
                 ReleaseSRWLockShared(&s_scene_lock);
             }
             if (*loaded != world ||
-                *(const volatile uint32_t *)(base + RESOT_JADE_PRIMARY_WOW_KEY) != key ||
-                *(const volatile uint32_t *)(base + RESOT_JADE_STREAM_WORKER) != worker ||
+                *(const volatile uint32_t *)(base + POPSOT_JADE_PRIMARY_WOW_KEY) != key ||
+                *(const volatile uint32_t *)(base + POPSOT_JADE_STREAM_WORKER) != worker ||
                 (stream_key != UINT32_MAX &&
-                 *(const volatile uint32_t *)(base + worker + RESOT_JADE_STREAM_WOW_KEY) != stream_key))
+                 *(const volatile uint32_t *)(base + worker + POPSOT_JADE_STREAM_WOW_KEY) != stream_key))
                 name[0] = '\0';
         }
         __except (EXCEPTION_EXECUTE_HANDLER) {

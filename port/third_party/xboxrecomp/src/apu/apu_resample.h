@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.0-or-later
- * RE-SoT: persistent per-voice linear resampling. The VP pitch ratio is
+ * POPSoT: persistent per-voice linear resampling. The VP pitch ratio is
  * output frames / source frames; ignoring it plays every source at 48 kHz.
  * This small pull-based implementation needs no libsamplerate dependency.
  * Source-end is distinct from a temporary streaming underrun, and the last
@@ -9,32 +9,32 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define RESOT_AUDIO_INPUT_FRAMES 64
-typedef struct ResotAudioResampler {
-    float input[RESOT_AUDIO_INPUT_FRAMES][2];
+#define POPSOT_AUDIO_INPUT_FRAMES 64
+typedef struct PopsotAudioResampler {
+    float input[POPSOT_AUDIO_INPUT_FRAMES][2];
     unsigned count;
     double phase;
     bool ended;
-} ResotAudioResampler;
+} PopsotAudioResampler;
 
 /* Return source frames read, or <=0 for no data. Set ended only for permanent
  * EOF, never for an empty stream segment that can be supplied later. */
-typedef int (*ResotAudioRead)(void *context, float output[][2], int frames,
+typedef int (*PopsotAudioRead)(void *context, float output[][2], int frames,
                              bool *ended);
 
-static inline void resot_audio_resampler_reset(ResotAudioResampler *state)
+static inline void popsot_audio_resampler_reset(PopsotAudioResampler *state)
 {
     memset(state, 0, sizeof(*state));
 }
 
-static inline bool resot_audio_resampler_finished(const ResotAudioResampler *state)
+static inline bool popsot_audio_resampler_finished(const PopsotAudioResampler *state)
 {
     return state->ended && state->phase >= (double)state->count;
 }
 
-static inline int resot_audio_resample(ResotAudioResampler *state,
+static inline int popsot_audio_resample(PopsotAudioResampler *state,
                                      float output[][2], int frames,
-                                     double ratio, ResotAudioRead read,
+                                     double ratio, PopsotAudioRead read,
                                      void *context)
 {
     int produced = 0;
@@ -64,8 +64,8 @@ static inline int resot_audio_resample(ResotAudioResampler *state,
                  * for interpolation, so guest cursors/stream notifications do
                  * not run arbitrarily far ahead of audible playback. */
                 double demand = ceil(state->phase + (frames - produced - 1) * step) + 2;
-                int room = RESOT_AUDIO_INPUT_FRAMES - (int)state->count;
-                int wanted = demand >= RESOT_AUDIO_INPUT_FRAMES ? room
+                int room = POPSOT_AUDIO_INPUT_FRAMES - (int)state->count;
+                int wanted = demand >= POPSOT_AUDIO_INPUT_FRAMES ? room
                            : (int)demand - (int)state->count;
                 bool ended = false;
                 int count;

@@ -16,8 +16,8 @@
 
 #define _GNU_SOURCE   /* FNM_CASEFOLD */
 #include "kernel.h"
-#include "resot_runtime.h" /* RE-SoT: per-target behaviour. */
-#include "resot_file_access.h" /* RE-SoT: save files allow random writes. */
+#include "popsot_runtime.h" /* POPSoT: per-target behaviour. */
+#include "popsot_file_access.h" /* POPSoT: save files allow random writes. */
 #include <string.h>
 #include <stdio.h>
 
@@ -60,7 +60,7 @@ static const char* get_xbox_path(PXBOX_OBJECT_ATTRIBUTES ObjectAttributes)
  * with an undefined symbol -- invisible until something links an executable,
  * because a static archive never resolves its own references.
  *
- * RE-SoT: the POSIX backend maps errno to the matching Win32 code. */
+ * POPSoT: the POSIX backend maps errno to the matching Win32 code. */
 uint32_t g_xbox_last_file_error;
 
 uint32_t xbox_LastFileError(void)
@@ -541,13 +541,13 @@ NTSTATUS __stdcall xbox_NtQueryVolumeInformationFile(
 
 NTSTATUS __stdcall xbox_NtFlushBuffersFile(HANDLE FileHandle, PXBOX_IO_STATUS_BLOCK IoStatusBlock)
 {
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: a failed flush must reach the save writer. Returning SUCCESS
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: a failed flush must reach the save writer. Returning SUCCESS
      * unconditionally hid invalid-handle and host storage failures, allowing
      * the title to report completion without a successful flush. */
     NTSTATUS status = FlushFileBuffers(FileHandle) ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL;
 #else
-    /* RE-SoT: xbox-demo keeps the toolkit's unconditional success; the retail
+    /* POPSoT: xbox-demo keeps the toolkit's unconditional success; the retail
      * save-writer fix above was not checked against the demo XBE. */
     NTSTATUS status = STATUS_SUCCESS;
     FlushFileBuffers(FileHandle);
@@ -759,13 +759,13 @@ NTSTATUS __stdcall xbox_NtQueryDirectoryFile(
 /* ====================  POSIX backend  =================================== */
 /* ======================================================================== */
 
-/* RE-SoT: Android retail opens profile folders relative to an existing
+/* POPSoT: Android retail opens profile folders relative to an existing
  * directory handle. Resolving these against game_dir loses that parent. */
 static int posix_object_path(PXBOX_OBJECT_ATTRIBUTES oa, char *out, size_t size)
 {
     const char *path=get_xbox_path(oa);
     if (!path) return 0;
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
     if (oa->RootDirectory && path[0]!='\\' && path[0]!='/' && !strchr(path,':')) {
         const char *parent=w32_handle_path(oa->RootDirectory);
         if (!parent || snprintf(out,size,"%s/%s",parent,path)>=(int)size) return 0;
@@ -776,11 +776,11 @@ static int posix_object_path(PXBOX_OBJECT_ATTRIBUTES oa, char *out, size_t size)
     return xbox_translate_path(path,out,(int)size);
 }
 
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-/* RE-SoT: retain bounded evidence of profile I/O in device release logs.
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+/* POPSoT: retain bounded evidence of profile I/O in device release logs.
  * Missing-file probes alone cannot distinguish creation from a saved header
  * appended at EOF; offsets and resulting sizes make the next run reviewable. */
-static void resot_trace_save_io(HANDLE handle, const char *operation,
+static void popsot_trace_save_io(HANDLE handle, const char *operation,
                                PLARGE_INTEGER offset, ULONG requested,
                                ssize_t transferred)
 {
@@ -821,11 +821,11 @@ static int posix_open_flags(ACCESS_MASK access, ULONG disposition)
     /* O_TRUNC / O_CREAT imply write intent */
     if ((extra & (O_TRUNC | O_CREAT)) && rw == O_RDONLY)
         rw = O_RDWR;
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: full file access includes APPEND_DATA, but also WRITE_DATA.
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: full file access includes APPEND_DATA, but also WRITE_DATA.
      * O_APPEND would ignore the save writer's seeks and append its header
      * instead of updating it, leaving profiles unreadable on the next boot. */
-    if (resot_append_only((uint32_t)access))
+    if (popsot_append_only((uint32_t)access))
 #else
     if (access & XBOX_FILE_APPEND_DATA)
 #endif
@@ -865,7 +865,7 @@ static NTSTATUS errno_to_status(int e)
     }
 }
 
-/* RE-SoT: the bridge's "[FILE] -> ... FAILED (win32 err=...)" line read 0 on
+/* POPSoT: the bridge's "[FILE] -> ... FAILED (win32 err=...)" line read 0 on
  * every POSIX failure, so a title's expected probe (the demo's sound loader
  * tries sound\english\X.SB2 before sound\X.SB2) looked like an unknown error. */
 static uint32_t errno_to_win32(int e)
@@ -900,8 +900,8 @@ NTSTATUS __stdcall xbox_NtCreateFile(
 
     int fd;
     if (CreateOptions & XBOX_FILE_DIRECTORY_FILE) {
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-        /* RE-SoT: retail's free-space probe at XBE 0x00337414 (open
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+        /* POPSoT: retail's free-space probe at XBE 0x00337414 (open
          * returns to 0x0033744A) opens Partition1 as a directory. The raw
          * device maps to Partition1.img, so O_DIRECTORY on it is ENOTDIR.
          * Match Windows: use the image's parent for volume queries, while
@@ -933,7 +933,7 @@ NTSTATUS __stdcall xbox_NtCreateFile(
         int e = errno;
         g_xbox_last_file_error = errno_to_win32(e);
 #if defined(__ANDROID__)
-        /* RE-SoT: release-build diagnostics must retain the POSIX cause and
+        /* POPSoT: release-build diagnostics must retain the POSIX cause and
          * the path, on both targets. A missing file is usually a probe the
          * title falls back from: log the first ones, every other cause always. */
         {
@@ -979,9 +979,9 @@ NTSTATUS __stdcall xbox_NtReadFile(
         lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
 
     ssize_t n = read(fd, Buffer, Length);
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: see the bounded save diagnostics above. */
-    resot_trace_save_io(FileHandle, "READ", ByteOffset, Length, n);
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: see the bounded save diagnostics above. */
+    popsot_trace_save_io(FileHandle, "READ", ByteOffset, Length, n);
 #endif
     if (n < 0) {
         XBOX_TRACE(XBOX_LOG_FILE, "NtReadFile(handle=%p) errno=%d", FileHandle, errno);
@@ -1015,9 +1015,9 @@ NTSTATUS __stdcall xbox_NtWriteFile(
         return STATUS_INVALID_HANDLE;
     }
 
-    /* RE-SoT: retail save writes must honor their explicit offset, including
+    /* POPSoT: retail save writes must honor their explicit offset, including
      * EOF (-1); report failed seeks instead of writing at an unrelated offset. */
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
     if (ByteOffset && (ByteOffset->QuadPart>=0 || ByteOffset->QuadPart==-1) &&
         lseek(fd, ByteOffset->QuadPart==-1 ? 0 : (off_t)ByteOffset->QuadPart,
               ByteOffset->QuadPart==-1 ? SEEK_END : SEEK_SET)<0) {
@@ -1032,9 +1032,9 @@ NTSTATUS __stdcall xbox_NtWriteFile(
         lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
     ssize_t n = write(fd, Buffer, Length);
 #endif
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: see the bounded save diagnostics above. */
-    resot_trace_save_io(FileHandle, "WRITE", ByteOffset, Length, n);
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: see the bounded save diagnostics above. */
+    popsot_trace_save_io(FileHandle, "WRITE", ByteOffset, Length, n);
 #endif
     if (n < 0) {
         XBOX_TRACE(XBOX_LOG_FILE, "NtWriteFile(handle=%p) errno=%d", FileHandle, errno);
@@ -1053,8 +1053,8 @@ NTSTATUS __stdcall xbox_NtClose(HANDLE Handle)
 {
     XBOX_TRACE(XBOX_LOG_FILE, "NtClose(handle=%p)", Handle);
     if (Handle && Handle != INVALID_HANDLE_VALUE) {
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-        /* RE-SoT: same lifetime rule as the guest NtClose bridge below. */
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+        /* POPSoT: same lifetime rule as the guest NtClose bridge below. */
         xbox_dir_context_drop(Handle);
 #endif
         CloseHandle(Handle);
@@ -1241,8 +1241,8 @@ NTSTATUS __stdcall xbox_NtQueryVolumeInformationFile(
 NTSTATUS __stdcall xbox_NtFlushBuffersFile(HANDLE FileHandle, PXBOX_IO_STATUS_BLOCK IoStatusBlock)
 {
     int fd = w32_handle_fd(FileHandle);
-    /* RE-SoT: never claim a failed save flush was durable on Android. */
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
+    /* POPSoT: never claim a failed save flush was durable on Android. */
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
     int result;
     do { result=fd<0 ? -1 : fsync(fd); } while(fd>=0 && result<0 && errno==EINTR);
     NTSTATUS status=fd<0 ? STATUS_INVALID_HANDLE : result<0 ? errno_to_status(errno) : STATUS_SUCCESS;
@@ -1295,8 +1295,8 @@ static DIR_CONTEXT s_dir_contexts[MAX_DIR_CONTEXTS];
 static CRITICAL_SECTION s_dir_cs;
 static BOOL s_dir_cs_init = FALSE;
 
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-/* RE-SoT: XAPI FindFirstFile closes after one exact-name result. Unlike the
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+/* POPSoT: XAPI FindFirstFile closes after one exact-name result. Unlike the
  * Windows backend, POSIX kept that search alive until EOF. Reused malloc
  * handle addresses then inherited another filename's cursor and size;
  * retail rejects pop2.sav before reading it when its size is not 48262.

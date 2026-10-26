@@ -26,8 +26,8 @@
  */
 
 #include "kernel.h"
-#include "resot_runtime.h" /* RE-SoT: per-target behaviour. */
-#include "xbox_apu_dma.h" /* RE-SoT: DirectSound extended-VA DMA tokens. */
+#include "popsot_runtime.h" /* POPSoT: per-target behaviour. */
+#include "xbox_apu_dma.h" /* POPSoT: DirectSound extended-VA DMA tokens. */
 #include "guest_vmem.h"
 #include "xbox_memory_layout.h"
 #include "recomp_icall_feedback.h"
@@ -54,7 +54,7 @@ extern RECOMP_TLS uint32_t g_eax, g_ecx, g_edx, g_esp;
 extern RECOMP_TLS uint32_t g_ebx, g_esi, g_edi;
 extern uint32_t g_xbox_code_lo, g_xbox_code_hi;
 extern RECOMP_TLS uint32_t g_seh_ebp;
-/* RE-SoT: APCs restore the interrupted floating-point/SIMD context too. */
+/* POPSoT: APCs restore the interrupted floating-point/SIMD context too. */
 extern RECOMP_TLS uint32_t g_ebp, g_fs_base;
 extern RECOMP_TLS int g_df;
 extern RECOMP_TLS double g_fp_stack[8];
@@ -104,7 +104,7 @@ static int bridge_va_mapped(uint32_t va, uint32_t bytes)
         return 0;
     if (end <= mapped)
         return 1;
-    /* RE-SoT: both targets' CRTs can put files and counted paths in
+    /* POPSoT: both targets' CRTs can put files and counted paths in
      * committed VM. */
     if (guest_vmem_accessible(va, bytes))
         return 1;
@@ -529,7 +529,7 @@ static DWORD WINAPI bridge_thread_main(LPVOID param)
     return 0;
 }
 
-/* RE-SoT: `suspended` is PsCreateSystemThreadEx's CreateSuspended, which was
+/* POPSoT: `suspended` is PsCreateSystemThreadEx's CreateSuspended, which was
  * ignored -- every thread started at once. A title that asks for a suspended
  * thread fills in what the thread needs *after* creating it and resumes it
  * later (NtResumeThread, which already reaches the host thread). Bink does
@@ -549,7 +549,7 @@ static HANDLE bridge_spawn_thread(recomp_func_t fn, uint32_t ctx1,
     if (!s) return NULL;
     s->fn = fn; s->ctx1 = ctx1; s->ctx2 = ctx2; s->stack_top = stack_top;
 
-    /* RE-SoT: publish the same ID GetCurrentThreadId exposes in the new
+    /* POPSoT: publish the same ID GetCurrentThreadId exposes in the new
      * TIB before the worker runs. Retail loader constructor 0x00034370
      * stores this output and 0x00034410 uses it to select its handshake. */
     th = CreateThread(NULL, 0, bridge_thread_main, s, CREATE_SUSPENDED, &thread_id);
@@ -619,7 +619,7 @@ static void bridge_PsCreateSystemThreadEx(void)
         if (!fn) fn = recomp_lookup_manual(start_routine);
         if (fn) {
             if (is_first_call) {
-                /* RE-SoT: the inline main thread still has a real identity. */
+                /* POPSoT: the inline main thread still has a real identity. */
                 if (STACK_ARG(4))
                     BRIDGE_MEM32(STACK_ARG(4)) = GetCurrentThreadId();
                 /* Main game thread: run directly, inheriting register state */
@@ -725,8 +725,8 @@ static void bridge_NtClose(void)
     if (raw_handle && raw_handle != 0xDEAD0001u && raw_handle != 0xBEEF0010u) {
         HANDLE h = bridge_take_handle(raw_handle);
         if (h && h != INVALID_HANDLE_VALUE) {
-#if defined(_WIN32) || (defined(__ANDROID__) && RESOT_RUNTIME_RETAIL)
-            /* RE-SoT: free POSIX profile searches before malloc can reuse h. */
+#if defined(_WIN32) || (defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL)
+            /* POPSoT: free POSIX profile searches before malloc can reuse h. */
             xbox_dir_context_drop(h);
 #endif
             CloseHandle(h);
@@ -1556,7 +1556,7 @@ static void ke_shadow_insert(uint32_t guest_va, HANDLE host);
 static HANDLE bridge_resolve_handle(uint32_t token);
 static HANDLE ke_guest_event(uint32_t guest_va, int *type);
 
-/* RE-SoT: RECOMP_SYNC_TRACE=1 logs who takes, releases and waits for what --
+/* POPSoT: RECOMP_SYNC_TRACE=1 logs who takes, releases and waits for what --
  * host thread id, the guest return address of the XAPI wrapper, the handle
  * token and the status. Finite waits are left out: a polling thread makes a
  * hundred thousand of them a second. */
@@ -1936,8 +1936,8 @@ static void bridge_MmGetPhysicalAddress(void)
      * are static and driven by guest CPU state, and nothing in tests/ can
      * reach them. */
     g_eax = (uint32_t)xbox_MmGetPhysicalAddress((PVOID)(uintptr_t)addr);
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: retail DirectSound at 0x003EA0CC supplies committed high VA
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: retail DirectSound at 0x003EA0CC supplies committed high VA
      * pages (retail-vma-audio-probe.txt). Publish a 28-bit audio-only token
      * before the APU's masks can alias them into unrelated low RAM. */
     if (guest_vmem_accessible(addr, 1)
@@ -1952,7 +1952,7 @@ static void bridge_MmGetPhysicalAddress(void)
         return;
     }
 #else
-    /* RE-SoT: demo boot reserves then commits virtual memory too. The
+    /* POPSoT: demo boot reserves then commits virtual memory too. The
      * opt-in VM tracker has no DMA page mapping here (the retail tokens were
      * not checked against this XBE): log high addresses so an A/B run cannot
      * silently alias them through the APU's 26-bit fallback. */
@@ -1964,7 +1964,7 @@ static void bridge_MmGetPhysicalAddress(void)
                     addr, g_xbox_kernel_caller);
     }
 #endif
-    /* RE-SoT: DirectSound's buffers outside the contiguous window get an
+    /* POPSoT: DirectSound's buffers outside the contiguous window get an
      * address the audio processor cannot confuse with contiguous memory
      * (see xbox_SetApuPhysicalCallers in xbox_memory_layout.h). */
     if (g_eax == addr && addr < 0x04000000u
@@ -2197,7 +2197,7 @@ static void bridge_KeSynchronizeExecution(void)
      * the dummy return address and the argument, so g_esp needs no fixup. */
     g_esp -= 4; BRIDGE_MEM32(g_esp) = context;
     g_esp -= 4; BRIDGE_MEM32(g_esp) = 0;
-    /* RE-SoT: at the interrupt's IRQL on the console, so neither its ISR nor
+    /* POPSoT: at the interrupt's IRQL on the console, so neither its ISR nor
      * a DPC can run meanwhile; the raise takes the dispatch lock. */
     {
         KIRQL old = xbox_KfRaiseIrql(16);
@@ -2266,7 +2266,7 @@ static void dpc_lock(void)
     EnterCriticalSection(&g_dpc_lock);
 }
 
-/* RE-SoT: F6 diagnostics. DPCs queued, run and dropped since start, and the
+/* POPSoT: F6 diagnostics. DPCs queued, run and dropped since start, and the
  * queue depth now. */
 static volatile LONG g_dpc_diag[3];
 int xbox_DiagDpc(int *out, int n)
@@ -2398,7 +2398,7 @@ static int kernel_raise_interrupt(uint32_t vector)
 static void kernel_vblank_tick(void)
 {
     static int enabled = -1;
-    /* RE-SoT: a 60 Hz clock that does not drift with the caller's cadence.
+    /* POPSoT: a 60 Hz clock that does not drift with the caller's cadence.
      * "now + 16" from a thread that wakes every 10-16 ms delivered about 32
      * interrupts a second, and a title that paces itself on vblank ran at
      * half speed. The deadline advances by exactly 1/60 s and only resyncs
@@ -2438,11 +2438,11 @@ static void kernel_vblank_tick(void)
     }
 }
 
-/* RE-SoT: the uniprocessor dispatch lock (kernel_hal.c). */
+/* POPSoT: the uniprocessor dispatch lock (kernel_hal.c). */
 extern int  xbox_DispatchTryEnter(void);
 extern void xbox_DispatchLeave(void);
 
-/* RE-SoT: both DirectSound scopes (demo 0x002E9F30, retail 0x003E53D0)
+/* POPSoT: both DirectSound scopes (demo 0x002E9F30, retail 0x003E53D0)
  * require exclusion from DPCs. A timeout does not make concurrent mutation
  * safe. Returns 1 owned, 0 deferred. */
 static int kernel_dispatch_enter(void)
@@ -2450,7 +2450,7 @@ static int kernel_dispatch_enter(void)
     if (xbox_DispatchTryEnter()) {
         return 1;
     }
-    /* RE-SoT: demo 0x002EF6CD shares its voice lists with DirectSound DPCs.
+    /* POPSoT: demo 0x002EF6CD shares its voice lists with DirectSound DPCs.
      * Time passing cannot make a raised-IRQL list mutation safe to interrupt.
      * Keep queued work pending instead of racing it after the old timeout. */
     return 0;
@@ -2460,7 +2460,7 @@ static int kernel_dispatch_enter(void)
  * stack and TIB that a deferred routine needs, with the dispatch lock held. */
 static void kernel_drain_dpcs(void)
 {
-    /* RE-SoT: demo audio can requeue deferred work. Drain only the entry
+    /* POPSoT: demo audio can requeue deferred work. Drain only the entry
      * snapshot so producers cannot monopolize the dispatch lock forever.
      * Retail uses the same queue and DirectSound DPC contract. */
     LONG remaining;
@@ -2752,15 +2752,15 @@ static DWORD WINAPI kernel_timer_thread(LPVOID unused)
         long long now;
         int i, disp;
 
-        Sleep(1);              /* RE-SoT: was 10; the vblank clock needs 1 ms */
+        Sleep(1);              /* POPSoT: was 10; the vblank clock needs 1 ms */
         kernel_vblank_tick();  /* the GPU's frame clock */
-        /* RE-SoT: DPCs and timer DPCs wait while the title is at raised IRQL. */
+        /* POPSoT: DPCs and timer DPCs wait while the title is at raised IRQL. */
         disp = kernel_dispatch_enter();
         if (disp)
             kernel_drain_dpcs();   /* deferred work, before due timers */
         now = (long long)GetTickCount64();
 
-        /* RE-SoT: scan inactive timers under one lock instead of taking
+        /* POPSoT: scan inactive timers under one lock instead of taking
          * 32 locks per 1 ms tick. Release around each callback and signal,
          * so guest routines can still cancel/rearm any subsequent slot. */
         EnterCriticalSection(&g_timer_lock);
@@ -2793,9 +2793,9 @@ static DWORD WINAPI kernel_timer_thread(LPVOID unused)
                     BRIDGE_MEM32(fired_va + 4) = 1;   /* SignalState */
                 }
             }
-            EnterCriticalSection(&g_timer_lock); /* RE-SoT: resume the live scan after guest callbacks. */
+            EnterCriticalSection(&g_timer_lock); /* POPSoT: resume the live scan after guest callbacks. */
         }
-        LeaveCriticalSection(&g_timer_lock); /* RE-SoT */
+        LeaveCriticalSection(&g_timer_lock); /* POPSoT */
         if (disp == 1)
             xbox_DispatchLeave();
     }
@@ -3306,7 +3306,7 @@ static void bridge_NtCreateFile(void)
     {
         extern uint32_t xbox_LastFileError(void);
         uint32_t _e = g_eax ? xbox_LastFileError() : 0u;
-        /* RE-SoT: a missing file is normally a probe the title falls back
+        /* POPSoT: a missing file is normally a probe the title falls back
          * from (demo: sound\english\X.SB2, then sound\X.SB2, for every bank).
          * Log the first 32; other failures are always logged. */
         static unsigned _not_found;
@@ -3370,8 +3370,8 @@ static void deliver_one_apc(uint32_t apc_routine, uint32_t apc_context,
     if (!fn) fn = recomp_lookup_manual(apc_routine);
     if (!fn) fn = recomp_lookup_kernel(apc_routine);
     if (fn) {
-#if RESOT_RUNTIME_RETAIL
-        /* RE-SoT: an I/O APC interrupts the issuing thread; it is not the
+#if POPSOT_RUNTIME_RETAIL
+        /* POPSoT: an I/O APC interrupts the issuing thread; it is not the
          * return value of NtReadFile/NtWriteFile. Preserve the interrupted
          * volatile registers and stack, including the NTSTATUS in eax.
          * Both a lifted stdcall callback and a kernel thunk already consume
@@ -3398,7 +3398,7 @@ static void deliver_one_apc(uint32_t apc_routine, uint32_t apc_context,
         g_esp -= 4; BRIDGE_MEM32(g_esp) = apc_context;
         g_esp -= 4; BRIDGE_MEM32(g_esp) = 0;   /* dummy return address */
         fn();
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
         g_eax = saved_eax;
         g_ecx = saved_ecx;
         g_edx = saved_edx;
@@ -3420,7 +3420,7 @@ static void deliver_one_apc(uint32_t apc_routine, uint32_t apc_context,
         g_mm4 = saved_mm[4]; g_mm5 = saved_mm[5];
         g_mm6 = saved_mm[6]; g_mm7 = saved_mm[7];
 #else
-        /* RE-SoT: xbox-demo keeps the toolkit's cleanup; the retail context
+        /* POPSoT: xbox-demo keeps the toolkit's cleanup; the retail context
          * restore above was not checked against the demo XBE. */
         g_esp += 12;
 #endif
@@ -3746,7 +3746,7 @@ static void bridge_NtWriteFile(void)
     }
     g_eax = (uint32_t)xbox_NtWriteFile(handle, NULL, NULL, NULL, &ios,
                 XBOX_TO_NATIVE(buffer_va), length, poff);
-    /* RE-SoT: opt-in checkpoint diagnostics. Use the open handle's path,
+    /* POPSoT: opt-in checkpoint diagnostics. Use the open handle's path,
      * not the last path translated on this thread, which may name another file. */
     if (getenv("RECOMP_TRACE_WRITES")) {
 #if defined(_WIN32)
@@ -4207,7 +4207,7 @@ static void bridge_ObReferenceObjectByHandle(void)
     uint32_t object_ptr = STACK_ARG(2);
     uint32_t object = 0;
 
-    /* RE-SoT: a thread handle needs an object XAPI can read. Retail PoP's
+    /* POPSoT: a thread handle needs an object XAPI can read. Retail PoP's
      * GetExitCodeThread (0x00331D1E) takes the ETHREAD from here and reads
      * Header.SignalState at +0x04 and ExitStatus at +0x120; with a null
      * object it read zero, reported STILL_ACTIVE for ever, and the wait for
@@ -4541,7 +4541,7 @@ static void bridge_NtReleaseMutant(void)
     g_eax = (uint32_t)xbox_NtReleaseMutant(
         bridge_resolve_handle(STACK_ARG(0)),
         count_va ? (PLONG)XBOX_TO_NATIVE(count_va) : NULL);
-    /* RE-SoT: a release that fails leaves the next waiter blocked for good,
+    /* POPSoT: a release that fails leaves the next waiter blocked for good,
      * which shows up far from here; say so where it happens. */
     if (g_eax) {
         static int shown;
@@ -7704,7 +7704,7 @@ static void bridge_KeGetCurrentIrql(void)
 /* --- KeGetCurrentThread (ordinal 104, 0 args = 0 bytes) --- */
 static void bridge_KeGetCurrentThread(void)
 {
-    /* RE-SoT: use the same per-thread KTHREAD as XAPI's FS:[0x28]. */
+    /* POPSoT: use the same per-thread KTHREAD as XAPI's FS:[0x28]. */
     g_eax = BRIDGE_MEM32(g_fs_base + 0x28);
 }
 
@@ -8120,7 +8120,7 @@ static void bridge_PsCreateSystemThread(void)
             fn = recomp_lookup_manual(start_routine);
         if (fn) {
             if (is_first_call) {
-                /* RE-SoT: the inline main thread still has a real identity. */
+                /* POPSoT: the inline main thread still has a real identity. */
                 if (STACK_ARG(3))
                     BRIDGE_MEM32(STACK_ARG(3)) = GetCurrentThreadId();
                 g_esp -= 4; BRIDGE_MEM32(g_esp) = start_context2;

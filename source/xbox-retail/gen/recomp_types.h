@@ -1433,7 +1433,7 @@ static inline RecompMmx MMX_PSADBW(RecompMmx a, RecompMmx b) {
  * enumerates every site whether or not it is ever reached. */
 void recomp_unimpl(const char *text, uint32_t va);
 
-/* RE-SoT: EFLAGS image for pushfd/popfd (non-arithmetic bits only) and the
+/* POPSoT: EFLAGS image for pushfd/popfd (non-arithmetic bits only) and the
  * CPUID the title sees. Both are defined by the game project. */
 extern RECOMP_TLS uint32_t g_recomp_eflags;
 void recomp_cpuid(uint32_t leaf, uint32_t subleaf, uint32_t out[4]);

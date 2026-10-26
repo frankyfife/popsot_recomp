@@ -18,7 +18,7 @@ Normally run through `tools/recomp.ps1 -Seeds` (or `-Observed run.log`), which
 prepares the unseeded baseline it needs. By hand, from port/third_party/xboxrecomp
 so `tools.disasm` resolves:
 
-    python <reSOT>/tools/seed-scan.py default.xbe --analysis-json A.json \
+    python <POPSoT>/tools/seed-scan.py default.xbe --analysis-json A.json \
         --functions functions.json --seeds seed_functions.json [--log run.log ...]
 """
 import argparse

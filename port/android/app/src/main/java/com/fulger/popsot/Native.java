@@ -1,8 +1,8 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
-/** The launcher's native half (src/launcher_jni.c, libresot_launcher.so). */
+/** The launcher's native half (src/launcher_jni.c, libpopsot_launcher.so). */
 final class Native {
-    static { System.loadLibrary("resot_launcher"); }
+    static { System.loadLibrary("popsot_launcher"); }
 
     /**
      * What a folder holds: {kind ("demo", "retail" or ""), exact ("1" when

@@ -1,10 +1,10 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 import java.io.*;
 import java.nio.file.*;
 import java.util.Comparator;
 public final class SaveFoldersTest {
     public static void main(String[] args) throws Exception {
-        Path root=Files.createTempDirectory("resot-save-test");
+        Path root=Files.createTempDirectory("popsot-save-test");
         try {
             Path game=root.resolve("game"), saves=root.resolve("saves");
             Path old=game.resolve("UDATA/5553001d/profile/pop2.sav");

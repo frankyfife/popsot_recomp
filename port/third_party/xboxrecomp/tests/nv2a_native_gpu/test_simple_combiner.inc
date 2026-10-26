@@ -1,7 +1,7 @@
-/* RE-SoT: compare production ps_simple against ps_main on the real GPU,
+/* POPSoT: compare production ps_simple against ps_main on the real GPU,
  * sampling a gradient with fog, saturation, alpha factors and white borders. */
 #include "../../src/kernel/nv2a_native_simple.h"
-#include "../../src/kernel/resot_native_specialize.h" /* RE-SoT: production specialization ABI. */
+#include "../../src/kernel/popsot_native_specialize.h" /* POPSoT: production specialization ABI. */
 static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
     SDL_GPUTransferBuffer *download, int dx, int specialized)
 {
@@ -18,7 +18,7 @@ static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
     SDL_GPUSampler *sampler;
     SDL_GPUTextureSamplerBinding bindings[8];
     int run,i,iteration;
-    Uint8 reference[128*128*4]; /* RE-SoT: compare separately, including discard coverage. */
+    Uint8 reference[128*128*4]; /* POPSoT: compare separately, including discard coverage. */
     si.format=dx?SDL_GPU_SHADERFORMAT_DXIL:SDL_GPU_SHADERFORMAT_SPIRV;
     si.code=dx?ng_vs_combiner_probe_dxil:ng_vs_combiner_probe_spirv;
     si.code_size=dx?sizeof ng_vs_combiner_probe_dxil:sizeof ng_vs_combiner_probe_spirv;
@@ -47,7 +47,7 @@ static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
     sm.address_mode_u=sm.address_mode_v=sm.address_mode_w=SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     sampler=SDL_CreateGPUSampler(device,&sm); REQUIRE(sampler);
     for(i=0;i<8;i++) { bindings[i].texture=i<4?texture:cube; bindings[i].sampler=sampler; }
-    for(iteration=0;iteration<(specialized?128:576);iteration++) { /* RE-SoT: paired reference/specialized draws. */
+    for(iteration=0;iteration<(specialized?128:576);iteration++) { /* POPSoT: paired reference/specialized draws. */
         run=specialized?iteration/2:iteration;
         union { float f[168]; Uint32 u[168]; } pc={0};
         SDL_GPUCommandBuffer *cmd=SDL_AcquireGPUCommandBuffer(device);
@@ -67,16 +67,16 @@ static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
         pc.f[32]=0.4f; pc.f[33]=0.25f; pc.f[34]=0.7f; pc.f[35]=0.91f;
         pc.u[96]=1; pc.u[97]=1; pc.u[98]=run&8?0x130C0300:0x0000000C; pc.u[99]=0x00001C80;
         if((run%288)>=32) { pc.u[100]=1; pc.u[101]=0x1FF+((run%288)/32); pc.u[102]=96; }
-        /* RE-SoT: no texture program; deliberately retain border state. */
+        /* POPSoT: no texture program; deliberately retain border state. */
         if(run>=288) { pc.u[97]=0; pc.u[0]=0x04200000; pc.u[1]=0x14200000; }
         pc.f[112]=0.12f; pc.f[113]=0.31f; pc.f[114]=0.72f;
         pc.f[116]=pc.f[117]=1; pc.f[118]=run>=288?0:1; pc.u[132]=1;
         if(run&16) { for(i=136;i<140;i++)pc.f[i]=1; pc.f[152]=pc.f[153]=4; pc.f[154]=pc.f[155]=1; }
         if(specialized) {
-            uint32_t key[RESOT_PS_SPEC_WORDS], *code;
+            uint32_t key[POPSOT_PS_SPEC_WORDS], *code;
             size_t bytes;
             const unsigned char *source;
-            /* RE-SoT: independent/paired factors, fog/final combiners,
+            /* POPSoT: independent/paired factors, fog/final combiners,
              * 1..8 stages and different destinations/mappings. Uniforms
              * remain live in both shaders; only program words specialize. */
             pc.u[96]=(run%8+1) | (run&8?0x11000:0);
@@ -89,21 +89,21 @@ static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
                 pc.f[32+i*4]=0.3f; pc.f[33+i*4]=0.7f; pc.f[34+i*4]=0.5f; pc.f[35+i*4]=0.8f;
             }
             if(run&16) pc.u[98]=pc.u[99]=0;
-            if(run>=24) { pc.u[100]=1; pc.u[101]=0x200+(run%8); pc.u[102]=96; } /* RE-SoT: compare discard masks too. */
-            if(run>=60) { pc.u[132]=0; pc.u[96]=0; } /* RE-SoT: non-combiner fallback and zero stages. */
-            resot_ps_spec_key(key,&pc);
+            if(run>=24) { pc.u[100]=1; pc.u[101]=0x200+(run%8); pc.u[102]=96; } /* POPSoT: compare discard masks too. */
+            if(run>=60) { pc.u[132]=0; pc.u[96]=0; } /* POPSoT: non-combiner fallback and zero stages. */
+            popsot_ps_spec_key(key,&pc);
             source=ng_ps_specialized_source(key[32]&255,&bytes);
-            code=resot_ps_specialize(source,bytes,key);
+            code=popsot_ps_specialize(source,bytes,key);
             REQUIRE(code);
             if(specialized==2 && (iteration&1)) {
                 size_t optimized_bytes=0;
                 Uint64 started=SDL_GetTicksNS();
-                uint32_t *optimized=resot_optimize_fragment(code,bytes,&optimized_bytes);
+                uint32_t *optimized=popsot_optimize_fragment(code,bytes,&optimized_bytes);
                 REQUIRE(optimized && optimized_bytes>0);
                 if(!(run%8)) fprintf(stderr,"[Shader test] fragment %d: %zu -> %zu bytes in %.1f ms\n",run,bytes,optimized_bytes,(SDL_GetTicksNS()-started)/1e6);
                 free(code); code=optimized; bytes=optimized_bytes;
                 for(size_t at=5;at<bytes/4;at+=code[at]>>16)
-                    REQUIRE((code[at]&65535)!=50 && (code[at]&65535)!=52); /* RE-SoT: no remaining specialization decoding. */
+                    REQUIRE((code[at]&65535)!=50 && (code[at]&65535)!=52); /* POPSoT: no remaining specialization decoding. */
             }
             SDL_ReleaseGPUGraphicsPipeline(device,pipeline); SDL_ReleaseGPUShader(device,ps);
             si.code=iteration&1?(const unsigned char *)code:ng_ps_main_spirv;
@@ -112,9 +112,9 @@ static int test_simple_combiner(SDL_GPUDevice *device, SDL_GPUTexture *target,
             ps=SDL_CreateGPUShader(device,&si); free(code); REQUIRE(ps);
             pi.fragment_shader=ps; pipeline=SDL_CreateGPUGraphicsPipeline(device,&pi); REQUIRE(pipeline);
         }
-        if(!specialized) REQUIRE(resot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],0,0,0));
-        REQUIRE(!resot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],1,0x208,0));
-        REQUIRE(!resot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],0,0,1));
+        if(!specialized) REQUIRE(popsot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],0,0,0));
+        REQUIRE(!popsot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],1,0x208,0));
+        REQUIRE(!popsot_native_simple(pc.u[96],pc.u[97],pc.u[0],pc.u[1],pc.u[2],pc.u[3],pc.u[98],pc.u[99],0,0,1));
         ct.texture=target; ct.load_op=SDL_GPU_LOADOP_CLEAR; ct.store_op=SDL_GPU_STOREOP_STORE;
         pass=SDL_BeginGPURenderPass(cmd,&ct,1,NULL); REQUIRE(pass);
         SDL_BindGPUGraphicsPipeline(pass,pipeline); SDL_BindGPUFragmentSamplers(pass,0,bindings,8);

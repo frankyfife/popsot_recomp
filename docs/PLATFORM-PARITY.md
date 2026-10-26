@@ -23,7 +23,7 @@ to Windows' default D3D11 path.
 | Bulk P8/ARGB texture decode, changing-texture lifetime | Already present | `nv2a_texture_upload.h`, `nv2a_hw_d3d11.inc`, `nv2a_hw_native.inc`; native texture cycling is shared by Vulkan/D3D12 |
 | Retail white light-map borders and forming sand-tank alignment | Already present in D3D11 and native paths | Shared border/vertex policy; native GPU readback tests cover the contracts |
 | GPU vertex programs, pure operand-read reductions, exact simple fragment shaders | Already present in native Vulkan/D3D12 | `nv2a_hw_native.inc`, `tools/build-native-shaders.py`; D3D11 uses its existing translated vertex shaders and combiner path |
-| Retail small-register vertex interpreter and unused ALU elimination | Already present in native Vulkan/D3D12 | `resot_native_vsh.h`; retains the retail target restriction, not a platform restriction |
+| Retail small-register vertex interpreter and unused ALU elimination | Already present in native Vulkan/D3D12 | `popsot_native_vsh.h`; retains the retail target restriction, not a platform restriction |
 | Compact vertex inputs | Already present on Windows Vulkan | D3D12 intentionally retains its fixed pitch: SDL 3.4.18 caches vertex-buffer views across pipeline changes; removing this restriction would reintroduce the tested failure |
 | Vertex/staging ring reuse, pipeline lookup, unchanged viewport/scissor/blend reuse | Already present in native Vulkan/D3D12 | Shared queue and encoder in `nv2a_hw_native.inc` |
 | Persistent Vulkan pipeline cache | Already present on Windows Vulkan | Windows setup runs the shared SDL patch. `bin/SDL3.dll` exports both cache functions and both native-query APIs; runtime selects a cache beside the executable |

@@ -39,7 +39,7 @@ static float    s_const[NV2A_VSH_CONSTANTS][4];
 static uint32_t s_load_slot, s_load_word, s_start_slot;
 static uint32_t s_const_load, s_const_word;
 static uint32_t s_cxt_write;
-/* RE-SoT: bumped whenever the program memory or the start slot, respectively
+/* POPSoT: bumped whenever the program memory or the start slot, respectively
  * a constant, changes -- so the hardware path can tell without rehashing. */
 static uint32_t s_prog_gen = 1, s_const_gen = 1;
 
@@ -48,7 +48,7 @@ static uint32_t field(const uint32_t *ins, int dw, int lo, int width)
     return (ins[dw] >> lo) & ((1u << width) - 1u);
 }
 
-/* RE-SoT: decode once per changed program, not once per vertex. Both native
+/* POPSoT: decode once per changed program, not once per vertex. Both native
  * renderers use this CPU interpreter; sources retain paired MAC/ILU ordering. */
 typedef struct { uint32_t mux, reg, swz, neg; } VshSource;
 typedef struct {
@@ -382,7 +382,7 @@ int nv2a_vsh_run(const float in[NV2A_VSH_INPUTS][4], Nv2aVshOutput *out)
     }
 
     memset(temp, 0, sizeof temp);
-    prepare_program(); /* RE-SoT: cached decode and live constant reads. */
+    prepare_program(); /* POPSoT: cached decode and live constant reads. */
     memset(&opos, 0, sizeof opos);
     memset(outregs, 0, sizeof outregs);
     outregs[3][3] = outregs[4][3] = 1.0f;      /* colours default opaque */
@@ -396,7 +396,7 @@ int nv2a_vsh_run(const float in[NV2A_VSH_INPUTS][4], Nv2aVshOutput *out)
         uint32_t mac = ins->mac, ilu = ins->ilu;
         uint32_t mac_mask = ins->mac_mask, ilu_mask = ins->ilu_mask;
         uint32_t tdst = ins->tdst, omask = ins->omask, oaddr = ins->oaddr;
-        /* RE-SoT: skip unused operands (MOV/ARL need only A, ADD A+C,
+        /* POPSoT: skip unused operands (MOV/ARL need only A, ADD A+C,
          * ILU only C), but read every used source before either unit writes. */
         vec4 a = {{0}}, b = {{0}}, c = {{0}};
         if (mac) a = read_src(ins,0,in,temp,&opos,a0);
@@ -451,7 +451,7 @@ int nv2a_vsh_run(const float in[NV2A_VSH_INPUTS][4], Nv2aVshOutput *out)
     return 0;
 }
 
-/* ---- RE-SoT: translation to HLSL ------------------------------------------
+/* ---- POPSoT: translation to HLSL ------------------------------------------
  *
  * The interpreter above was the executor's largest cost in a 3D scene (9-16 ms
  * a frame in the PoP demo's levels). The Direct3D 11 path runs the same
@@ -468,7 +468,7 @@ uint32_t nv2a_vsh_program_generation(void) { return s_prog_gen; }
 uint32_t nv2a_vsh_constant_generation(void) { return s_const_gen; }
 const float *nv2a_vsh_constants(void) { return &s_const[0][0]; }
 
-/* RE-SoT: layout read by vs_uber (nv2a_hw_d3d11.inc), one uint4 each:
+/* POPSoT: layout read by vs_uber (nv2a_hw_d3d11.inc), one uint4 each:
  *   x: mac 0-3, ilu 4-6, MAC temp mask 7-10, ILU temp mask 11-14,
  *      temp dest 15-18, out mask 19-22, out from ILU 23, out to o[] 24,
  *      a0.x relative 25, final 26

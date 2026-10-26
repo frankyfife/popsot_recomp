@@ -39,7 +39,7 @@ static void transform(uint32_t s[8], const uint8_t b[64])
     s[0] += a; s[1] += bb; s[2] += c; s[3] += d; s[4] += e; s[5] += f; s[6] += g; s[7] += h;
 }
 
-void resot_sha256_init(ResotSha256 *c)
+void popsot_sha256_init(PopsotSha256 *c)
 {
     static const uint32_t iv[8] = {
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
@@ -49,7 +49,7 @@ void resot_sha256_init(ResotSha256 *c)
     c->used = 0;
 }
 
-void resot_sha256_update(ResotSha256 *c, const void *data, size_t size)
+void popsot_sha256_update(PopsotSha256 *c, const void *data, size_t size)
 {
     const uint8_t *p = (const uint8_t *)data;
     c->bytes += size;
@@ -65,18 +65,18 @@ void resot_sha256_update(ResotSha256 *c, const void *data, size_t size)
     }
 }
 
-void resot_sha256_hex(ResotSha256 *c, char hex[65])
+void popsot_sha256_hex(PopsotSha256 *c, char hex[65])
 {
     static const char digits[] = "0123456789ABCDEF";
     uint64_t bits = c->bytes * 8;
     uint8_t pad = 0x80, len[8];
     int i;
-    resot_sha256_update(c, &pad, 1);
+    popsot_sha256_update(c, &pad, 1);
     pad = 0;
     while (c->used != 56)
-        resot_sha256_update(c, &pad, 1);
+        popsot_sha256_update(c, &pad, 1);
     for (i = 0; i < 8; i++) len[i] = (uint8_t)(bits >> (56 - 8 * i));
-    resot_sha256_update(c, len, 8);
+    popsot_sha256_update(c, len, 8);
     for (i = 0; i < 32; i++) {
         uint8_t v = (uint8_t)(c->state[i / 4] >> (24 - 8 * (i % 4)));
         hex[i * 2] = digits[v >> 4];
@@ -85,21 +85,21 @@ void resot_sha256_hex(ResotSha256 *c, char hex[65])
     hex[64] = 0;
 }
 
-int resot_sha256_file(const char *path, char hex[65])
+int popsot_sha256_file(const char *path, char hex[65])
 {
-    ResotSha256 c;
+    PopsotSha256 c;
     FILE *f = fopen(path, "rb");
     unsigned char *buffer;
     size_t got;
     if (!f) return 0;
     buffer = (unsigned char *)malloc(1 << 20);
     if (!buffer) { fclose(f); return 0; }
-    resot_sha256_init(&c);
+    popsot_sha256_init(&c);
     while ((got = fread(buffer, 1, 1 << 20, f)) > 0)
-        resot_sha256_update(&c, buffer, got);
+        popsot_sha256_update(&c, buffer, got);
     free(buffer);
     if (ferror(f)) { fclose(f); return 0; }
     fclose(f);
-    resot_sha256_hex(&c, hex);
+    popsot_sha256_hex(&c, hex);
     return 1;
 }

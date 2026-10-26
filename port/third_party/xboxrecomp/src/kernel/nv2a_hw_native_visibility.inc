@@ -1,10 +1,10 @@
-/* RE-SoT: asynchronous NV2A counters using native SDL GPU query extensions.
+/* POPSoT: asynchronous NV2A counters using native SDL GPU query extensions.
  * Queries are scoped to a render pass, and normalized to guest pixels.
  * CLEAR drops only the current counter's references; already issued reports
  * retain immutable snapshots. Native query objects retire only after their
  * submission fence, even if CLEAR happened before the command was submitted.
  * This generic controller has no game addresses; only retail enables it. */
-#include "../../../sdl-gpu-query/resot_gpu_query.h"
+#include "../../../sdl-gpu-query/popsot_gpu_query.h"
 #include <stdint.h>
 
 typedef struct NgVisFence {
@@ -29,7 +29,7 @@ typedef struct NgVisReport {
 } NgVisReport;
 typedef struct NgVisibility {
     SDL_GPUDevice *device;
-    const ResotGpuQueryAPI *api;
+    const PopsotGpuQueryAPI *api;
     NgVisSegment *all, *pending, **counter;
     uint32_t count, capacity;
     NgVisReport *first, *last;

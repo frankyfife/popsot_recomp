@@ -1,5 +1,5 @@
 # Prepare a portable folder from the user's own game files. Outputs and game
-# files stay under ignored bin/. Never distribute the disc files with reSOT.
+# files stay under ignored bin/. Never distribute the disc files with POPSoT.
 param(
     [ValidateSet('xbox-demo', 'xbox-retail')]
     [string]$Target = 'xbox-demo'
@@ -18,7 +18,7 @@ foreach ($file in $files) {
 New-Item -ItemType Directory -Force -Path $destination | Out-Null
 Copy-Item -LiteralPath $exe -Destination $destination -Force
 # Native D3D12/Vulkan encode through SDL GPU; no D3D11 replacement DLLs.
-foreach ($file in @('SDL3.dll','LICENSE-SDL3.txt','SDL3-RESOT.txt')) {
+foreach ($file in @('SDL3.dll','LICENSE-SDL3.txt','SDL3-POPSOT.txt')) {
     $nativeFile = Join-Path $root "bin/$file"
     if (-not (Test-Path -LiteralPath $nativeFile)) { throw "Missing $file; run tools/setup-native-gpu.ps1." }
     Copy-Item -LiteralPath $nativeFile -Destination $destination -Force
@@ -46,9 +46,9 @@ if ($Target -eq 'xbox-demo') {
     }
 }
 @"
-reSOT - $Target
+POPSoT - $Target
 
-Double-click sot-$Target.exe: the reSOT screen shows what is installed in
+Double-click sot-$Target.exe: the POPSoT screen shows what is installed in
 this folder; Start Demo / Start Game plays it. Keep the game files here.
 Without game files it asks for the game's Xbox ISO and extracts it beside the
 executable (extract-xiso, see LICENSE-extract-xiso.txt).

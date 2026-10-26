@@ -1,8 +1,8 @@
-# Builds the Android app (port/android): one APK, com.fulger.resot, with both
-# recompiled games (libresot_demo.so, libresot_retail.so) for arm64-v8a.
+# Builds the Android app (port/android): one APK, com.fulger.popsot, with both
+# recompiled games (libpopsot_demo.so, libpopsot_retail.so) for arm64-v8a.
 #
-#   .\tools\build-android.ps1                 # release APK -> bin/reSOT-android.apk
-#   .\tools\build-android.ps1 -Debug          # debug APK   -> bin/reSOT-android-debug.apk
+#   .\tools\build-android.ps1                 # release APK -> bin/POPSoT-android.apk
+#   .\tools\build-android.ps1 -Debug          # debug APK   -> bin/POPSoT-android-debug.apk
 #   .\tools\build-android.ps1 -Install        # and adb install it on the connected device
 #
 # The lifted sources come from tools/recomp.ps1 (source/<target>/gen), as for
@@ -30,7 +30,7 @@ if (-not (Test-Path (Join-Path $sdk 'cmake/3.30.3'))) { throw "CMake 3.30.3 miss
 "sdk.dir=$($sdk -replace '\\', '/')" | Set-Content -LiteralPath (Join-Path $project 'local.properties') -Encoding ascii
 
 $python = (Get-Command python -ErrorAction Stop).Source
-$env:RESOT_PYTHON = $python
+$env:POPSOT_PYTHON = $python
 $gradle = Join-Path $deps 'gradle-9.1.0/bin/gradle.bat'
 $task = if ($Debug) { 'assembleDebug' } else { 'assembleRelease' }
 Push-Location $project
@@ -47,7 +47,7 @@ $variant = if ($Debug) { 'debug' } else { 'release' }
 $apk = Join-Path $project "app/build/outputs/apk/$variant/app-$variant.apk"
 $bin = Join-Path $root 'bin'
 New-Item -ItemType Directory -Force -Path $bin | Out-Null
-$out = Join-Path $bin $(if ($Debug) { 'reSOT-android-debug.apk' } else { 'reSOT-android.apk' })
+$out = Join-Path $bin $(if ($Debug) { 'POPSoT-android-debug.apk' } else { 'POPSoT-android.apk' })
 Copy-Item -LiteralPath $apk -Destination $out -Force
 Write-Output "APK: $out ($([math]::Round((Get-Item $out).Length / 1MB, 1)) MB)"
 if ($Install) {

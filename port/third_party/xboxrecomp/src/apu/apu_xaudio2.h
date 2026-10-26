@@ -19,7 +19,7 @@ int xa2_is_active(void);
  * 1 if accepted. */
 int xa2_submit_samples(const int16_t *samples, int num_samples);
 
-/* RE-SoT: speaker layout and host reverb. xa2_configure before xa2_init:
+/* POPSoT: speaker layout and host reverb. xa2_configure before xa2_init:
  * 2 (stereo) or 6 (5.1, FL FR FC LFE BL BR) speaker channels, and whether
  * the I3DL2 reverb submix is built. xa2_layout: the speaker channels and
  * whether one more channel, the reverb send, follows them. */
@@ -41,7 +41,7 @@ float xa2_take_output_peak(void);
 /* Get the preferred buffer size in samples. */
 int xa2_get_buffer_size(void);
 
-/* RE-SoT: buffers queued at the last submit, frames dropped because the queue
+/* POPSoT: buffers queued at the last submit, frames dropped because the queue
  * was full, and times it ran dry. */
 void xa2_get_stats(int *queued, int *dropped, int *starved);
 

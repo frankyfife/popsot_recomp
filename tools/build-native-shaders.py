@@ -25,7 +25,7 @@ def main():
     text = check.source(None).read_text(encoding="utf-8")
     hlsl = (check.embedded(text, "s_hw_hlsl_vs_common") + check.embedded(text, "s_hw_hlsl")
             + check.embedded(text, "s_hw_hlsl_uber") + check.embedded(text, "s_hw_hlsl_simple"))
-    # RE-SoT: native interpreter operands are pure reads, but each entails
+    # POPSoT: native interpreter operands are pure reads, but each entails
     # register selection/swizzling. MOV/ARL need only A, MUL needs A/B,
     # ADD needs A/C; ILU alone needs C. Keep D3D11's reference unchanged.
     # Invalid MAC opcodes retain its default m=A behavior as well.
@@ -40,14 +40,14 @@ def main():
         if original not in hlsl:
             raise RuntimeError(f"Native operand optimization lost its anchor: {operand}")
         hlsl = hlsl.replace(original, replacement, 1)
-    # RE-SoT: an identity swizzle needs no component selections. A scalar
+    # POPSoT: an identity swizzle needs no component selections. A scalar
     # broadcast branch was also measured but regressed the phone's menu.
     anchor = "  float4 r = float4(ub_c(x, swz >> 6),"
     if anchor not in hlsl:
         raise RuntimeError("Native identity optimization lost its anchor")
     hlsl = hlsl.replace(anchor,
         "  [branch] if (swz == 27) return (s & 0x4000) ? -x : x;\n" + anchor, 1)
-    # RE-SoT: instruction opcodes are uniform across the draw. Preserve
+    # POPSoT: instruction opcodes are uniform across the draw. Preserve
     # their branches so mobile drivers need not predicate unused ALU work.
     hlsl = hlsl.replace("    if (mac == 2) m =", "    [branch] if (mac == 2) m =", 1)
     hlsl = hlsl.replace("    if (ilu == 2) l =", "    [branch] if (ilu == 2) l =", 1)
@@ -85,7 +85,7 @@ def main():
         hlsl += "\nfloat4 ps_vertex_probe(VO i) : SV_Target { return float4(i.d0.x,i.fog.x,i.t0.x,i.t0.y); }\n"
     src = output / "nv2a-native.hlsl"
     src.write_text(hlsl, encoding="ascii")
-    # RE-SoT: Vulkan specialization constants preserve the generic combiner
+    # POPSoT: Vulkan specialization constants preserve the generic combiner
     # semantics until pipeline creation, where the driver can fold register
     # selection and unused stages. Defaults are patched from draw snapshots;
     # no game shader/data or additional runtime compiler is embedded.
@@ -110,7 +110,7 @@ def main():
     spec_src = output / "nv2a-native-specialized.hlsl"
     spec_src.write_text(specialized, encoding="ascii")
     spec_sources = {8: spec_src}
-    # RE-SoT: do not hand mobile drivers eight expanded stages for a one-
+    # POPSoT: do not hand mobile drivers eight expanded stages for a one-
     # or two-stage program; this also reduces first-use compiler latency.
     for limit in (1,2,4):
         variant = hlsl[:begin] + "".join(
@@ -163,7 +163,7 @@ def main():
     vertex_spec = spec_from_file_location("native_vertex_source", ROOT / "tools/native-vertex-source.py")
     vertex_module = module_from_spec(vertex_spec)
     vertex_spec.loader.exec_module(vertex_module)
-    header = ["/* RE-SoT: generated host shaders; tools/build-native-shaders.py. */\n",
+    header = ["/* POPSoT: generated host shaders; tools/build-native-shaders.py. */\n",
               vertex_module.header(check, text)]
     entries = check.ENTRIES + [("vs_uber", "vs_4_0"), ("vs_uber_small", "vs_4_0"), ("ps_simple", "ps_4_0"), ("ps_simple_alpha", "ps_4_0")]
     if args.test_border:

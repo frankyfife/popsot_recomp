@@ -1,13 +1,13 @@
-/* RE-SoT: translate immutable packed vertex instructions to straight-line
+/* POPSoT: translate immutable packed vertex instructions to straight-line
  * GLSL. Same math/order as vs_uber, including paired ILU and position alias.
  * No guest memory reads, compiler calls or mutable game state here. */
-#ifndef RESOT_NATIVE_TRANSLATE_H
-#define RESOT_NATIVE_TRANSLATE_H
+#ifndef POPSOT_NATIVE_TRANSLATE_H
+#define POPSOT_NATIVE_TRANSLATE_H
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-static inline void resot_vsh_operand(char *out,size_t cap,uint32_t source,uint32_t ci,uint32_t vin,int relative)
+static inline void popsot_vsh_operand(char *out,size_t cap,uint32_t source,uint32_t ci,uint32_t vin,int relative)
 {
     char reg[64];
     const char *sw="xyzw";
@@ -19,7 +19,7 @@ static inline void resot_vsh_operand(char *out,size_t cap,uint32_t source,uint32
     snprintf(out,cap,"(%s%s.%c%c%c%c)",source&0x4000?"-":"",reg,
              sw[s>>6],sw[(s>>4)&3],sw[(s>>2)&3],sw[s&3]);
 }
-static inline char *resot_translate_vertex(const char *head,const uint32_t *words,uint32_t count)
+static inline char *popsot_translate_vertex(const char *head,const uint32_t *words,uint32_t count)
 {
     static const char *const macs[]={
         "a","a","a*b","a+cc","a*b+cc","vec4(dot(a.xyz,b.xyz))",
@@ -37,22 +37,22 @@ static inline char *resot_translate_vertex(const char *head,const uint32_t *word
     char *out;
     if(!head || !words || !count || count>136) return NULL;
     out=(char*)malloc(cap); if(!out) return NULL;
-#define RESOT_VS_EMIT(...) do { int n_=snprintf(out+len,cap-len,__VA_ARGS__); \
+#define POPSOT_VS_EMIT(...) do { int n_=snprintf(out+len,cap-len,__VA_ARGS__); \
     if(n_<0 || (size_t)n_>=cap-len) { free(out); return NULL; } len+=(size_t)n_; } while(0)
-    RESOT_VS_EMIT("%s\nvoid main() {\nint a0=0;\n",head);
-    for(uint32_t i=0;i<=12;i++) RESOT_VS_EMIT("vec4 R%u=vec4(0.0);\n",i);
-    RESOT_VS_EMIT("vec4 O3=vec4(0,0,0,1),O4=O3,O5=vec4(0),O9=O3,O10=O3,O11=O3,O12=O3;\n");
+    POPSOT_VS_EMIT("%s\nvoid main() {\nint a0=0;\n",head);
+    for(uint32_t i=0;i<=12;i++) POPSOT_VS_EMIT("vec4 R%u=vec4(0.0);\n",i);
+    POPSOT_VS_EMIT("vec4 O3=vec4(0,0,0,1),O4=O3,O5=vec4(0),O9=O3,O10=O3,O11=O3,O12=O3;\n");
     for(uint32_t i=0;i<count;i++) {
         const uint32_t *w=words+i*4;
         uint32_t op=w[0],mac=op&15,ilu=(op>>4)&7,td=(op>>15)&15,oa=w[1]&255;
         uint32_t ci=(w[1]>>8)&255,vin=(w[1]>>16)&7;
         char a[96],b[96],c[96];
-        resot_vsh_operand(a,sizeof a,w[2]&65535,ci,vin,(op&0x2000000)!=0);
-        resot_vsh_operand(b,sizeof b,w[2]>>16,ci,vin,(op&0x2000000)!=0);
-        resot_vsh_operand(c,sizeof c,w[3]&65535,ci,vin,(op&0x2000000)!=0);
-        RESOT_VS_EMIT("{ vec4 a=%s,b=%s,cc=%s; vec4 m=%s,l=%s;\n",a,b,c,macs[mac],ilus[ilu]);
-        if(mac==13) RESOT_VS_EMIT("a0=int(floor(a.x+0.001));\n");
-        /* RE-SoT: both lanes read before either destination is written. */
+        popsot_vsh_operand(a,sizeof a,w[2]&65535,ci,vin,(op&0x2000000)!=0);
+        popsot_vsh_operand(b,sizeof b,w[2]>>16,ci,vin,(op&0x2000000)!=0);
+        popsot_vsh_operand(c,sizeof c,w[3]&65535,ci,vin,(op&0x2000000)!=0);
+        POPSOT_VS_EMIT("{ vec4 a=%s,b=%s,cc=%s; vec4 m=%s,l=%s;\n",a,b,c,macs[mac],ilus[ilu]);
+        if(mac==13) POPSOT_VS_EMIT("a0=int(floor(a.x+0.001));\n");
+        /* POPSoT: both lanes read before either destination is written. */
         for(uint32_t lane=0;lane<3;lane++) {
             uint32_t mask=lane==0?(op>>7)&15:lane==1?(op>>11)&15:(op>>19)&15;
             uint32_t dest=lane==1 && mac?1:td;
@@ -66,15 +66,15 @@ static inline char *resot_translate_vertex(const char *head,const uint32_t *word
             } else snprintf(target,sizeof target,"R%u",dest);
             for(uint32_t j=0;j<4;j++) if(mask&(8u>>j)) sw[n++]="xyzw"[j];
             sw[n]=0;
-            RESOT_VS_EMIT("%s.%s=%s.%s;\n",target,sw,lane==1 || (lane==2 && (op&0x800000))?"l":"m",sw);
+            POPSOT_VS_EMIT("%s.%s=%s.%s;\n",target,sw,lane==1 || (lane==2 && (op&0x800000))?"l":"m",sw);
         }
-        RESOT_VS_EMIT("}\n");
+        POPSOT_VS_EMIT("}\n");
         if(op&0x4000000) {
-            RESOT_VS_EMIT("vs_finish(R12,O3,O4,vsh_fog(O5.x),O9,O10,O11,O12);\n}\n");
+            POPSOT_VS_EMIT("vs_finish(R12,O3,O4,vsh_fog(O5.x),O9,O10,O11,O12);\n}\n");
             return out;
         }
     }
-#undef RESOT_VS_EMIT
+#undef POPSOT_VS_EMIT
     free(out); return NULL;
 }
 #endif

@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -26,7 +26,7 @@ import java.io.InputStream;
 import java.util.Random;
 
 /**
- * The reSOT title screen, drawn as the Windows launcher draws it
+ * The POPSoT title screen, drawn as the Windows launcher draws it
  * (port/windows/src/launcher.c), in the style of Ubisoft's Sands of Time
  * announcement cards: a night-blue ground tiled with faint rosettes and
  * eight-point stars, soft lights, gold rules across the screen ending in twin
@@ -100,7 +100,7 @@ final class LauncherView extends View {
         sans = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
         sansBold = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD);
         display = atlantis ? face : serifBold;
-        try (InputStream in = context.getAssets().open("reSOT.png")) {
+        try (InputStream in = context.getAssets().open("POPSoT.png")) {
             logo = BitmapFactory.decodeStream(in);
         } catch (Exception ignored) {}
         for (int i = 0; i < BTN_COUNT; i++) buttons[i] = new RectF();

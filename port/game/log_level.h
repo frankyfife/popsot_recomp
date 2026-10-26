@@ -1,10 +1,10 @@
-#ifndef RESOT_LOG_LEVEL_H
-#define RESOT_LOG_LEVEL_H
+#ifndef POPSOT_LOG_LEVEL_H
+#define POPSOT_LOG_LEVEL_H
 #include <ctype.h>
 #include <string.h>
 /* Existing runtime messages have no common severity field. Match complete
  * severity words, case-insensitively, rather than treating all stderr as errors. */
-static int resot_log_level(const char *line)
+static int popsot_log_level(const char *line)
 {
     char word[32]; unsigned n = 0; int level = 0;
     for (;;) {

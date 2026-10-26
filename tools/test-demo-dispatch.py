@@ -19,7 +19,7 @@ shim = r'''
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
-#define RESOT_RUNTIME_DEMO 1
+#define POPSOT_RUNTIME_DEMO 1
 #define XBOX_THREAD_LOCAL
 #define __fastcall
 #define __stdcall

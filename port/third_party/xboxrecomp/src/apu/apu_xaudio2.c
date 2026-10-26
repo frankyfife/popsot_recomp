@@ -5,7 +5,7 @@
  * Called from the APU monitor frame to submit mixed samples.
  * Falls back gracefully if XAudio2 is unavailable.
  *
- * RE-SoT: stereo or 5.1, and the Xbox's I3DL2 room reverb. The GP DSP that
+ * POPSoT: stereo or 5.1, and the Xbox's I3DL2 room reverb. The GP DSP that
  * runs the reverb on the Xbox (the dsstdfx.bin effects image) is not
  * emulated; instead the I3DL2 send (mixbin 10) is the last channel of the
  * source voice, which sends it to a one-channel submix with the XAudio2
@@ -37,7 +37,7 @@
 
 #define XA2_SAMPLE_RATE   48000
 #define XA2_MAX_CHANNELS  8
-/* RE-SoT: one buffer is one APU monitor frame (256 samples, 5.33 ms), which
+/* POPSoT: one buffer is one APU monitor frame (256 samples, 5.33 ms), which
  * is what the frame thread produces per tick of its own clock. The queue is
  * the only slack between that clock and the sound card's: it is primed with
  * silence when it runs dry and a frame is dropped when it grows past
@@ -62,7 +62,7 @@ static int                     g_xa2_speakers = 2, g_xa2_send = 0, g_xa2_out_cha
 static volatile LONG           g_xa2_reverb_on = 1;
 static uint8_t                 g_xa2_listener[48];
 static int                     g_xa2_have_listener;
-/* RE-SoT: a volume meter on the master voice, so the log says what reaches
+/* POPSoT: a volume meter on the master voice, so the log says what reaches
  * the device and not only what was submitted. */
 static int                     g_xa2_meter;
 static float                   g_xa2_peak;
@@ -508,7 +508,7 @@ void xa2_get_stats(int *queued, int *dropped, int *starved)
     *dropped = g_xa2_dropped;
     *starved = g_xa2_starved;
     if (g_xa2) {
-        /* RE-SoT: the engine's own glitches (a processing pass that was late
+        /* POPSoT: the engine's own glitches (a processing pass that was late
          * and played silence), which the queue counts above cannot see. */
         static UINT32 last_glitches;
         XAUDIO2_PERFORMANCE_DATA pd;

@@ -87,7 +87,7 @@ VOID  SetLastError(DWORD dwErrCode);
 /* ---- Interlocked atomics ---------------------------------------------- */
 LONG InterlockedIncrement(volatile LONG *Addend);
 #ifndef MemoryBarrier
-/* RE-SoT: full fence, as the Win32 macro (retail visibility reports). */
+/* POPSoT: full fence, as the Win32 macro (retail visibility reports). */
 #define MemoryBarrier() __atomic_thread_fence(__ATOMIC_SEQ_CST)
 #endif
 LONG InterlockedDecrement(volatile LONG *Addend);
@@ -166,7 +166,7 @@ DWORD  ResumeThread(HANDLE h);
 DWORD  SuspendThread(HANDLE h);
 BOOL   TerminateThread(HANDLE h, DWORD exitCode);
 DWORD  GetCurrentThreadId(void);
-/* RE-SoT: the bridge's thread-object path (kernel_bridge.c) asks a handle for
+/* POPSoT: the bridge's thread-object path (kernel_bridge.c) asks a handle for
  * its thread ID and compares exit codes against STILL_ACTIVE (Android). */
 DWORD  GetThreadId(HANDLE h);
 #ifndef STILL_ACTIVE
@@ -214,7 +214,7 @@ SIZE_T HeapSize(HANDLE heap, DWORD flags, LPCVOID mem);
 
 /* ---- Virtual memory --------------------------------------------------- */
 LPVOID VirtualAlloc(LPVOID address, SIZE_T size, DWORD allocationType, DWORD protect);
-/* RE-SoT (Android): the runtime's own reservation of the guest address space.
+/* POPSoT (Android): the runtime's own reservation of the guest address space.
  * Fixed-address VirtualAlloc/MapViewOfFileEx inside it replace the reservation
  * (MAP_FIXED); releases inside it return to PROT_NONE instead of a hole. */
 void  w32_compat_own_range(void *base, SIZE_T size);
@@ -329,7 +329,7 @@ int   MessageBoxA(HWND hwnd, LPCSTR text, LPCSTR caption, UINT type);
 #define VK_F4        0x73
 #define VK_F5        0x74
 #define VK_F12       0x7B
-/* RE-SoT: the sided modifiers and keypad keys the reSOT keyboard layout
+/* POPSoT: the sided modifiers and keypad keys the POPSoT keyboard layout
  * binds (port/windows/src/options.c, port/android/src/options_android.c). */
 #define VK_XBUTTON1  0x05
 #define VK_XBUTTON2  0x06

@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -13,7 +13,7 @@ import org.libsdl.app.SDLActivity;
 
 /**
  * The game: SDL3's activity in the ":game" process, running one of the two
- * recompiled executables (libresot_demo.so or libresot_retail.so; their
+ * recompiled executables (libpopsot_demo.so or libpopsot_retail.so; their
  * SDL_main is port/android/src/main_android.c) on one installed game folder,
  * with the touch controls over SDL's surface.
  */
@@ -27,7 +27,7 @@ public class GameActivity extends SDLActivity {
     }
 
     @Override protected String[] getLibraries() {
-        return new String[] { "SDL3", retail() ? "resot_retail" : "resot_demo" };
+        return new String[] { "SDL3", retail() ? "popsot_retail" : "popsot_demo" };
     }
 
     @Override protected String[] getArguments() {

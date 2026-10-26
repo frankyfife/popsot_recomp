@@ -1,4 +1,4 @@
-"""RE-SoT: MOVSX from every 16-bit register sign-extends, bp and sp included."""
+"""POPSoT: MOVSX from every 16-bit register sign-extends, bp and sp included."""
 from . import config
 from .translator import FunctionTranslator
 

@@ -1399,7 +1399,7 @@ class Lifter:
         if m == "pop":
             return self._lift_pop(insn, ops)
 
-        # RE-SoT: EFLAGS as a value, and CPUID. The CRT and Bink probe for
+        # POPSoT: EFLAGS as a value, and CPUID. The CRT and Bink probe for
         # CPUID by toggling EFLAGS.ID through pushfd/popfd and then read the
         # feature bits; as no-ops the probe popped an unrelated stack slot and
         # tested whatever edx held. Only the non-arithmetic bits live in
@@ -1838,7 +1838,7 @@ class Lifter:
             r = ops[1].reg
             if r in ("al", "bl", "cl", "dl", "ah", "bh", "ch", "dh"):
                 src = f"SX8({src})"
-            # RE-SoT: bp and sp are 16-bit sources too. Without them
+            # POPSoT: bp and sp are 16-bit sources too. Without them
             # "movsx ebp, bp" fell through as the bare LO16 read, a zero
             # extension: Bink's IDCT (demo XBE 0x002B583C) then took every
             # negative row-6 coefficient as +65536-ish and movies showed

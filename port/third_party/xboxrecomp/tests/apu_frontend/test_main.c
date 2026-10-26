@@ -1,4 +1,4 @@
-/* RE-SoT: a pending idle-voice trap must survive other PIO writes and VP
+/* POPSoT: a pending idle-voice trap must survive other PIO writes and VP
  * polls until the guest services it. Demo ISR 0x002EE257 and retail ISR
  * 0x003E96EE read FECTL, FEDECMETH and FEDECPARAM in separate accesses. */
 #include "apu_state.h"

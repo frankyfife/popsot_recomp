@@ -25,7 +25,7 @@
 static BOOL  g_controller_connected[XBOX_MAX_CONTROLLERS] = { FALSE };
 static DWORD g_last_packet[XBOX_MAX_CONTROLLERS] = { 0 };
 
-/* RE-SoT: the host options remap a raw controller state and add its configured
+/* POPSoT: the host options remap a raw controller state and add its configured
  * keyboard layout. With no callback, the vendored default layout is retained. */
 static void (*s_host_filter)(void *, unsigned);
 void xbox_InputSetHostFilter(void (*filter)(void *, unsigned)) { s_host_filter = filter; }
@@ -38,7 +38,7 @@ void xbox_InputSetHostFilter(void (*filter)(void *, unsigned)) { s_host_filter =
  * The whole point of a recompilation is to be able to look at the thing
  * running, and a build nobody can press a button in cannot be looked at.
  *
- * RE-SoT: on unless RECOMP_KEYBOARD=0 (port/windows/src/main.c sets it). It
+ * POPSoT: on unless RECOMP_KEYBOARD=0 (port/windows/src/main.c sets it). It
  * only ever answers for port 0, and is merged on top of a pad connected
  * there, so a real controller keeps working. The layout is the PC version's
  * default one (its Controls - Keyboard screen), each action on the Xbox
@@ -73,7 +73,7 @@ static BOOL keyboard_enabled(void)
     static int on = -1;
     if (on < 0) {
         const char *v = getenv("RECOMP_KEYBOARD");
-        on = (v && *v == '0') ? 0 : 1;            /* RE-SoT: on by default */
+        on = (v && *v == '0') ? 0 : 1;            /* POPSoT: on by default */
     }
     return on ? TRUE : FALSE;
 }
@@ -218,7 +218,7 @@ void xbox_InputInit(void)
     }
 }
 
-/* RE-SoT: a joystick that is not an XInput device (a DirectInput pad or
+/* POPSoT: a joystick that is not an XInput device (a DirectInput pad or
  * stick), through WinMM. The layout is the common one for such pads: buttons
  * 1-4 A B X Y, 5/6 white/black, 7/8 the triggers, 9 BACK, 10 START, 11/12 the
  * thumb clicks, the hat the d-pad, X/Y the left thumb, Z/R (or U/R) the right.
@@ -309,7 +309,7 @@ static int joystick_state(XBOX_INPUT_STATE *pState)
     return 1;
 }
 
-/* RE-SoT: port 0 is the first XInput pad connected on any of the four
+/* POPSoT: port 0 is the first XInput pad connected on any of the four
  * indexes, not only index 0 (a pad that Windows numbered 1 used to be
  * ignored). */
 static DWORD xinput_get_any(DWORD dwPort, XINPUT_STATE *xi)
@@ -359,7 +359,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
         return ERROR_DEVICE_NOT_CONNECTED;
 
     result = xinput_get_any(dwPort, &xi_state);
-    /* RE-SoT: pass controller-only input to the host remapper. This also
+    /* POPSoT: pass controller-only input to the host remapper. This also
      * returns neutral state while F6 is open or the game lacks foreground. */
     if (s_host_filter) {
         int host_connected = result == ERROR_SUCCESS;
@@ -383,11 +383,11 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
         }
         pState->dwPacketNumber = ++g_last_packet[dwPort];
         s_host_filter(pState, dwPort);
-        g_controller_connected[dwPort] = host_connected; /* RE-SoT: retain no-keyboard disconnect semantics. */
+        g_controller_connected[dwPort] = host_connected; /* POPSoT: retain no-keyboard disconnect semantics. */
         return g_controller_connected[dwPort] ? ERROR_SUCCESS : ERROR_DEVICE_NOT_CONNECTED;
     }
     if (result != ERROR_SUCCESS && dwPort == 0) {
-        /* RE-SoT: no XInput pad: a WinMM joystick, with the keyboard and
+        /* POPSoT: no XInput pad: a WinMM joystick, with the keyboard and
          * mouse merged on top. */
         XBOX_INPUT_STATE joy;
         int have_joy = joystick_state(&joy);
@@ -471,7 +471,7 @@ DWORD xbox_InputSetState(DWORD dwPort, const XBOX_VIBRATION *pVibration)
 
     xi_vib.wLeftMotorSpeed = pVibration->wLeftMotorSpeed;
     xi_vib.wRightMotorSpeed = pVibration->wRightMotorSpeed;
-    if (dwPort == 0) {                    /* RE-SoT: whichever pad is port 0 */
+    if (dwPort == 0) {                    /* POPSoT: whichever pad is port 0 */
         XINPUT_STATE xi;
         DWORD i;
         for (i = 0; i < XUSER_MAX_COUNT; i++)

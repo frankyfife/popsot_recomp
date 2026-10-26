@@ -1,4 +1,4 @@
-/* RE-SoT: regress the retail ring's observed 16:9 and phone coordinates,
+/* POPSoT: regress the retail ring's observed 16:9 and phone coordinates,
  * preserving its original footprint while rejecting central menu geometry. */
 #include <stdio.h>
 #include "../../src/kernel/nv2a_hud_layout.h"

@@ -1,11 +1,11 @@
-/* RE-SoT: bulk upload conversion. Walk Morton masks once per row instead
+/* POPSoT: bulk upload conversion. Walk Morton masks once per row instead
  * of regenerating/depositing both masks for every texel (16 ms for retail
  * 512x512 P8 light maps). No host GPU API, shared by Windows and Android. */
-#ifndef RESOT_NV2A_TEXTURE_UPLOAD_H
-#define RESOT_NV2A_TEXTURE_UPLOAD_H
+#ifndef POPSOT_NV2A_TEXTURE_UPLOAD_H
+#define POPSOT_NV2A_TEXTURE_UPLOAD_H
 #include "../d3d/d3d8_swizzle.h"
 
-static int resot_decode_swizzled(uint32_t *dst, const uint8_t *src,
+static int popsot_decode_swizzled(uint32_t *dst, const uint8_t *src,
     uint32_t w, uint32_t h, uint32_t fmt, const uint32_t *palette)
 {
     uint32_t mx, my, sx, sy = 0, x, y;

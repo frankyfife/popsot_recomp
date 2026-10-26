@@ -57,7 +57,7 @@
 #define APU_DSP_ACK_MAX 8
 static uint32_t s_dsp_ack[APU_DSP_ACK_MAX];
 static int s_dsp_ack_count = -1;
-/* RE-SoT: "gp+<offset>" names the doorbell relative to the GP DSP's scratch
+/* POPSoT: "gp+<offset>" names the doorbell relative to the GP DSP's scratch
  * memory instead of by absolute address. GPSADDR is not the scratch buffer
  * but the scatter-gather table that lists its pages; the first entry is page
  * 0, and DirectSound's command word sits at a fixed offset in it (0x810 in
@@ -79,7 +79,7 @@ static void dsp_ack_init(void)
     buf[sizeof buf - 1] = 0;
     for (p = buf; *p && s_dsp_ack_count < APU_DSP_ACK_MAX; ) {
         unsigned long v;
-        if (p[0] == 'g' && p[1] == 'p' && p[2] == '+') {      /* RE-SoT */
+        if (p[0] == 'g' && p[1] == 'p' && p[2] == '+') {      /* POPSoT */
             v = strtoul(p + 3, &end, 0);
             if (end == p + 3)
                 break;
@@ -133,7 +133,7 @@ void mcpx_apu_dsp_ack_poll(MCPXAPUState *d)
             *slot = 0;
         }
     }
-    /* RE-SoT: doorbells named relative to GP scratch page 0. */
+    /* POPSoT: doorbells named relative to GP scratch page 0. */
     if (s_dsp_ack_gp_count) {
         uint32_t table = d->regs[NV_PAPU_GPSADDR];
         uint32_t page0 = table ? *(uint32_t *)mcpx_apu_phys(table) : 0;
@@ -196,7 +196,7 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d,
 
     int off = (d->ep_frame_div % 8) * NUM_SAMPLES_PER_FRAME;
 
-    /* RE-SoT: RECOMP_APU_BINSTAT=1 logs every ten seconds the level of every
+    /* POPSoT: RECOMP_APU_BINSTAT=1 logs every ten seconds the level of every
      * mixbin (RMS in dBFS), to see where a title sends. */
     {
         static int on = -1, frames;
@@ -253,7 +253,7 @@ void mcpx_apu_dsp_frame(MCPXAPUState *d,
              * mixdown that stops discarding audio. */
             float left, right;
             if (mcpx_apu_mixdown_all()) {
-                /* RE-SoT: by what the bins are (DSMIXBIN_*, XDK dsound.h),
+                /* POPSoT: by what the bins are (DSMIXBIN_*, XDK dsound.h),
                  * not by parity. 0-5 are the speakers (FL FR FC LFE BL BR),
                  * 6-9 the crosstalk pairs 3D voices are sent to (FL FR BL
                  * BR), 10 the I3DL2 reverb send and 11-31 the effect sends:

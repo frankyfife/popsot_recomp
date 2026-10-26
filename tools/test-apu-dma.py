@@ -18,8 +18,8 @@ start=vp.index('static hwaddr get_data_ptr('); end=vp.index('\n}',start)+2
 sge=vp[start:end]
 header=(root/'port/third_party/xboxrecomp/src/kernel/xbox_apu_dma.h').as_posix()
 prefix=r'''
-#define RESOT_RUNTIME_RETAIL 1 /* the shared runtime's retail build */
-#define RESOT_RUNTIME_DEMO 0
+#define POPSOT_RUNTIME_RETAIL 1 /* the shared runtime's retail build */
+#define POPSOT_RUNTIME_DEMO 0
 #include <windows.h>
 #include <stdint.h>
 #include <stdio.h>

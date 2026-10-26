@@ -1,11 +1,11 @@
-#ifndef RESOT_NATIVE_VSH_H
-#define RESOT_NATIVE_VSH_H
+#ifndef POPSOT_NATIVE_VSH_H
+#define POPSOT_NATIVE_VSH_H
 #include <stdint.h>
 #include <string.h>
 
-/* RE-SoT: match the native shader's operand-use guards, including output
+/* POPSoT: match the native shader's operand-use guards, including output
  * writes without a MAC/ILU opcode. Unused encoded operands are not reads. */
-static inline uint32_t resot_native_vsh_operands(uint32_t instruction)
+static inline uint32_t popsot_native_vsh_operands(uint32_t instruction)
 {
     uint32_t mac = instruction & 15, ilu = (instruction >> 4) & 7;
     uint32_t output = (instruction >> 19) & 15;
@@ -15,16 +15,16 @@ static inline uint32_t resot_native_vsh_operands(uint32_t instruction)
            ((ilu || mac == 3 || mac == 4 || (output && output_ilu)) ? 4u : 0u);
 }
 
-/* RE-SoT: the smaller native interpreter omits R4..R11. Writes to those
+/* POPSoT: the smaller native interpreter omits R4..R11. Writes to those
  * registers are dead only when no instruction reads them. R12 remains the
  * position alias; invalid R13..R15 retain the generic interpreter's R0 read. */
-static inline int resot_native_small_vsh(const uint32_t *words, uint32_t count)
+static inline int popsot_native_small_vsh(const uint32_t *words, uint32_t count)
 {
     if (!count || count > 136) return 0;
     for (uint32_t instruction = 0; instruction < count; instruction++) {
         const uint32_t *packed = words + instruction * 4;
         uint32_t sources[3] = {packed[2] & 65535, packed[2] >> 16, packed[3] & 65535};
-        uint32_t needed = resot_native_vsh_operands(packed[0]);
+        uint32_t needed = popsot_native_vsh_operands(packed[0]);
         for (uint32_t operand = 0; operand < 3; operand++) {
             uint32_t reg = (sources[operand] >> 2) & 15;
             if ((needed & (1u << operand)) && (sources[operand] & 3) == 1 && reg >= 4 && reg < 12) return 0;
@@ -33,9 +33,9 @@ static inline int resot_native_small_vsh(const uint32_t *words, uint32_t count)
     return 1;
 }
 
-/* RE-SoT: compact arbitrary live temporaries into R0/R2/R3, preserving R1
+/* POPSoT: compact arbitrary live temporaries into R0/R2/R3, preserving R1
  * for the paired ILU destination and R12 for position. Unread writes die. */
-static inline int resot_native_pack_small_vsh(const uint32_t *words, uint32_t count, uint32_t *result)
+static inline int popsot_native_pack_small_vsh(const uint32_t *words, uint32_t count, uint32_t *result)
 {
     uint32_t live = 0, next = 0;
     uint8_t mapping[16];
@@ -45,7 +45,7 @@ static inline int resot_native_pack_small_vsh(const uint32_t *words, uint32_t co
     for (uint32_t instruction = 0; instruction < count; instruction++) {
         const uint32_t *packed = words + instruction * 4;
         uint32_t sources[3] = {packed[2] & 65535, packed[2] >> 16, packed[3] & 65535};
-        uint32_t needed = resot_native_vsh_operands(packed[0]);
+        uint32_t needed = popsot_native_vsh_operands(packed[0]);
         for (uint32_t operand = 0; operand < 3; operand++) {
             uint32_t reg = (sources[operand] >> 2) & 15;
             if (reg >= 13) reg = 0;
@@ -74,7 +74,7 @@ static inline int resot_native_pack_small_vsh(const uint32_t *words, uint32_t co
             }
         }
         packed[2] = sources[0] | (sources[1] << 16); packed[3] = sources[2];
-        /* RE-SoT: the small fragment path consumes only position/d0/fog/t0.
+        /* POPSoT: the small fragment path consumes only position/d0/fog/t0.
          * Drop unobservable writes before interpreting each vertex, then
          * disable ALU lanes with no destination. Keep ARL's address side
          * effect and the paired ILU's implicit R1 destination intact. */
@@ -101,9 +101,9 @@ static inline int resot_native_pack_small_vsh(const uint32_t *words, uint32_t co
     }
     return 1;
 }
-/* RE-SoT: disabled lanes need no interpreter iteration. Preserve the first
+/* POPSoT: disabled lanes need no interpreter iteration. Preserve the first
  * END boundary, including an END-only instruction and an empty program. */
-static inline uint32_t resot_native_trim_small_vsh(uint32_t *words, uint32_t count)
+static inline uint32_t popsot_native_trim_small_vsh(uint32_t *words, uint32_t count)
 {
     uint32_t written = 0;
     for (uint32_t i = 0; i < count; i++) {

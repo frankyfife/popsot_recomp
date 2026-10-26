@@ -31,11 +31,11 @@
 #include <string.h>
 #include <time.h>
 #if !defined(_WIN32)
-#include <unistd.h>   /* RE-SoT: sysconf, CPU count for vmt_init */
+#include <unistd.h>   /* POPSoT: sysconf, CPU count for vmt_init */
 #endif
 #include "kernel.h"   /* XBOX_CONTIG_BASE / XBOX_CONTIG_SIZE */
 #include "xbox_memory_layout.h"   /* xbox_Nv2aFrameCounterFlip */
-#include "resot_runtime.h"        /* RE-SoT: per-target behaviour */
+#include "popsot_runtime.h"        /* POPSoT: per-target behaviour */
 /* The swizzle decoder the D3D8 layer already uses -- one implementation of
  * Morton order, not a second one that can disagree with it. */
 #include "../d3d/d3d8_swizzle.h"
@@ -192,7 +192,7 @@ static int surface_write_refused(uint32_t base, uint32_t bytes, const char *what
 #define NV097_FLIP_INCREMENT_WRITE        0x012C
 #define NV097_FLIP_STALL                  0x0130
 #define NV097_ARRAY_ELEMENT16             0x1800
-#define NV097_ARRAY_ELEMENT32             0x1808  /* RE-SoT: the odd last index */
+#define NV097_ARRAY_ELEMENT32             0x1808  /* POPSoT: the odd last index */
 /* Draw a run of vertices straight out of the arrays, with no index list:
  * bits 0..23 are the first vertex, bits 24..31 the count minus one. It may
  * appear several times inside one BEGIN_END to draw a longer run. */
@@ -230,7 +230,7 @@ typedef struct {
 } VertexAttr;
 
 #define NV_VERTEX_ATTRS 16
-/* RE-SoT: was 4096. The demo's level geometry sends longer index lists in
+/* POPSoT: was 4096. The demo's level geometry sends longer index lists in
  * one BEGIN/END, and everything past the 4096th index was dropped (8.4
  * million index words in 150 s of the first level): meshes lost their tail.
  * 65536 is what a 16-bit index can name, and the vertex ring (16 MB) still
@@ -253,7 +253,7 @@ typedef struct {
     uint32_t palette;                   /* guest address of the CLUT, P8 */
     uint32_t levels;                    /* mip levels, from FORMAT       */
     uint32_t filter;                    /* SET_TEXTURE_FILTER            */
-    uint32_t border_color;             /* RE-SoT: SET_TEXTURE_BORDER_COLOR, ARGB. */
+    uint32_t border_color;             /* POPSoT: SET_TEXTURE_BORDER_COLOR, ARGB. */
     int      cube;                      /* FORMAT: six faces, not one    */
     int      valid;
 } Texture;
@@ -400,7 +400,7 @@ static void dump_texture_bmp(uint32_t seq);
 #define TEX_DUMP_SEQ_BASE 1000u
 #define TEX_DUMP_SEQ_MAX  40u
 
-/* RE-SoT: RECOMP_TEX_DUMP_ADDR=<hex>,<hex>,... writes each listed texture
+/* POPSoT: RECOMP_TEX_DUMP_ADDR=<hex>,<hex>,... writes each listed texture
  * once, with its alpha, as a 32-bit TGA <RECOMP_TEX_DUMP_RGBA><offset>.tga
  * (default logs/tex_). For font and icon atlases, whose alpha is the glyph. */
 static int sample_texture(uint32_t u, uint32_t v, uint32_t *argb);
@@ -527,7 +527,7 @@ static void note_unhandled(uint32_t method, uint32_t param)
     }
 }
 
-/* RE-SoT: a batch with more indices than NV_MAX_INDICES loses the rest. Said
+/* POPSoT: a batch with more indices than NV_MAX_INDICES loses the rest. Said
  * once per batch-overflow count milestone so it can be seen if it happens. */
 static void note_index_overflow(void)
 {
@@ -548,7 +548,7 @@ static int fetch_attr(const VertexAttr *a, uint32_t index, float out[4])
 
     out[0] = out[1] = out[2] = 0.0f;
     out[3] = 1.0f;
-    /* RE-SoT: an attribute with no array reads its current value, the one the
+    /* POPSoT: an attribute with no array reads its current value, the one the
      * SET_VERTEX_DATA* methods left (see hw_bind_draw_state). Still returns
      * 0, so callers asking "is there an array" get the same answer. */
     if (a >= s_gpu.attr && a < s_gpu.attr + NV_VERTEX_ATTRS
@@ -1625,7 +1625,7 @@ static void raster_indexed(uint32_t i0, uint32_t i1, uint32_t i2, uint32_t argb)
 #define NV_ZBUF_H 1024
 static struct { uint32_t offset; float *z; } s_zbufs[4];
 static int s_ftrace;            /* frame trace: 0 idle, 2 tracing, 3 done */
-/* RE-SoT: a frame trace requested from the host (Windows F9), no flag file
+/* POPSoT: a frame trace requested from the host (Windows F9), no flag file
  * needed; repeatable. s_capture_key marks traces started that way. */
 static volatile LONG s_capture_request;
 static int s_capture_key;
@@ -1966,7 +1966,7 @@ static void xf_rows(const XfTri *T, int y0, int step, XfCount *cnt)
                             continue;
                     }
                 }
-                /* RE-SoT: DEPTH_MASK alone does not enable depth writes;
+                /* POPSoT: DEPTH_MASK alone does not enable depth writes;
                  * match the hardware path when 2D pause layers disable Z. */
                 if (zp && s_gpu.depth_test && s_gpu.depth_mask)
                     *zp = z;
@@ -2120,7 +2120,7 @@ static void raster_xf_triangle(const Nv2aVshOutput *va, const Nv2aVshOutput *vb,
     s_gpu.xf_seeded = 1;
     if (!surface_begin_batch(T.mem))
         return;
-    /* RE-SoT: a disabled depth test also disables writes, even with MASK=1. */
+    /* POPSoT: a disabled depth test also disables writes, even with MASK=1. */
     if (s_gpu.depth_test)
         T.zb = zbuf_current(1);
     if (tex_size_from_format(s_gpu.texs[0].color)) {
@@ -2257,11 +2257,11 @@ static void raster_xf_clipped(const Nv2aVshOutput *a, const Nv2aVshOutput *b,
         raster_xf_triangle(&poly[0], &poly[i], &poly[i + 1]);
 }
 
-/* RE-SoT: where the executor's time goes, reported with the frame rate. */
+/* POPSoT: where the executor's time goes, reported with the frame rate. */
 static uint64_t s_hw_stat_vsh_ticks, s_hw_stat_draw_ticks, s_hw_stat_verts;
 extern uint64_t g_nv2a_exec_ticks;      /* nv2a_pb_scan.c: time spent executing */
 
-/* RE-SoT: the Direct3D 11 rasteriser, which reads the state above. */
+/* POPSoT: the Direct3D 11 rasteriser, which reads the state above. */
 #include "nv2a_hw_d3d11.inc"
 
 static Nv2aVshOutput s_xf[NV_MAX_INDICES];
@@ -2271,7 +2271,7 @@ static int transform_vertex(uint32_t index, Nv2aVshOutput *out)
     float in[NV2A_VSH_INPUTS][4];
     uint32_t a;
 
-    /* RE-SoT: the interpreter never consumes unused input slots. Avoid
+    /* POPSoT: the interpreter never consumes unused input slots. Avoid
      * fetching all sixteen attributes for each CPU-transformed vertex. */
     uint32_t mask = nv2a_vsh_input_mask();
     for (a = 0; a < NV2A_VSH_INPUTS; a++)
@@ -2279,13 +2279,13 @@ static int transform_vertex(uint32_t index, Nv2aVshOutput *out)
     return nv2a_vsh_run((const float (*)[4])in, out);
 }
 
-/* RE-SoT: the interpreter on several cores. Every distinct vertex of a batch
+/* POPSoT: the interpreter on several cores. Every distinct vertex of a batch
  * is independent: workers read guest memory (fetch_attr) and the decoded
  * program and constants, and each writes only its own s_xf entries. Programs
  * that write constants (CXT_WRITE) stay serial, as do small batches, where a
  * dispatch would cost more than it saves. The interpreter is the fallback
- * for programs vs_uber cannot run, and the path RESOT_NATIVE_CPU_VSH=1
- * selects. RESOT_VSH_THREADS=<n> sets the worker count; 0 keeps everything
+ * for programs vs_uber cannot run, and the path POPSOT_NATIVE_CPU_VSH=1
+ * selects. POPSOT_VSH_THREADS=<n> sets the worker count; 0 keeps everything
  * on the executor thread. */
 #define VMT_MAX 7
 #define VMT_MIN 128                     /* distinct vertices worth dispatching */
@@ -2349,7 +2349,7 @@ static int vmt_init(void)
     static int state = -1;
     if (state >= 0) return state;
     {
-        const char *e = getenv("RESOT_VSH_THREADS");
+        const char *e = getenv("POPSOT_VSH_THREADS");
         int cores, n, k;
 #if defined(_WIN32)
         SYSTEM_INFO si; GetSystemInfo(&si); cores = (int)si.dwNumberOfProcessors;
@@ -2416,7 +2416,7 @@ static void raster_batch_program(void)
 {
     uint32_t i, n = s_gpu.idx_count;
 
-    /* RE-SoT: the host GPU runs the program itself when it can; what is left
+    /* POPSoT: the host GPU runs the program itself when it can; what is left
      * below is the interpreter, for the software rasteriser and for the
      * programs that cannot be translated. */
     if (hw_active() && hw_draw_program_batch()) {
@@ -2427,13 +2427,13 @@ static void raster_batch_program(void)
         return;
     }
 
-    /* RE-SoT: run the program once per distinct vertex of the batch. An
+    /* POPSoT: run the program once per distinct vertex of the batch. An
      * indexed list names each vertex several times (about five, on this
      * title's meshes), and the interpreter was the executor's largest cost. */
     {
         static uint32_t stamp[65536], batch_id;
         static uint32_t first[65536];
-        /* RE-SoT: distinct vertices first, transformed together (vmt_transform),
+        /* POPSoT: distinct vertices first, transformed together (vmt_transform),
          * then the repeats copied from their first occurrence. */
         static uint16_t uniq[NV_MAX_INDICES];
         static uint32_t upos[NV_MAX_INDICES];
@@ -2522,7 +2522,7 @@ static void raster_batch_program(void)
     if (s_gpu.texs[0].valid)
         note_texture_use();
 
-    /* RE-SoT: the host GPU draws the batch when the hardware path is up. */
+    /* POPSoT: the host GPU draws the batch when the hardware path is up. */
     if (hw_active()) {
         hw_draw_batch(s_xf, n);
         return;
@@ -2691,7 +2691,7 @@ static void frame_trace_flip(void)
         s_capture_key = key;
         s_ftrace = 2;
         fprintf(stderr, "[FTRACE] frame begins (flip %u)%s\n", s_gpu.flips, key ? " by key" : "");
-        /* RE-SoT: snapshot prior state once; later raw uploads reconstruct
+        /* POPSoT: snapshot prior state once; later raw uploads reconstruct
          * exact matrices even if a constant is not written in this frame. */
         if (getenv("RECOMP_FRAME_TRACE_METHODS")) {
             const float *constants = nv2a_vsh_constants();
@@ -2714,7 +2714,7 @@ static void draw_primitive(void)
     if (!s_gpu.prim || !s_gpu.idx_count)
         return;
     s_gpu.draws++;
-    /* RE-SoT: a progress line for the software rasteriser, where 200 draws
+    /* POPSoT: a progress line for the software rasteriser, where 200 draws
      * take seconds. On the hardware path it was two or three writes a frame
      * to a redirected stderr -- half the executor's time in the PoP demo. */
     if ((s_gpu.draws % 200) == 0 && !hw_active())
@@ -2790,7 +2790,7 @@ static void draw_primitive(void)
         }
     }
 
-    static int pb_verbose = -1;           /* RE-SoT: not a getenv per draw */
+    static int pb_verbose = -1;           /* POPSoT: not a getenv per draw */
     if (pb_verbose < 0)
         pb_verbose = getenv("RECOMP_PB_EXEC_VERBOSE") != NULL;
     if (pb_verbose) {
@@ -3151,7 +3151,7 @@ static void tex_stage_method(uint32_t method, uint32_t param)
     case 0x1B14:                                  /* SET_TEXTURE_FILTER */
         t->filter = param;
         break;
-    case 0x1B24: /* RE-SoT: preserve the guest border for projected light maps. */
+    case 0x1B24: /* POPSoT: preserve the guest border for projected light maps. */
         t->border_color = param;
         break;
     default:
@@ -3202,7 +3202,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
     }
 
     if (s_ftrace == 2) {
-        /* RE-SoT: full state evidence includes program/constant upload words;
+        /* POPSoT: full state evidence includes program/constant upload words;
          * excluding them hid instance matrices behind identical batch bounds.
          * Inline/index vertex payload remains excluded to bound trace size. */
         static int all = -1;
@@ -3276,14 +3276,14 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
     case 0x09C4: memcpy(&s_gpu.fog_param[1], &param, 4); break;
     case 0x17C8:                                  /* CLEAR_REPORT_VALUE */
         s_gpu.zpass_count = 0;
-#if RESOT_RUNTIME_RETAIL
-        if (hw_active()) hw_visibility_method(method, param, 0); /* RE-SoT: actual host query. */
+#if POPSOT_RUNTIME_RETAIL
+        if (hw_active()) hw_visibility_method(method, param, 0); /* POPSoT: actual host query. */
 #endif
         break;
     case 0x17CC:                                  /* SET_ZPASS_PIXEL_COUNT_ENABLE */
         s_gpu.zpass_enable = param;
-#if RESOT_RUNTIME_RETAIL
-        if (hw_active()) hw_visibility_method(method, param, 0); /* RE-SoT: enabled interval. */
+#if POPSOT_RUNTIME_RETAIL
+        if (hw_active()) hw_visibility_method(method, param, 0); /* POPSoT: enabled interval. */
 #endif
         break;
     case 0x17D0: {                                /* GET_REPORT */
@@ -3297,8 +3297,8 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
         uint32_t at = dma_resolve(param & 0x00FFFFFFu);
         uint64_t stamp = (uint64_t)s_gpu.reports++ * 1000u;
-#if RESOT_RUNTIME_RETAIL
-        /* RE-SoT: preserve the guest's pending marker until the D3D11 query
+#if POPSOT_RUNTIME_RETAIL
+        /* POPSoT: preserve the guest's pending marker until the D3D11 query
          * completes; unlike software, host GPU draws execute asynchronously. */
         if (hw_active()) { hw_visibility_method(method, at, stamp); break; }
 #endif
@@ -3321,7 +3321,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
             fprintf(stderr, "[FTRACE] clear %X surf %08X %ux%u colour %08X%c",
                     param, s_gpu.color_offset, s_gpu.clip_w, s_gpu.clip_h,
                     s_gpu.clear_color, 10);
-        if (hw_active()) {                        /* RE-SoT */
+        if (hw_active()) {                        /* POPSoT */
             hw_clear(param);
             break;
         }
@@ -3392,7 +3392,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         break;
 
     case NV097_ARRAY_ELEMENT32:
-        /* RE-SoT: one index per word. XDK D3D sends an index list as pairs
+        /* POPSoT: one index per word. XDK D3D sends an index list as pairs
          * through ARRAY_ELEMENT16 and the odd one left at the end through
          * this method; it was unhandled (556,550 times in a run through the
          * demo), so every strip with an odd index count lost its last
@@ -3437,7 +3437,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         /* And this is a completed swap, which is what a title's own swap
          * counter counts -- see xbox_Nv2aFrameCounterFlip. */
         xbox_Nv2aFrameCounterFlip();
-        if (hw_active()) {                        /* RE-SoT: host GPU presents */
+        if (hw_active()) {                        /* POPSoT: host GPU presents */
             extern void xbox_FramebufferWindowFrameStats(uint32_t);
             static uint64_t draws_at_flip;
             xbox_FramebufferWindowFrameStats((uint32_t)(s_hw.draws - draws_at_flip));
@@ -3493,7 +3493,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         }
         s_gpu.drawn_stale = 1;
 
-        static int flip_verbose = -1;     /* RE-SoT: not a getenv per flip */
+        static int flip_verbose = -1;     /* POPSoT: not a getenv per flip */
         if (flip_verbose < 0)
             flip_verbose = getenv("RECOMP_PB_EXEC_VERBOSE") != NULL;
         if (flip_verbose) {
@@ -3531,13 +3531,13 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
     case 0x0214: s_gpu.zeta_offset = param; break;/* SURFACE_ZETA_OFFSET */
     case 0x1D8C: s_gpu.zstencil_clear = param; break; /* ZSTENCIL_CLEAR_VALUE */
 
-    /* RE-SoT: GPU fences. XDK D3D (5558, sub_0029D1E0 in the PoP demo) ends
+    /* POPSoT: GPU fences. XDK D3D (5558, sub_0029D1E0 in the PoP demo) ends
      * every fence with BACK_END_WRITE_SEMAPHORE_RELEASE carrying its "time",
      * and BlockOnTime spins until the dword the semaphore DMA object points at
      * reaches it. Both XBEs use offset zero in that object (retail
      * 0x00370593/0x0037059C sets it, 0x003700BD/0x003700C4 releases it). The
      * registered device resolves its GPU-time page; release follows the
-     * consumed arrays only with RESOT_ORDERED_FENCES=1 (resot_ordered_fences). */
+     * consumed arrays only with POPSOT_ORDERED_FENCES=1 (popsot_ordered_fences). */
     case 0x1D6C:                                  /* SET_SEMAPHORE_OFFSET */
         xbox_Nv2aFenceOffset(param);
         break;
@@ -3608,7 +3608,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
             a->size   = (param >> 4)  & 0x0F;
             a->stride = (param >> 8)  & 0xFF;
         } else if (!imm_vertex_method(method, param)
-                   && !hw_method(method, param)) {   /* RE-SoT: cull, clear rect */
+                   && !hw_method(method, param)) {   /* POPSoT: cull, clear rect */
             note_unhandled(method, param);
         }
         break;

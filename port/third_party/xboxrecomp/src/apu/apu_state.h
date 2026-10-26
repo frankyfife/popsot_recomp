@@ -24,7 +24,7 @@
 #include "apu_shim.h"
 #include "apu_regs.h"
 #include "apu_debug.h"
-/* RE-SoT: source-rate conversion state belongs to each hardware voice. */
+/* POPSoT: source-rate conversion state belongs to each hardware voice. */
 #include "apu_resample.h"
 
 /* ============================================================
@@ -382,8 +382,8 @@ typedef struct MCPXAPUVoiceFilter {
     uint16_t voice;
     float resample_buf[NUM_SAMPLES_PER_FRAME * 2];
     SRC_STATE *resampler;
-    /* RE-SoT: preserve interpolation phase/input between VP blocks. */
-    ResotAudioResampler sample_rate;
+    /* POPSoT: preserve interpolation phase/input between VP blocks. */
+    PopsotAudioResampler sample_rate;
     sv_filter svf[2];
     HrtfFilter hrtf;
 } MCPXAPUVoiceFilter;
@@ -509,7 +509,7 @@ struct MCPXAPUState {
     struct {
         McpxApuDebugMonitorPoint point;
         int16_t frame_buf[256][2];
-        /* RE-SoT: the same samples for 5.1 (FL FR FC LFE BL BR) and the
+        /* POPSoT: the same samples for 5.1 (FL FR FC LFE BL BR) and the
          * I3DL2 reverb send (mixbin 10), for the XAudio2 output. */
         int16_t frame6[256][6];
         int16_t reverb[256];

@@ -1,5 +1,5 @@
 /**
- * RE-SoT: hardware rasterisation for the pushbuffer executor (Direct3D 11).
+ * POPSoT: hardware rasterisation for the pushbuffer executor (Direct3D 11).
  *
  * Included by nv2a_pb_exec.c, after its state and helpers, so it reads the
  * executor's decoded NV2A state (s_gpu) directly. The division of labour:
@@ -39,17 +39,17 @@
  */
 #if defined(_WIN32) || defined(__ANDROID__)
 
-/* RE-SoT: Windows builds both encoders (Direct3D 11 and the native SDL GPU
+/* POPSoT: Windows builds both encoders (Direct3D 11 and the native SDL GPU
  * one in nv2a_hw_native.inc). Android builds only the native encoder, on
  * Vulkan: the NV2A state, the surface bookkeeping and the dispatch below are
- * shared, every Direct3D 11 body is inside RESOT_HW_D3D11. */
+ * shared, every Direct3D 11 body is inside POPSOT_HW_D3D11. */
 #if defined(_WIN32)
-#define RESOT_HW_D3D11 1
+#define POPSOT_HW_D3D11 1
 #else
-#define RESOT_HW_D3D11 0
+#define POPSOT_HW_D3D11 0
 #endif
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 #define COBJMACROS
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -77,7 +77,7 @@ typedef struct ID3D11RasterizerState ID3D11RasterizerState;
 typedef struct ID3D10Blob ID3DBlob;
 #endif
 
-/* RE-SoT: native D3D12/Vulkan use a separate explicit command encoder. */
+/* POPSoT: native D3D12/Vulkan use a separate explicit command encoder. */
 static int ng_init(const char *backend);
 static int ng_active(void);
 static void ng_visibility_poll(void);
@@ -89,19 +89,19 @@ static void ng_present(int sync);
 static void ng_flip(void);
 static int ng_readback(uint32_t *dst, uint32_t w, uint32_t h);
 static int ng_postprocess_source(uint32_t offset);
-static int ng_effect_source(uint32_t offset,uint32_t w,uint32_t h); /* RE-SoT: render-target provenance. */
-static void hw_diag_sample(void); /* RE-SoT: shared host diagnostics, either GPU encoder. */
-void nv2a_hw_flush_present(void); /* RE-SoT: native encoder shares deferred presentation. */
+static int ng_effect_source(uint32_t offset,uint32_t w,uint32_t h); /* POPSoT: render-target provenance. */
+static void hw_diag_sample(void); /* POPSoT: shared host diagnostics, either GPU encoder. */
+void nv2a_hw_flush_present(void); /* POPSoT: native encoder shares deferred presentation. */
 static volatile LONG s_hw_backend;
 int nv2a_hw_backend(void) { return (int)InterlockedCompareExchange(&s_hw_backend, 0, 0); }
 
 extern void *xbox_FramebufferWindowHandle(void);
 extern void  xbox_FramebufferWindowHwMode(int on);
-/* RE-SoT: end-of-submission presentation leaves decoded fences unblocked. */
+/* POPSoT: end-of-submission presentation leaves decoded fences unblocked. */
 extern int   xbox_FramebufferDeferPresent(void);
 extern void  xbox_FramebufferLimitFrame(void);
-extern int   xbox_FramebufferPostProcessing(void); /* RE-SoT: live graphics option. */
-/* RE-SoT: the F5 panel is host UI, drawn after the title's movie overlay. */
+extern int   xbox_FramebufferPostProcessing(void); /* POPSoT: live graphics option. */
+/* POPSoT: the F5 panel is host UI, drawn after the title's movie overlay. */
 extern int   xbox_FramebufferDebugPanelGet(const uint32_t **px, uint32_t *w,
                                           uint32_t *h);
 extern int   xbox_FramebufferOverlayGet(const uint32_t **px, uint32_t *w,
@@ -112,13 +112,13 @@ extern int   xbox_FramebufferOverlayGet(const uint32_t **px, uint32_t *w,
 #define HW_MAX_DEPTHS   16
 #define HW_MAX_TEXTURES 1024
 #define HW_MAX_VERTS    (NV_MAX_INDICES * 3)
-#if RESOT_RUNTIME_DEMO && !defined(__ANDROID__)
-/* RE-SoT: larger rings on the demo, so batches reused across frames (see
+#if POPSOT_RUNTIME_DEMO && !defined(__ANDROID__)
+/* POPSoT: larger rings on the demo, so batches reused across frames (see
  * HwReuse) stay in them for many frames before a wrap discards them. */
 #define HW_VB_BYTES     (64u << 20)     /* vertex ring, appended NO_OVERWRITE */
 #define HW_IB_BYTES     (8u << 20)      /* index ring, likewise */
 #else
-/* RE-SoT: Android's native encoder does not use the D3D11 reuse cache.
+/* POPSoT: Android's native encoder does not use the D3D11 reuse cache.
  * Keep both mobile targets at 16/2 MB rather than the demo's 64/8 MB. */
 #define HW_VB_BYTES     (16u << 20)     /* vertex ring, appended NO_OVERWRITE */
 #define HW_IB_BYTES     (2u << 20)      /* index ring, likewise */
@@ -132,7 +132,7 @@ typedef struct {
     ID3D11Texture2D *tex;
     ID3D11RenderTargetView *rtv;
     ID3D11ShaderResourceView *srv;
-    /* RE-SoT: the surface's mip chain, for the game sampling it as a texture
+    /* POPSoT: the surface's mip chain, for the game sampling it as a texture
      * (hw_texture); srv sees level 0 only. mips_dirty: drawn since the chain
      * was last built. */
     ID3D11ShaderResourceView *srv_mips;
@@ -148,10 +148,10 @@ typedef struct {
 
 typedef struct {
     uint32_t offset, fmt, w, h, pitch, palette;
-    uint32_t cube, levels; /* RE-SoT: resource shape is part of the cache key. */
+    uint32_t cube, levels; /* POPSoT: resource shape is part of the cache key. */
     uint32_t hash, checked_frame, used_frame;
-    uint64_t packkey;      /* RE-SoT: texture pack key, when it was computed */
-    uint32_t hd;           /* RE-SoT: 0 guest size, 1 automatic HD interface, 2 not
+    uint64_t packkey;      /* POPSoT: texture pack key, when it was computed */
+    uint32_t hd;           /* POPSoT: 0 guest size, 1 automatic HD interface, 2 not
                             * worth it, 3 texture pack replacement */
     ID3D11Texture2D *tex;
     ID3D11ShaderResourceView *srv;
@@ -167,7 +167,7 @@ typedef struct {
     float fogp[4];                      /* fog param 0, param 1, mode, enable */
     float ws[4];                        /* 2D squeeze, surface width, edge margin */
     float pad[4];
-    float cur[NV_VERTEX_ATTRS][4];      /* RE-SoT: attribute values with no array */
+    float cur[NV_VERTEX_ATTRS][4];      /* POPSoT: attribute values with no array */
     float c[NV2A_VSH_CONSTANTS][4];     /* the program's constants */
 } HwVsConst;
 
@@ -176,7 +176,7 @@ typedef struct {
 typedef struct {
     uint32_t key, mask;
     ID3D11VertexShader *vs;             /* NULL: translation failed */
-    volatile LONG pending;              /* RE-SoT: compiling in the background */
+    volatile LONG pending;              /* POPSoT: compiling in the background */
     ID3DBlob *volatile ready;           /* the background compile's result */
 } HwVsp;
 
@@ -189,7 +189,7 @@ typedef struct {
     float    finc0[4], finc1[4], fogc[4];
     float    tscale[4][4];
     uint32_t misc[4];
-    float    border[4][4], border_info[4][4]; /* RE-SoT: native SDL has no custom border sampler. */
+    float    border[4][4], border_info[4][4]; /* POPSoT: native SDL has no custom border sampler. */
 } HwPsConst;
 
 static struct {
@@ -233,18 +233,18 @@ static struct {
     HwSurface *front, *biggest;          /* shown / largest drawn this frame */
     uint32_t biggest_area;
     uint32_t frame;
-    uint32_t post_frame;   /* RE-SoT: frame whose last full-screen composite was drawn */
+    uint32_t post_frame;   /* POPSoT: frame whose last full-screen composite was drawn */
     DWORD last_flip_ms;
-    int pending_present; /* RE-SoT: backbuffer awaiting submission completion. */
+    int pending_present; /* POPSoT: backbuffer awaiting submission completion. */
     ID3D11Texture2D *ovl_tex;
     ID3D11ShaderResourceView *ovl_srv;
     uint32_t ovl_w, ovl_h, ovl_serial;
-    /* RE-SoT: separate resources so host UI never replaces movie pixels. */
+    /* POPSoT: separate resources so host UI never replaces movie pixels. */
     ID3D11Texture2D *debug_tex;
-    uint32_t debug_width, debug_height; /* RE-SoT: F5 and F6 have different sizes. */
+    uint32_t debug_width, debug_height; /* POPSoT: F5 and F6 have different sizes. */
     ID3D11ShaderResourceView *debug_srv;
-    ID3D11PixelShader *ps_debug;        /* RE-SoT: preserve host panel alpha. */
-    ID3D11BlendState *debug_blend;       /* RE-SoT: translucent panel only. */
+    ID3D11PixelShader *ps_debug;        /* POPSoT: preserve host panel alpha. */
+    ID3D11BlendState *debug_blend;       /* POPSoT: translucent panel only. */
     HwVertex *verts;
     uint32_t cull_enable, cull_face, front_face;
     uint32_t clear_rect_h, clear_rect_v;
@@ -254,12 +254,12 @@ static struct {
     /* The batch being drawn is 2D that spans the whole width (a fade, the
      * pause menu's fog grid): it keeps the full width in a wide picture. */
     int batch_full_width;
-    int batch_projected_screen;          /* RE-SoT: screen quad already narrowed by Hor+ */
-    int batch_hud;                       /* RE-SoT: projected HUD: -1 left, +1 right, 0 none */
-    int batch_projected_2d;              /* RE-SoT: retail: projected 2D across the centre */
+    int batch_projected_screen;          /* POPSoT: screen quad already narrowed by Hor+ */
+    int batch_hud;                       /* POPSoT: projected HUD: -1 left, +1 right, 0 none */
+    int batch_projected_2d;              /* POPSoT: retail: projected 2D across the centre */
 } s_hw;
 
-/* RE-SoT: the projection hook already gives the HUD its 4:3 proportions,
+/* POPSoT: the projection hook already gives the HUD its 4:3 proportions,
  * centred (raw x = 320 + (x43 - 320) / widen), so it needs no second squeeze.
  * A side element then moves by 320 * (1 - 1 / widen) towards its edge: its
  * margin from the wide picture's edge is the 4:3 one, in 4:3 units.
@@ -274,11 +274,11 @@ static float hw_hud_shift(void)
     return edge ? (float)s_hw.batch_hud * 320.0f * (1.0f - 1.0f / s_hw.widen) : 0.0f;
 }
 
-#if RESOT_RUNTIME_RETAIL
-/* RE-SoT: retail XBE 0x000CE32E/0x000CE366 issue visibility tests.
+#if POPSOT_RUNTIME_RETAIL
+/* POPSoT: retail XBE 0x000CE32E/0x000CE366 issue visibility tests.
  * The old hardware path always reported zero because only the software
  * rasterizer updated zpass_count. Queries cover enabled intervals, not batches. */
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 #include "nv2a_hw_visibility.inc"
 static NvHwVisibility s_hw_visibility;
 #endif
@@ -293,14 +293,14 @@ static void hw_visibility_complete(void *opaque, uint32_t at, uint64_t stamp, ui
 }
 static void hw_visibility_poll(void)
 {
-    if (ng_active()) { ng_visibility_poll(); return; } /* RE-SoT: retail native query engine. */
-#if RESOT_HW_D3D11
+    if (ng_active()) { ng_visibility_poll(); return; } /* POPSoT: retail native query engine. */
+#if POPSOT_HW_D3D11
     HRESULT before = s_hw_visibility.device_error;
     nv_hw_vis_poll(&s_hw_visibility, s_hw.ctx, hw_visibility_complete, NULL);
     if (SUCCEEDED(before) && FAILED(s_hw_visibility.device_error)) {
         fprintf(stderr, "[HW] fatal visibility query failure 0x%08lX\n",
                 (unsigned long)s_hw_visibility.device_error);
-        abort(); /* RE-SoT: device failure must not leave the guest polling forever. */
+        abort(); /* POPSoT: device failure must not leave the guest polling forever. */
     }
 #endif
 }
@@ -309,21 +309,21 @@ static void hw_visibility_method(uint32_t method, uint32_t value, uint64_t stamp
     EnterCriticalSection(&s_hw.lock);
     if (ng_active()) {
         ng_visibility_method(method,value,stamp); LeaveCriticalSection(&s_hw.lock); return;
-    } /* RE-SoT: the retail report dispatch never touches a D3D11 context in native modes. */
-#if RESOT_HW_D3D11
+    } /* POPSoT: the retail report dispatch never touches a D3D11 context in native modes. */
+#if POPSOT_HW_D3D11
     hw_visibility_poll();
     if (method == 0x17C8) nv_hw_vis_clear(&s_hw_visibility, s_hw.ctx);
     else if (method == 0x17CC) nv_hw_vis_enable(&s_hw_visibility, s_hw.ctx, value != 0);
     else if (!nv_hw_vis_report(&s_hw_visibility, s_hw.ctx, value, stamp)) {
         fprintf(stderr, "[HW] fatal visibility report allocation failure\n");
-        abort(); /* RE-SoT: no fabricated visibility result on host allocation failure. */
+        abort(); /* POPSoT: no fabricated visibility result on host allocation failure. */
     }
     hw_visibility_poll();
 #endif
     LeaveCriticalSection(&s_hw.lock);
 }
 #else
-/* RE-SoT: xbox-demo. The retail visibility queries were not checked against
+/* POPSoT: xbox-demo. The retail visibility queries were not checked against
  * the demo XBE: no host queries, the software report path stays as it was
  * (nv2a_pb_exec.c reaches hw_visibility_method only in retail builds). */
 static void hw_visibility_poll(void) { }
@@ -343,7 +343,7 @@ static void hw_visibility_method(uint32_t method, uint32_t value, uint64_t stamp
  * with w == 1 belongs to the title's 2D: it keeps its 4:3 size around the
  * centre, unless it sits on the surface's edge (full-screen fades and
  * post-processing quads, which must keep covering everything).
- * RE-SoT: depth stays linear in clip space, so the host clips at the near
+ * POPSoT: depth stays linear in clip space, so the host clips at the near
  * plane where the NV2A does (SET_ZMIN_MAX_CONTROL 1: cull near/far, no
  * clamp). Clamping z per vertex bent the near-plane cut of triangles that
  * reach behind the camera: on D3D11 (no depth clip) their part in front of
@@ -352,7 +352,7 @@ static void hw_visibility_method(uint32_t method, uint32_t value, uint64_t stamp
  * so geometry beyond zmax stays visible as before; w == 1 (2D) is clamped
  * as before. vp.w = 1 (RECOMP_HW_ZCLAMP_VERTEX=1) restores the per-vertex
  * clamp.
- * RE-SoT: vpad.x > 0 narrows the soft-focus kernel's three taps around their
+ * POPSoT: vpad.x > 0 narrows the soft-focus kernel's three taps around their
  * centre by that factor (hw_soft_focus_step). */
 static int hw_vertex_zclamp(void);
 static const char s_hw_hlsl_vs_common[] =
@@ -367,7 +367,7 @@ static const char s_hw_hlsl_vs_common[] =
 "  bool flat = abs(w - 1.0) < 0.0001;\n"
 "  if (ws.x != 1.0 && flat && x > ws.z && x < ws.y - ws.z)\n"
 "    x = (x - 0.5 * ws.y) * ws.x + 0.5 * ws.y;\n"
-/* RE-SoT: HUD width is already corrected by the projection. Only translate
+/* POPSoT: HUD width is already corrected by the projection. Only translate
  * it towards its side of the screen (hw_hud_shift); ws.w is zero for other
  * batches. */
 "  if (flat) x += ws.w;\n"
@@ -417,7 +417,7 @@ static const char s_hw_hlsl_vsp_head[] =
 static const char s_hw_hlsl_vsp_tail[] =
 "  return vs_finish(R[12], o[3], o[4], vsh_fog(o[5].x), o[9], o[10], o[11], o[12]); }\n";
 
-/* RE-SoT: vs_uber is the native SDL GPU encoders' reference/fallback path.
+/* POPSoT: vs_uber is the native SDL GPU encoders' reference/fallback path.
  * Vulkan translates programs with the shared compiler in port/render;
  * D3D12, disabled translation and failed translations retain this interpreter.
  * vs_uber is compiled once, offline, and interprets the program instead:
@@ -540,13 +540,13 @@ static const char s_hw_hlsl[] =
 "  o.uv = p; o.pos = float4(p * float2(2, -2) + float2(-1, 1), 0, 1); return o; }\n"
 "Texture2D tx0 : register(t0); Texture2D tx1 : register(t1);\n"
 "Texture2D tx2 : register(t2); Texture2D tx3 : register(t3);\n"
-/* RE-SoT: separate slots keep 2D blits and cube sampling type-correct. */
+/* POPSoT: separate slots keep 2D blits and cube sampling type-correct. */
 "TextureCube cx0 : register(t4); TextureCube cx1 : register(t5);\n"
 "TextureCube cx2 : register(t6); TextureCube cx3 : register(t7);\n"
 "SamplerState sm0 : register(s0); SamplerState sm1 : register(s1);\n"
 "SamplerState sm2 : register(s2); SamplerState sm3 : register(s3);\n"
 "float4 ps_blit(BO i) : SV_Target { return float4(tx0.Sample(sm0, i.uv).rgb, 1.0); }\n"
-/* RE-SoT: movie blits stay opaque; only the host panel uses its texture alpha. */
+/* POPSoT: movie blits stay opaque; only the host panel uses its texture alpha. */
 "float4 ps_debug(BO i) : SV_Target { return tx0.Sample(sm0, i.uv); }\n"
 "cbuffer PSC : register(b0) {\n"
 "  uint4 cw[8]; float4 fac0[8]; float4 fac1[8];\n"
@@ -585,7 +585,7 @@ static const char s_hw_hlsl[] =
 "    return float4(0, 0, 0, 0); }\n"
 "  return float4(0, 0, 0, 0); }\n"
 "float2 proj_uv(float4 tc, float4 sc) { float q = tc.w != 0.0 ? tc.w : 1.0; return tc.xy / q * sc.xy; }\n"
-/* RE-SoT: retail light maps request white CLAMP_TO_BORDER. A zero border
+/* POPSoT: retail light maps request white CLAMP_TO_BORDER. A zero border
  * multiplies the underlying surface to black outside the light-map atlas.
  * Both backends sample clamp-to-edge, then blend the guest border per tap
  * (bilinear at mip zero; nearest has a hard edge), including mixed U/V. */
@@ -596,7 +596,7 @@ static const char s_hw_hlsl[] =
 "  if (info.w > 0) weight.y = saturate(min(uv.y * info.y + 0.5, (1.0 - uv.y) * info.y + 0.5));\n"
 "  else if (info.w < 0) weight.y = uv.y >= 0.0 && uv.y < 1.0 ? 1.0 : 0.0;\n"
 "  return lerp(color, sampled, weight.x * weight.y); }\n"
-/* RE-SoT: combiner registers are named variables (Q1-Q15; R0 reads zero)
+/* POPSoT: combiner registers are named variables (Q1-Q15; R0 reads zero)
  * chosen by the draw's uniform control words, not an indexed R[16]. Faster
  * on the desktop GPU (Vulkan menu 145-152 FPS, was 42-77; 2026-10-19). */
 "#define RC_P float4 Q1, float4 Q2, float4 Q3, float4 Q4, float4 Q5, float4 Q6, float4 Q7, float4 Q8, float4 Q9, float4 Q10, float4 Q11, float4 Q12, float4 Q13, float4 Q14, float4 Q15\n"
@@ -696,11 +696,11 @@ static const char s_hw_hlsl[] =
 "    else if (f == 0x204) ok = v > r; else if (f == 0x205) ok = v != r;\n"
 "    else if (f == 0x206) ok = v >= r;\n"
 "    if (!ok) discard; }\n"
-/* RE-SoT: misc.w, when set, scales the soft-focus overlay's opacity. */
+/* POPSoT: misc.w, when set, scales the soft-focus overlay's opacity. */
 "  if (misc.w != 0) o.a *= asfloat(misc.w);\n"
 "  return o; }\n";
 
-/* RE-SoT: native mobile fast path for the observed one-stage texture *
+/* POPSoT: native mobile fast path for the observed one-stage texture *
  * diffuse/constant combiners. No register interpreter and no discard, so
  * opaque geometry can use early depth rejection on tile GPUs. Eligibility
  * is checked against every relevant combiner word in ng_simple_combiner.
@@ -711,7 +711,7 @@ static const char s_hw_hlsl_simple[] =
 "  float2 uv = proj_uv(i.t0, tscale[0]);\n"
 "  float4 texel = float4(1,1,1,1);\n"
 "  [branch] if (tscale[0].z > 0.5) texel = tx0.Sample(sm0, uv);\n"
-/* RE-SoT: diffuse-only draws ignore texture and stale sampler borders. */
+/* POPSoT: diffuse-only draws ignore texture and stale sampler borders. */
 "  if (ctl.y != 0 && (border_info[0].z != 0 || border_info[0].w != 0))\n"
 "    texel = guest_border(texel, uv, border_info[0], border[0]);\n"
 "  float3 factor = cw[0].x == 0x08010000 ? fac0[0].rgb : i.d0.rgb;\n"
@@ -720,7 +720,7 @@ static const char s_hw_hlsl_simple[] =
 "  float4 o = float4(saturate(texel.rgb * factor * scale), saturate(texel.a * alpha));\n"
 "  if (ctl.z == 0x130C0300) o.rgb = lerp(fogc.rgb, o.rgb, saturate(i.fog.x));\n"
 "  return saturate(o); }\n"
-/* RE-SoT: keep alpha-tested foliage on a separate entry; the opaque entry
+/* POPSoT: keep alpha-tested foliage on a separate entry; the opaque entry
  * stays discard-free. Alpha comparisons match ps_main's 8-bit rounding. */
 "float4 ps_simple_alpha(VO i) : SV_Target {\n"
 "  float4 o = ps_simple(i);\n"
@@ -732,8 +732,8 @@ static const char s_hw_hlsl_simple[] =
 "  if (!ok) discard; return o; }\n";
 
 
-#if RESOT_HW_D3D11
-/* RE-SoT: compiled shaders are kept on disk (shadercache beside the exe, or
+#if POPSOT_HW_D3D11
+/* POPSoT: compiled shaders are kept on disk (shadercache beside the exe, or
  * RECOMP_HW_SHADER_CACHE=<dir>; "0" turns it off), keyed by a hash of the
  * HLSL, the entry point and the profile. D3DCompile takes tens of
  * milliseconds per vertex program, and every program the title uses for the
@@ -744,14 +744,14 @@ static const char *hw_shader_cache_dir(void)
     if (dir == (const char *)-1) {
         dir = getenv("RECOMP_HW_SHADER_CACHE");
         if (!dir)
-            /* RE-SoT: WinMain sets the executable directory as CWD. Portable
+            /* POPSoT: WinMain sets the executable directory as CWD. Portable
              * packages have no nested bin directory: the old bin\\shadercache
              * silently failed CreateDirectory and recompiled on every run. */
             dir = "shadercache";
         if (!*dir || strcmp(dir, "0") == 0)
             dir = NULL;
         else if (!CreateDirectoryA(dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
-            /* RE-SoT: report a cache location that cannot be created once. */
+            /* POPSoT: report a cache location that cannot be created once. */
             fprintf(stderr, "  [HW] shader cache unavailable: %s (error %lu)\n",
                     dir, (unsigned long)GetLastError());
             dir = NULL;
@@ -774,7 +774,7 @@ static void hw_shader_cache_path(char *path, size_t cap, const char *src, size_t
     snprintf(path, cap, "%s\\%016llx.cso", hw_shader_cache_dir(), (unsigned long long)h);
 }
 
-/* RE-SoT: the disk cache alone, without compiling on a miss. */
+/* POPSoT: the disk cache alone, without compiling on a miss. */
 static ID3DBlob *hw_shader_cache_load(const char *src, size_t len, const char *entry,
                                       const char *target)
 {
@@ -809,7 +809,7 @@ static ID3DBlob *hw_compile_src(const char *src, size_t len, const char *entry,
     HRESULT hr;
     char path[MAX_PATH];
     FILE *f;
-    /* RE-SoT: expose cold shader stalls separately from frame averages. */
+    /* POPSoT: expose cold shader stalls separately from frame averages. */
     LARGE_INTEGER compile_start, compile_end, frequency;
 
     if (hw_shader_cache_dir()) {
@@ -823,7 +823,7 @@ static ID3DBlob *hw_compile_src(const char *src, size_t len, const char *entry,
             if (n > 0 && SUCCEEDED(D3DCreateBlob((SIZE_T)n, &code))
                 && fread(ID3D10Blob_GetBufferPointer(code), 1, (size_t)n, f) == (size_t)n) {
                 fclose(f);
-                /* RE-SoT: one line per new program, never per draw/frame;
+                /* POPSoT: one line per new program, never per draw/frame;
                  * distinguish warm-cache playback from compilation stalls. */
                 fprintf(stderr, "  [HW] shader cache hit: %s\n", entry);
                 return code;
@@ -874,28 +874,28 @@ static ID3DBlob *hw_compile(const char *entry, const char *target)
     return hw_compile_src(src, len, entry, target);
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
 /* Host pixels across a guest width, on a surface rendered `sc` times the
  * guest resolution. */
-/* RE-SoT: shared live internal scale. The encoded percentage retains the
+/* POPSoT: shared live internal scale. The encoded percentage retains the
  * legacy integer environment scale until the host supplies its INI option. */
 #define HW_PERCENT_SCALE 0x10000u
-#include "nv2a_native_scale.h" /* RE-SoT: tested fractional rounding on both hosts. */
-#include "resot_effect_quality.h" /* RE-SoT: shared auxiliary-effect quality budget. */
+#include "nv2a_native_scale.h" /* POPSoT: tested fractional rounding on both hosts. */
+#include "popsot_effect_quality.h" /* POPSoT: shared auxiliary-effect quality budget. */
 static volatile LONG s_render_percent;
-/* RE-SoT: quality of screen effects and auxiliary render targets, independently
+/* POPSoT: quality of screen effects and auxiliary render targets, independently
  * from the final texture-glow switch. Guest timings are unchanged. */
 static volatile LONG s_post_quality=3;
 void xbox_SetPostProcessingQuality(int quality)
 {
-    if(quality<0 || quality>RESOT_EFFECT_ULTRA)quality=3;
+    if(quality<0 || quality>POPSOT_EFFECT_ULTRA)quality=3;
     if(InterlockedExchange(&s_post_quality,quality)!=quality)
         fprintf(stderr,"[VIDEO] post processing quality %d (0 off, 1 low, 2 mid, 3 high, 4 ultra)\n",quality);
 }
 static int hw_post_quality(void) { return (int)InterlockedCompareExchange(&s_post_quality,0,0); }
 
-/* RE-SoT: the soft focus (retail: frame -> 320 -> 160, then 160 -> 80 with
+/* POPSoT: the soft focus (retail: frame -> 320 -> 160, then 160 -> 80 with
  * three taps at (-2,-2), (+2,0), (0,+2) source texels, weights 1/3, back to
  * 160 and laid over the frame with the frame copy's alpha). Its taps stay in
  * guest texels on enlarged targets, so at 4K the overlay is as wide as at
@@ -937,10 +937,10 @@ static float hw_soft_focus_step(uint32_t dest_h, uint32_t host_h)
     f = host_h ? (float)dest_h / (float)host_h : 1.0f;
     return f < 0.999f ? f : 0.0f;
 }
-/* RE-SoT: only proven fullscreen chains may be omitted as screen effects.
+/* POPSoT: only proven fullscreen chains may be omitted as screen effects.
  * Auxiliary-target resolution has its own shared budget below; shadows have
  * a separate producer/consumer test and must not enter this chain registry. */
-#define HW_POST_TARGETS 32 /* RE-SoT: retail uses 16 chain targets a frame. */
+#define HW_POST_TARGETS 32 /* POPSoT: retail uses 16 chain targets a frame. */
 static struct { uint32_t offset,w,h,frame; } s_post_targets[HW_POST_TARGETS];
 static int hw_post_target(uint32_t offset,uint32_t w,uint32_t h)
 {
@@ -968,7 +968,7 @@ void xbox_SetRenderScalePercent(int percent)
 }
 static uint32_t hw_py(uint32_t y,uint32_t sc)
 {
-    return sc & HW_PERCENT_SCALE ? resot_internal_extent(y,sc & 0xffffu) : y*sc;
+    return sc & HW_PERCENT_SCALE ? popsot_internal_extent(y,sc & 0xffffu) : y*sc;
 }
 static uint32_t hw_px(uint32_t x,uint32_t sc)
 {
@@ -977,37 +977,37 @@ static uint32_t hw_px(uint32_t x,uint32_t sc)
     return (uint32_t)((float)x*(float)sc*s_hw.widen+0.5f);
 }
 
-/* RE-SoT: display surfaces follow internal resolution; auxiliary surfaces
+/* POPSoT: display surfaces follow internal resolution; auxiliary surfaces
  * follow the one effect-quality budget. Filters retain guest texel offsets:
  * increasing target sizes without converting offsets previously left sharp,
  * shifted copies of the scene ("layers out of register"). */
 static uint32_t hw_surface_scale(uint32_t w)
 {
     int percent=(int)InterlockedCompareExchange(&s_render_percent,0,0);
-    /* RE-SoT: source coordinates remain guest texels; existing sampling
+    /* POPSoT: source coordinates remain guest texels; existing sampling
      * conversion uses the actual host surface size, including fractional scale. */
-    /* RE-SoT: quality applies from the first clear to ALL auxiliary buffers,
+    /* POPSoT: quality applies from the first clear to ALL auxiliary buffers,
      * including the independently traced 256x256 shadow maps. Previously only
      * learned fullscreen blur targets were included, and learning on the first
      * draw could recreate (erase) a target after its clear. Viewport width also
      * fixes retail's padded 40/20/10-pixel surfaces. Never skip an unknown
      * material: its auxiliary buffer gets the minimum budget at Off. */
     if (w < 640 && !s_gpu.clip_x && !s_gpu.clip_y) {
-        unsigned fx = resot_effect_percent(hw_post_quality(),s_gpu.clip_w,s_gpu.clip_h);
+        unsigned fx = popsot_effect_percent(hw_post_quality(),s_gpu.clip_w,s_gpu.clip_h);
         if (fx != 100) return HW_PERCENT_SCALE | fx;
     }
-    /* RE-SoT: Ultra: auxiliary targets (frame copies, shadow maps) follow
+    /* POPSoT: Ultra: auxiliary targets (frame copies, shadow maps) follow
      * the internal resolution like the display, the screen-fraction blur and
-     * bloom chains keep the guest's (resot_effect_quality.h). Checked in
+     * bloom chains keep the guest's (popsot_effect_quality.h). Checked in
      * retail with RECOMP_HW_FX_SCALE=2: the glow stays in register. */
-    if (hw_post_quality() >= RESOT_EFFECT_ULTRA
-            && !(w < 640 && resot_effect_screen_chain(s_gpu.clip_w,s_gpu.clip_h)))
+    if (hw_post_quality() >= POPSOT_EFFECT_ULTRA
+            && !(w < 640 && popsot_effect_screen_chain(s_gpu.clip_w,s_gpu.clip_h)))
         return percent ? HW_PERCENT_SCALE | (uint32_t)percent : (uint32_t)s_hw.scale;
     if(w>=640 && percent) return HW_PERCENT_SCALE | (uint32_t)percent;
     return w >= 640 ? (uint32_t)s_hw.scale : (uint32_t)s_hw.fx_scale;
 }
 
-/* RE-SoT: record actual render-to-texture dependencies during a requested
+/* POPSoT: record actual render-to-texture dependencies during a requested
  * frame trace on every backend. Prior-frame sources expose temporal effects;
  * do not label a material as water/motion blur merely from its buffer size. */
 static void hw_trace_effect_source(unsigned stage,uint32_t offset,uint32_t w,
@@ -1021,7 +1021,7 @@ static void hw_trace_effect_source(unsigned stage,uint32_t offset,uint32_t w,
         s_gpu.blend_sfactor,s_gpu.blend_dfactor);
 }
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 static void hw_resize_backbuffer(void)
 {
     RECT rc;
@@ -1050,11 +1050,11 @@ static void hw_resize_backbuffer(void)
     s_hw.bb_h = (uint32_t)rc.bottom;
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
 static int hw_init(void)
 {
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     static const D3D11_INPUT_ELEMENT_DESC il[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0,   D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16,  D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -1109,12 +1109,12 @@ static int hw_init(void)
     s_hw.widen = s_hw.aspect / (4.0f / 3.0f);
     if (s_hw.widen < 1.0f) s_hw.widen = 1.0f;
 
-#if !RESOT_HW_D3D11
-    /* RE-SoT (Android): the host's window already fills the screen, and the
+#if !POPSOT_HW_D3D11
+    /* POPSoT (Android): the host's window already fills the screen, and the
      * only renderer is the native encoder on Vulkan. */
     return ng_init("vulkan");
 #else
-    e = getenv("RECOMP_HW_FULLSCREEN");          /* RE-SoT: "0" is a window */
+    e = getenv("RECOMP_HW_FULLSCREEN");          /* POPSoT: "0" is a window */
     if (e && *e && strcmp(e, "0") != 0) {
         MONITORINFO mi;
         mi.cbSize = sizeof mi;
@@ -1143,8 +1143,8 @@ static int hw_init(void)
     sd.SampleDesc.Count = 1;
     sd.Windowed = TRUE;
     sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    /* RE-SoT: these modes bypass every D3D11 device/context/resource call. */
-    e = getenv("RESOT_RENDERER");
+    /* POPSoT: these modes bypass every D3D11 device/context/resource call. */
+    e = getenv("POPSOT_RENDERER");
     if (e && (!_stricmp(e, "d3d12") || !_stricmp(e, "vulkan")))
         if (ng_init(e)) return 1;
     hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0,
@@ -1156,7 +1156,7 @@ static int hw_init(void)
     }
     fl = ID3D11Device_GetFeatureLevel(s_hw.dev);
     hw_resize_backbuffer();
-    if (!s_hw.bb_rtv) return 0; /* RE-SoT: do not report a usable backend without output. */
+    if (!s_hw.bb_rtv) return 0; /* POPSoT: do not report a usable backend without output. */
 
     if (!(b = hw_compile("vs_main", "vs_4_0"))) return 0;
     ID3D11Device_CreateVertexShader(s_hw.dev, ID3D10Blob_GetBufferPointer(b),
@@ -1176,7 +1176,7 @@ static int hw_init(void)
     ID3D11Device_CreatePixelShader(s_hw.dev, ID3D10Blob_GetBufferPointer(b),
                                    ID3D10Blob_GetBufferSize(b), NULL, &s_hw.ps_blit);
     ID3D10Blob_Release(b);
-    /* RE-SoT: compile the alpha-preserving host panel shader independently. */
+    /* POPSoT: compile the alpha-preserving host panel shader independently. */
     if (!(b = hw_compile("ps_debug", "ps_4_0"))) return 0;
     ID3D11Device_CreatePixelShader(s_hw.dev, ID3D10Blob_GetBufferPointer(b),
                                    ID3D10Blob_GetBufferSize(b), NULL, &s_hw.ps_debug);
@@ -1199,7 +1199,7 @@ static int hw_init(void)
                                    ID3D10Blob_GetBufferSize(b), NULL, &s_hw.ps_solid);
     ID3D10Blob_Release(b);
     if (!s_hw.vs || !s_hw.ps || !s_hw.layout || !s_hw.vs_blit || !s_hw.ps_blit
-        || !s_hw.ps_solid || !s_hw.ps_debug || !s_hw.debug_blend) /* RE-SoT */
+        || !s_hw.ps_solid || !s_hw.ps_debug || !s_hw.debug_blend) /* POPSoT */
         return 0;
 
     {
@@ -1229,7 +1229,7 @@ static int hw_init(void)
             D3D11_CULL_NONE, D3D11_CULL_BACK, D3D11_CULL_FRONT };
         memset(&rd, 0, sizeof rd);
         rd.FillMode = D3D11_FILL_SOLID;
-        /* RE-SoT: clip at near/far like the NV2A; see vs_finish. */
+        /* POPSoT: clip at near/far like the NV2A; see vs_finish. */
         rd.DepthClipEnable = hw_vertex_zclamp() ? FALSE : TRUE;
         rd.ScissorEnable = TRUE;
         for (i = 0; i < 3; i++) {
@@ -1275,12 +1275,12 @@ static int hw_init(void)
         return 0;
     s_hw.cull_face = 0x405;
     s_hw.front_face = 0x900;
-    /* RE-SoT: publish only after renderer resources initialized successfully. */
+    /* POPSoT: publish only after renderer resources initialized successfully. */
     InterlockedExchange(&s_hw_backend, 11);
     fprintf(stderr, "  [HW] active renderer: %s\n",
             "Direct3D 11");
     xbox_FramebufferWindowHwMode(1);
-    /* RE-SoT: name the actual API in diagnostics, including the interop path. */
+    /* POPSoT: name the actual API in diagnostics, including the interop path. */
     fprintf(stderr, "  [HW] %s rasteriser up (feature level 0x%X, scale %dx,"
                     " aspect %.3f, vsync %d, vertex programs on the %s)\n",
             "Direct3D 11",
@@ -1288,7 +1288,7 @@ static int hw_init(void)
             s_hw.cpu_vsh ? "CPU" : "GPU");
     fflush(stderr);
     return 1;
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
 /* Is the hardware path in use? Tries to bring it up on the first call that
@@ -1309,7 +1309,7 @@ static uint32_t hw_zmax_bits(void)
     return ((s_gpu.format >> 4) & 0xF) == 1 ? 0xFFFFu : 0xFFFFFFu;
 }
 
-/* RE-SoT: RECOMP_HW_ZCLAMP_VERTEX=1 restores the old per-vertex depth clamp
+/* POPSoT: RECOMP_HW_ZCLAMP_VERTEX=1 restores the old per-vertex depth clamp
  * (and, on D3D11, no depth clip) for comparison; see vs_finish. */
 static int hw_vertex_zclamp(void)
 {
@@ -1322,7 +1322,7 @@ static int hw_vertex_zclamp(void)
     return value;
 }
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 /* The colour surface the title is drawing into. */
 static HwSurface *hw_surface(void)
 {
@@ -1363,7 +1363,7 @@ static HwSurface *hw_surface(void)
     memset(&td, 0, sizeof td);
     td.Width = hw_px(w, hw_surface_scale(w));
     td.Height = hw_py(h,hw_surface_scale(w));
-    /* RE-SoT: a full mip chain. The effect chains copy the scene into
+    /* POPSoT: a full mip chain. The effect chains copy the scene into
      * 320x240 (427x240 at 16:9) and smaller levels; with the scene at the
      * internal resolution (2160p: nine times as wide) a bilinear sample read
      * 4 of about 81 pixels, and the glow and soft-focus overlays sparkled at
@@ -1439,7 +1439,7 @@ static HwDepth *hw_depth(const HwSurface *s)
     return d;
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
 /* A cheap fingerprint of a texture's bytes: enough to notice a texture being
  * rewritten in place (streamed mips, a video frame) without reading all of
@@ -1454,12 +1454,12 @@ static uint32_t hw_tex_bytes(const Texture *t)
     return t->pitch * t->height;
 }
 
-#include "resot_texpack.h"   /* RE-SoT: texture packs, both hosts */
+#include "popsot_texpack.h"   /* POPSoT: texture packs, both hosts */
 
 static uint32_t hw_tex_hash(const Texture *t)
 {
     const uint8_t *p = (const uint8_t *)xbox_GetMemoryOffset() + t->offset;
-    /* RE-SoT: hash every face; rewriting a nonzero face must invalidate it. */
+    /* POPSoT: hash every face; rewriting a nonzero face must invalidate it. */
     uint32_t n = (t->cube ? 6 * tex_face_stride(t) : hw_tex_bytes(t)) / 4, step = n > 2048 ? n / 2048 : 1, i;
     uint32_t h = 2166136261u;
     for (i = 0; i < n; i += step)
@@ -1482,7 +1482,7 @@ static int hw_mem_ok(uint32_t va, uint32_t bytes)
     return 0;
 }
 
-/* RE-SoT: retain sample_tex as the format fallback and scalar reference.
+/* POPSoT: retain sample_tex as the format fallback and scalar reference.
  * Demo's demo-hud-after-err.txt independently records P8 (0x0B) textures,
  * also covered by the bulk/scalar Morton comparison for rectangular sizes.
  * This is a format conversion, with no target-specific guest addresses. */
@@ -1490,9 +1490,9 @@ static int hw_mem_ok(uint32_t va, uint32_t bytes)
 static void hw_decode_texture(const Texture *t, uint32_t face, uint32_t *px)
 {
     uint32_t x, y;
-#if RESOT_RUNTIME_RETAIL || RESOT_RUNTIME_DEMO
+#if POPSOT_RUNTIME_RETAIL || POPSOT_RUNTIME_DEMO
     const uint8_t *mem = (const uint8_t *)xbox_GetMemoryOffset();
-    if (resot_decode_swizzled(px, mem+t->offset+face, t->width, t->height,
+    if (popsot_decode_swizzled(px, mem+t->offset+face, t->width, t->height,
             t->color, t->palette ? (const uint32_t *)(mem+t->palette) : NULL))
         return;
 #endif
@@ -1503,12 +1503,12 @@ static void hw_decode_texture(const Texture *t, uint32_t face, uint32_t *px)
     }
 }
 
-/* RE-SoT: state observed on retail's P8 light-map passes; retain the
+/* POPSoT: state observed on retail's P8 light-map passes; retain the
  * existing demo policy until independently traced in that executable. */
-static void hw_color4(uint32_t argb, float out[4]); /* RE-SoT: shared constant conversion below. */
+static void hw_color4(uint32_t argb, float out[4]); /* POPSoT: shared constant conversion below. */
 static void hw_border_constants(HwPsConst *pc, unsigned stage, const Texture *t)
 {
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
     if (t->valid && !t->cube && (t->addr_u == 4 || t->addr_v == 4)) {
         unsigned mag = (t->filter >> 24)&15, min = (t->filter >> 16)&255;
         float linear = mag == 2 || (min >= 2 && min <= 6) ? 1.0f : -1.0f;
@@ -1521,10 +1521,10 @@ static void hw_border_constants(HwPsConst *pc, unsigned stage, const Texture *t)
 #endif
 }
 
-#if RESOT_HW_D3D11
-/* RE-SoT: an interface texture (drawn after the frame's last full-screen
+#if POPSOT_HW_D3D11
+/* POPSoT: an interface texture (drawn after the frame's last full-screen
  * composite onto the display): listed in dump mode, and given the automatic
- * HD version once (resot_texpack.h, texpack_upscale_ui). */
+ * HD version once (popsot_texpack.h, texpack_upscale_ui). */
 static void hw_texpack_note(HwTexture *c, const HwSurface *target, const Texture *t)
 {
     uint32_t *px, *hd, w, h;
@@ -1568,7 +1568,7 @@ static void hw_texpack_note(HwTexture *c, const HwSurface *target, const Texture
     free(hd);
 }
 
-/* RE-SoT: the guest size of the render target a stage samples (0: a
+/* POPSoT: the guest size of the render target a stage samples (0: a
  * texture). Retail's bloom tail declares 40x30, 20x15 and 10x7 textures on
  * surfaces drawn 48x30, 32x15 and 16x7 wide (pitch padding; frame trace
  * "[HW-TEX] declared=40x30 selected=48x30"). The host image spans the
@@ -1588,7 +1588,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     uint32_t i, slot, hash, face, face_stride, *px;
     D3D11_TEXTURE2D_DESC td;
     int mips;
-    LARGE_INTEGER upload_start, upload_end, upload_frequency; /* RE-SoT: slow upload evidence. */
+    LARGE_INTEGER upload_start, upload_end, upload_frequency; /* POPSoT: slow upload evidence. */
     int cache_reason;
     uint32_t upload_w, upload_h;
 
@@ -1611,18 +1611,18 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
                     && c2->drawn_frame > best->drawn_frame))
                 best = c2;
         }
-        /* RE-SoT: frame-trace evidence for stale render-target aliases in the
+        /* POPSoT: frame-trace evidence for stale render-target aliases in the
          * post-processing chain; diagnostic only, no per-frame disk output. */
         if (best && s_ftrace == 2)
             fprintf(stderr, "  [HW-TEX] stage=%d offset=%08X declared=%ux%u selected=%ux%u frame=%u now=%u feedback=%d\n",
                 stage, t->offset, t->width, t->height, best->w, best->h,
                 best->drawn_frame, s_hw.frame, best == target);
         if (best) {
-            hw_trace_effect_source(stage,best->offset,best->w,best->h,best->drawn_frame); /* RE-SoT */
+            hw_trace_effect_source(stage,best->offset,best->w,best->h,best->drawn_frame); /* POPSoT */
             if (best == target)
                 return NULL;
             s_rt_size[stage & 3][0] = best->w; s_rt_size[stage & 3][1] = best->h;
-            if (best->srv_mips) {                 /* RE-SoT: see hw_surface */
+            if (best->srv_mips) {                 /* POPSoT: see hw_surface */
                 if (best->mips_dirty) {
                     ID3D11DeviceContext_GenerateMips(s_hw.ctx, best->srv_mips);
                     best->mips_dirty = 0;
@@ -1659,7 +1659,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
         hw_texpack_note(c, target, t);
         return c->srv;
     }
-    /* RE-SoT: distinguish streamed/animated data from cache collisions in
+    /* POPSoT: distinguish streamed/animated data from cache collisions in
      * gameplay logs before changing cache size or invalidation policy. */
     cache_reason = c ? 0 : victim->srv ? 2 : 1;
     QueryPerformanceCounter(&upload_start);
@@ -1675,13 +1675,13 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     px = (uint32_t *)malloc((size_t)t->width * t->height * 4 * (t->cube ? 6 : 1));
     if (!px)
         return NULL;
-    /* RE-SoT: NV2A stores each face with its mip chain and 128-byte alignment. */
+    /* POPSoT: NV2A stores each face with its mip chain and 128-byte alignment. */
     face_stride = t->cube ? tex_face_stride(t) : 0;
     for (face = 0; face < (t->cube ? 6u : 1u); face++)
         hw_decode_texture(t, face * face_stride, px + (size_t)face*t->width*t->height);
     mips = t->levels > 1 && tex_size_from_format(t->color);
     {
-        /* RE-SoT: a texture pack replacement (resot_texpack.h) is uploaded
+        /* POPSoT: a texture pack replacement (popsot_texpack.h) is uploaded
          * at its own size, always with mips; a resource of another shape
          * is recreated. */
         uint32_t rw = t->width, rh = t->height, *rep = NULL;
@@ -1721,7 +1721,7 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
         ID3D11Device_CreateShaderResourceView(s_hw.dev, (ID3D11Resource *)c->tex,
                                               NULL, &c->srv);
     }
-    /* RE-SoT: subresources are mip + face * host mip count. */
+    /* POPSoT: subresources are mip + face * host mip count. */
     ID3D11Texture2D_GetDesc(c->tex, &td);
     for (face = 0; face < (t->cube ? 6u : 1u); face++)
         ID3D11DeviceContext_UpdateSubresource(s_hw.ctx, (ID3D11Resource *)c->tex,
@@ -1732,10 +1732,10 @@ static ID3D11ShaderResourceView *hw_texture(int stage, const HwSurface *target)
     free(px);
     c->offset = t->offset; c->fmt = t->color; c->w = t->width; c->h = t->height;
     c->pitch = t->pitch; c->palette = t->palette;
-    c->cube = t->cube; c->levels = t->levels; /* RE-SoT: cache resource shape. */
+    c->cube = t->cube; c->levels = t->levels; /* POPSoT: cache resource shape. */
     c->hash = hash;
     c->checked_frame = c->used_frame = s_hw.frame;
-    /* RE-SoT: make real cube use observable in an explicitly requested trace. */
+    /* POPSoT: make real cube use observable in an explicitly requested trace. */
     if (t->cube && s_ftrace == 2)
         fprintf(stderr, "  [HW-CUBE] stage=%d offset=%08X size=%ux%u stride=%u levels=%u\n",
             stage, t->offset, t->width, t->height, face_stride, t->levels);
@@ -1760,8 +1760,8 @@ static ID3D11SamplerState *hw_sampler(const Texture *t)
     uint32_t u = t->addr_u < 6 ? t->addr_u : 3, v = t->addr_v < 6 ? t->addr_v : 3;
     uint32_t mag = (t->filter >> 24) & 0xF, min = (t->filter >> 16) & 0xFF;
     int lin = mag == 2 || min == 2 || min == 4 || min == 6 || min == 3 || min == 5;
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: guest_border supplies the programmed border, also on Vulkan. */
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: guest_border supplies the programmed border, also on Vulkan. */
     if (!t->cube) { if (u == 4) u = 3; if (v == 4) v = 3; }
 #endif
 
@@ -1856,7 +1856,7 @@ static ID3D11DepthStencilState *hw_depth_state(int have_depth)
         if (s_hw.ds[i].key == key)
             return s_hw.ds[i].st;
     memset(&dd, 0, sizeof dd);
-    /* RE-SoT: disabling depth testing disables depth writes too. Forcing
+    /* POPSoT: disabling depth testing disables depth writes too. Forcing
      * ALWAYS when only DEPTH_MASK is set lets the pause fog grids (z=0.95)
      * overwrite the depth buffer and reject the Prince's later alpha-only
      * silhouette (z about 0.97), even though the game disabled depth testing. */
@@ -1873,14 +1873,14 @@ static ID3D11DepthStencilState *hw_depth_state(int have_depth)
     return s_hw.ds[i].st;
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
 static void hw_color4(uint32_t argb, float out[4])
 {
     nv2a_rc_unpack(argb, out);
 }
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 /* Bind everything a batch needs and return the surface, or NULL. prog is the
  * translated vertex program to run, or NULL for vertices the interpreter has
  * already transformed. */
@@ -1892,7 +1892,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     D3D11_MAPPED_SUBRESOURCE map;
     D3D11_VIEWPORT vp;
     D3D11_RECT sc;
-    ID3D11ShaderResourceView *srv[8] = {0}; /* RE-SoT: four 2D and four cube slots. */
+    ID3D11ShaderResourceView *srv[8] = {0}; /* POPSoT: four 2D and four cube slots. */
     ID3D11SamplerState *smp[4];
     HwVsConst *vc = &s_hw.vs_last;
     /* The header (vp, fogp, ws, pad) and then cur[]: everything in HwVsConst
@@ -1944,7 +1944,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     hw_color4(s_gpu.fog_color, pc.fogc);       /* FOG_COLOR has R in bits 0-7 */
     { float r = pc.fogc[2]; pc.fogc[2] = pc.fogc[0]; pc.fogc[0] = r; }
     pc.misc[0] = (uint32_t)s_gpu.rc_seen;
-    {   /* RE-SoT: the soft-focus overlay (hw_postprocess_candidate) at the
+    {   /* POPSoT: the soft-focus overlay (hw_postprocess_candidate) at the
          * user's strength: its opacity comes from the combiner, so it is
          * scaled in the pixel shader (misc.w). */
         extern int xbox_FramebufferSoftFocusStrength(void);
@@ -1967,8 +1967,8 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     for (st = 0; st < 4; st++) {
         const Texture *t = &s_gpu.texs[st];
         uint32_t mode = (s_gpu.rc.stage_program >> (st * 5)) & 0x1F;
-        hw_border_constants(&pc, st, t); /* RE-SoT: white light-map borders. */
-        /* RE-SoT: distinguish a bad palette from an unimplemented border. */
+        hw_border_constants(&pc, st, t); /* POPSoT: white light-map borders. */
+        /* POPSoT: distinguish a bad palette from an unimplemented border. */
         if (s_ftrace == 2 && mode)
             fprintf(stderr, "[HW-TEX-STATE] stage=%d palette=%08X address=%u/%u border=%08X\n",
                 st, t->palette, t->addr_u, t->addr_v, t->border_color);
@@ -1981,7 +1981,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
             pc.tscale[st][1] = 1.0f / (float)t->height;
         }
         if (srv[st] && t->valid && s_rt_size[st][0] >= t->width && s_rt_size[st][1] >= t->height
-                && (s_rt_size[st][0] != t->width || s_rt_size[st][1] != t->height)) {   /* RE-SoT: s_rt_size */
+                && (s_rt_size[st][0] != t->width || s_rt_size[st][1] != t->height)) {   /* POPSoT: s_rt_size */
             int linear = !tex_size_from_format(t->color);
             pc.tscale[st][0] = (linear ? 1.0f : (float)t->width) / (float)s_rt_size[st][0];
             pc.tscale[st][1] = (linear ? 1.0f : (float)t->height) / (float)s_rt_size[st][1];
@@ -1989,7 +1989,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
         pc.tscale[st][2] = srv[st] ? 1.0f : 0.0f;
         if (!srv[st])
             srv[st] = s_hw.white;
-        /* RE-SoT: cube directions use xyz without projective division. */
+        /* POPSoT: cube directions use xyz without projective division. */
         pc.tscale[st][3] = t->cube && pc.tscale[st][2] > 0.5f ? 1.0f : 0.0f;
         if (pc.tscale[st][3] > 0.5f) {
             srv[st + 4] = srv[st];
@@ -2022,22 +2022,22 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
          * own projection (src/<target>/target_hooks.c). */
         int main_view = s->w == 640 && s_gpu.clip_w == 640 && s_gpu.clip_h >= 448;
         hdr[8] = main_view && !s_hw.batch_full_width ? 1.0f / s_hw.widen : 1.0f;
-        /* RE-SoT: demo pause layers have already passed through the Hor+
+        /* POPSoT: demo pause layers have already passed through the Hor+
          * projection. Undo that narrowing, rather than narrowing them again. */
         if (main_view && s_hw.batch_projected_screen)
             hdr[8] = s_hw.widen;
         if (main_view && s_hw.batch_projected_2d)
-            hdr[8] = 1.0f;                  /* RE-SoT: see hw_classify_screen */
+            hdr[8] = 1.0f;                  /* POPSoT: see hw_classify_screen */
         hdr[9] = (float)s->w; hdr[10] = 1.0f;
         if (main_view && s_hw.batch_hud) {
-            /* RE-SoT: every piece on one side gets the same shift, so frame,
+            /* POPSoT: every piece on one side gets the same shift, so frame,
              * fill and pips stay aligned (hw_hud_shift). */
             hdr[8] = 1.0f;
             hdr[11] = hw_hud_shift();
         }
     }
     hdr[12] = hw_soft_focus_step(s->h, hw_py(s->h, s->sc));
-    /* RE-SoT: an attribute with no array reads the value last set with
+    /* POPSoT: an attribute with no array reads the value last set with
      * SET_VERTEX_DATA*, as on the NV2A -- not 0,0,0,1. XDK D3D's
      * SetVertexData4ub gives a whole batch one diffuse colour that way; the
      * demo draws its shadow silhouettes with it, and with 0,0,0,1 every
@@ -2074,14 +2074,14 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     ID3D11DeviceContext_PSSetShaderResources(s_hw.ctx, 0, 8, srv);
     ID3D11DeviceContext_PSSetSamplers(s_hw.ctx, 0, 4, smp);
 
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: normalize supersampled/widened host pixels to guest pixels. */
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: normalize supersampled/widened host pixels to guest pixels. */
     {
         double pixel_scale = ((double)hw_px(s->w, s->sc) / s->w) * ((double)hw_py(s->h,s->sc)/s->h);
         hw_visibility_poll();
         if (!nv_hw_vis_draw(&s_hw_visibility, s_hw.dev, s_hw.ctx, pixel_scale)) {
             fprintf(stderr, "[HW] fatal visibility query creation/allocation failure\n");
-            abort(); /* RE-SoT: propagate terminal renderer failure immediately. */
+            abort(); /* POPSoT: propagate terminal renderer failure immediately. */
         }
     }
 #endif
@@ -2095,7 +2095,7 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     return s;
 }
 
-/* RE-SoT: RECOMP_HW_GLOW_DUMP=<prefix>, under the frame trace: the display
+/* POPSoT: RECOMP_HW_GLOW_DUMP=<prefix>, under the frame trace: the display
  * surface as it is just before the first batch that samples another render
  * target into it (the title's glow composite), and as it is at the flip, at
  * host resolution. The two differ only by the post-processing, so they show
@@ -2142,7 +2142,7 @@ static void hw_dump_surface(ID3D11Texture2D *tex, const char *path)
     ID3D11Texture2D_Release(stage);
 }
 
-/* RE-SoT: each independently requested trace gets its own exact GPU frame.
+/* POPSoT: each independently requested trace gets its own exact GPU frame.
  * Raw main-surface readback is taken at FLIP_STALL, before presentation; the
  * flip ID in the file/log matches "frame begins", even after that counter
  * advances. Re-arm on the next traced frame, not only once per process. */
@@ -2156,7 +2156,7 @@ static void hw_glow_dump_check(const HwSurface *s, int at_flip)
 
     if (prefix == (const char *)-1)
         prefix = getenv("RECOMP_HW_GLOW_DUMP");
-    /* RE-SoT: F9 captures go to logs/capture/ without RECOMP_HW_GLOW_DUMP. */
+    /* POPSoT: F9 captures go to logs/capture/ without RECOMP_HW_GLOW_DUMP. */
     if (!prefix && s_capture_key) {
 #ifdef _WIN32
         CreateDirectoryA("logs", NULL);
@@ -2201,7 +2201,7 @@ static void hw_glow_dump_check(const HwSurface *s, int at_flip)
         }
 }
 
-/* RE-SoT: under the frame trace, how many pixels each batch really left on
+/* POPSoT: under the frame trace, how many pixels each batch really left on
  * the host GPU (an occlusion query around the draw) and the state that can
  * remove all of them. A batch with triangles and no pixels is geometry that
  * is missing from the picture; the state says which stage removed it. */
@@ -2240,7 +2240,7 @@ static void hw_trace_end(void)
             s_gpu.alpha_test, s_gpu.alpha_func, s_gpu.alpha_ref, s_gpu.color_mask,
             s_gpu.zeta_offset ? "yes" : "no", s_gpu.fog_enable, s_gpu.fog_mode,
             s_gpu.fog_param[0], s_gpu.fog_param[1]);
-    /* RE-SoT: an opt-in pixel history identifies the draw that creates a
+    /* POPSoT: an opt-in pixel history identifies the draw that creates a
      * reported black patch. Read only one pixel, and only during a trace. */
     {
         const char *probe = getenv("RECOMP_HW_TRACE_PIXEL");
@@ -2271,16 +2271,16 @@ static void hw_trace_end(void)
     }
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
 /* Reserve `bytes` at the ring's write position (aligned to `align`), wrapping
  * with a discard when it does not fit. The caller writes at *off and then
  * advances it by what it used. */
-/* RE-SoT: a DISCARD map invalidates everything earlier in that ring; batch
+/* POPSoT: a DISCARD map invalidates everything earlier in that ring; batch
  * reuse (hw_reuse_find) only trusts ranges written in the current generation. */
 static uint32_t s_hw_vb_gen = 1, s_hw_ib_gen = 1;
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 static int hw_ring_map(ID3D11Buffer *buf, uint32_t *off, uint32_t size,
                        uint32_t bytes, uint32_t align, D3D11_MAPPED_SUBRESOURCE *map)
 {
@@ -2299,7 +2299,7 @@ static int hw_ring_map(ID3D11Buffer *buf, uint32_t *off, uint32_t size,
                                              how, 0, map));
 }
 
-/* RE-SoT: create the shader (and, the first time, the input layout every
+/* POPSoT: create the shader (and, the first time, the input layout every
  * program shares) from a compiled blob; releases the blob. */
 static void hw_vsp_finish(HwVsp *e, ID3DBlob *b)
 {
@@ -2330,7 +2330,7 @@ static void hw_vsp_finish(HwVsp *e, ID3DBlob *b)
     }
 }
 
-/* RE-SoT: background compilation of vertex programs (xbox-demo).
+/* POPSoT: background compilation of vertex programs (xbox-demo).
  *
  * D3DCompile takes 24-158 ms for one translated program (37 programs of the
  * first level: mean 69 ms; skipping optimisation still 44 ms, so the flags
@@ -2341,9 +2341,9 @@ static void hw_vsp_finish(HwVsp *e, ID3DBlob *b)
  * stall of the APU thread in the log. A program missing from the disk cache
  * is now compiled by this thread, and its batches go through the vertex
  * interpreter -- the path every untranslatable program already takes --
- * until the shader is ready, usually a few frames. RESOT_ASYNC_VSH=0
+ * until the shader is ready, usually a few frames. POPSOT_ASYNC_VSH=0
  * compiles in place as before. */
-#if RESOT_RUNTIME_DEMO
+#if POPSOT_RUNTIME_DEMO
 typedef struct { HwVsp *e; char *src; size_t len; } HwVspJob;
 static HwVspJob s_vsp_jobs[HW_VSP_MAX];
 static LONG s_vsp_job_head, s_vsp_job_tail;   /* under s_vsp_job_cs */
@@ -2380,7 +2380,7 @@ static int hw_vsp_async(void)
 {
     static int on = -1;
     if (on < 0) {
-        const char *v = getenv("RESOT_ASYNC_VSH");
+        const char *v = getenv("POPSOT_ASYNC_VSH");
         on = !v || atoi(v) != 0;
         if (on) {
             InitializeCriticalSection(&s_vsp_job_cs);
@@ -2398,7 +2398,7 @@ static int hw_vsp_async(void)
             }
         }
         fprintf(stderr, "  [HW] vertex programs compile %s\n",
-                on ? "in the background" : "in place (RESOT_ASYNC_VSH=0)");
+                on ? "in the background" : "in place (POPSOT_ASYNC_VSH=0)");
     }
     return on;
 }
@@ -2431,7 +2431,7 @@ static int hw_vsp_queue(HwVsp *e, char *src, size_t len)
 
 /* The translated form of the vertex program that would run now, for a batch
  * whose enabled attributes are `mask` (bit per attribute, assigned to input
- * slots in ascending order). NULL when it cannot run on the GPU (RE-SoT: or
+ * slots in ascending order). NULL when it cannot run on the GPU (POPSoT: or
  * is still compiling in the background); the caller then uses the
  * interpreter. */
 static const HwVsp *hw_vsp_get(uint32_t mask)
@@ -2456,7 +2456,7 @@ static const HwVsp *hw_vsp_get(uint32_t mask)
     for (i = 0; i < s_hw.nvsp; i++)
         if (s_hw.vsp[i].key == key && s_hw.vsp[i].mask == mask) {
             e = &s_hw.vsp[i];
-            if (e->ready) {             /* RE-SoT: a background compile landed */
+            if (e->ready) {             /* POPSoT: a background compile landed */
                 hw_vsp_finish(e, (ID3DBlob *)InterlockedExchangePointer(
                                      (PVOID volatile *)&e->ready, NULL));
                 fprintf(stderr, "  [HW] vertex program %08X (attributes %04X): %s"
@@ -2486,7 +2486,7 @@ static const HwVsp *hw_vsp_get(uint32_t mask)
         len += body;
         memcpy(src + len, s_hw_hlsl_vsp_tail, sizeof s_hw_hlsl_vsp_tail);
         len += sizeof s_hw_hlsl_vsp_tail - 1;
-        /* RE-SoT: RECOMP_HW_VSH_DUMP=all prints every translation, not only
+        /* POPSoT: RECOMP_HW_VSH_DUMP=all prints every translation, not only
          * the ones that fail to compile. */
         if (dump && strcmp(dump, "all") == 0)
             fprintf(stderr, "[VSH %08X]\n%s\n", key, src);
@@ -2515,17 +2515,17 @@ static const HwVsp *hw_vsp_get(uint32_t mask)
     return seen;
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
-/* RE-SoT: the demo's sub_000EF140 projection hook narrows a full-screen
+/* POPSoT: the demo's sub_000EF140 projection hook narrows a full-screen
  * flat layer to 640 / widen, centred on x=320 (observed: 80.531..560.531
  * at 16:9). Its fog grids must cover the display, including inner vertices.
- * It is on for xbox-retail too (RESOT_PROJECTED_UI), whose
+ * It is on for xbox-retail too (POPSOT_PROJECTED_UI), whose
  * sub_000CD970 hook narrows the projection the same way. Without it the menu
  * backdrop stops short of the sides (2026-10-15). The HUD rule below was
  * traced on both: retail's health bar is x=107.531..250.892,
  * y=36.531..68.531 at 16:9 (2026-10-18). */
-#include "nv2a_hud_layout.h" /* RE-SoT: aspect-aware forming-tank recognition. */
+#include "nv2a_hud_layout.h" /* POPSoT: aspect-aware forming-tank recognition. */
 static void hw_classify_screen(float left, float right, float top, float bottom)
 {
     static int projected_ui = -1;
@@ -2539,7 +2539,7 @@ static void hw_classify_screen(float left, float right, float top, float bottom)
         && fabsf((right - left) - 640.0f / s_hw.widen) < 2.0f
         && fabsf((left + right) * 0.5f - 320.0f) < 2.0f
         && top <= 1.0f && bottom >= 479.0f;
-    /* RE-SoT: traced health frame/fill: flat, depth test off, upper
+    /* POPSoT: traced health frame/fill: flat, depth test off, upper
      * left (x=118.931..280.211, y=38.931..115.731 at 16:9). Use the shared
      * UI region, not texture heap addresses, which change across loads.
      * Include depth_mask=1: the white sand crescents use it with depth
@@ -2553,8 +2553,8 @@ static void hw_classify_screen(float left, float right, float top, float bottom)
         && left >= 320.0f - 320.0f / s_hw.widen - 0.5f
         && right <= 320.0f + 320.0f / s_hw.widen + 0.5f
         && (bottom <= 192.0f || top >= 288.0f
-#if RESOT_RUNTIME_RETAIL
-            /* RE-SoT: the forming sand-tank outline in the user's retail
+#if POPSOT_RUNTIME_RETAIL
+            /* POPSoT: the forming sand-tank outline in the user's retail
              * garden capture is near x=126, y=199 (640x480 coordinates).
              * It falls below the original HUD band. Compare the left column
              * in the traced 16:9 frame, so ultrawide phone screens move the
@@ -2563,14 +2563,14 @@ static void hw_classify_screen(float left, float right, float top, float bottom)
 #endif
             ))
         s_hw.batch_hud = right < 320.0f ? -1 : left > 320.0f ? 1 : 0;
-    /* RE-SoT: retail only. Its title logo is flat 2D drawn through the
+    /* POPSoT: retail only. Its title logo is flat 2D drawn through the
      * narrowed projection (vsh FE9274D1, x=92.531..476.531 y=48.531..168.531
      * at 16:9, a 512-wide 4:3 quad at x=16.7..528.7), so it already has its
      * 4:3 proportions; the default rule squeezed it a second time (2026-10-19).
      * Flat, depth test off, inside the projected 4:3 frame and not a side
      * HUD piece: no second squeeze, no shift. The demo was not checked. */
     s_hw.batch_projected_2d = 0;
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
     if (projected_ui && s_hw.widen > 1.0f && !s_gpu.depth_test
         && !s_hw.batch_projected_screen && !s_hw.batch_hud
         && left >= 320.0f - 320.0f / s_hw.widen - 0.5f
@@ -2579,13 +2579,13 @@ static void hw_classify_screen(float left, float right, float top, float bottom)
 #endif
 }
 
-/* RE-SoT: the demo's traced final glow pass (unpaused frame 1917) and
+/* POPSoT: the demo's traced final glow pass (unpaused frame 1917) and
  * retail's independently traced one (frame 3615) composite
  * the current 160x120 render target over the full 640x480 image, with alpha
  * blending and no depth test. Source offsets vary with allocation: identify
  * the pass by its decoded state and coverage, never by texture addresses.
  * Smaller UI/bar quads, pause layers and shadow targets do not match. */
-/* RE-SoT: independent frame traces: demo android-demo-simple-trace, frame
+/* POPSoT: independent frame traces: demo android-demo-simple-trace, frame
  * 2743, and retail retail-hud-after, frame 3615. Both use linear A8R8G8B8
  * fullscreen quads through 320x240, 160x120 and 80x60; retail's blur differs
  * from the demo's, so preserve each title's combiners and tap weights.
@@ -2594,10 +2594,10 @@ static int hw_post_chain_candidate(uint32_t n)
 {
     const Texture *t=&s_gpu.texs[0];
     uint32_t w=s_gpu.clip_w,h=s_gpu.clip_h;
-    /* RE-SoT: a bound texture is not a dependency when stage zero is disabled. */
+    /* POPSoT: a bound texture is not a dependency when stage zero is disabled. */
     uint32_t mode=s_gpu.rc.stage_program&31;
     if(s_gpu.rc_seen && (mode<1 || mode>3))return 0;
-    /* RE-SoT (xbox-retail, title and first courtyard, 2026-10-20 trace): the
+    /* POPSoT (xbox-retail, title and first courtyard, 2026-10-20 trace): the
      * bloom continues 80x60 -> 40x30 -> 20x15 -> 10x7 and one additive
      * fullscreen composite samples 10x7, 20x15, 40x30 and 80x60 together.
      * Recognising only 320/160/80 left the 40/20/10 passes running at Off on
@@ -2616,13 +2616,13 @@ static int hw_post_chain_candidate(uint32_t n)
         && s_hw.surf[i].h==t->height)return 1;
     return 0;
 }
-/* RE-SoT: Off must suppress consumers as well as producers. A fullscreen
+/* POPSoT: Off must suppress consumers as well as producers. A fullscreen
  * copy can sample a chain target with blending disabled or at 320x240,
  * unlike the separately verified 160x120 alpha-blended glow composite.
  * Require provenance from a chain draw in THIS frame, not a stale allocation.
  * Restrict this to stage zero and full display coverage (checked below):
  * merely bound, unused higher stages must not suppress unrelated draws. */
-/* RE-SoT (xbox-retail): the multi-scale bloom composite binds its 10x7,
+/* POPSoT (xbox-retail): the multi-scale bloom composite binds its 10x7,
  * 20x15, 40x30 and 80x60 levels to stages 0-3 (rc prog 08421), so every
  * enabled stage is checked, not only stage zero. */
 static int hw_post_disabled_consumer(uint32_t n)
@@ -2648,7 +2648,7 @@ static int hw_postprocess_candidate(uint32_t n)
     const Texture *t = &s_gpu.texs[0];
     uint32_t i;
     if (hw_post_chain_candidate(n) || hw_post_disabled_consumer(n)) return 1;
-    /* RE-SoT: the frame's last full-screen composite (soft focus, 160x120
+    /* POPSoT: the frame's last full-screen composite (soft focus, 160x120
      * source, blend 302/303): interface draws follow (texpack_note_ui). */
     if (n == 4 && s_gpu.prim == NV_PRIM_QUADS && s_gpu.clip_w == 640 && s_gpu.clip_h == 480
         && s_gpu.blend_enable && s_gpu.blend_sfactor == 0x302 && s_gpu.blend_dfactor == 0x303
@@ -2661,7 +2661,7 @@ static int hw_postprocess_candidate(uint32_t n)
         || s_gpu.blend_sfactor != 0x302 || s_gpu.blend_dfactor != 0x303
         || !t->valid || t->width != 160 || t->height != 120 || t->color != 0x12)
         return 0;
-    /* RE-SoT: the native D3D12/Vulkan encoder keeps its own surfaces; looking
+    /* POPSoT: the native D3D12/Vulkan encoder keeps its own surfaces; looking
      * only at the D3D11 ones left the option without effect there. */
     if (ng_active()) return ng_postprocess_source(t->offset);
     for (i = 0; i < HW_MAX_SURFACES; i++)
@@ -2672,7 +2672,7 @@ static int hw_postprocess_candidate(uint32_t n)
     return 0;
 }
 
-/* RE-SoT: projected-shadow producer/consumer pairs, independently present in
+/* POPSoT: projected-shadow producer/consumer pairs, independently present in
  * demo android-demo-simple-trace and retail retail-hud-after-err. Addresses
  * are allocations, not XBE constants. Current-frame provenance prevents a
  * reused/static RGB565 texture from suppressing unrelated geometry. */
@@ -2681,7 +2681,7 @@ static int hw_skip_shadow(void)
 {
     unsigned i,best=0;
     const Texture *t=&s_gpu.texs[0];
-    if (resot_shadow_target(s_gpu.format,s_gpu.pitch,s_gpu.clip_x,s_gpu.clip_y,
+    if (popsot_shadow_target(s_gpu.format,s_gpu.pitch,s_gpu.clip_x,s_gpu.clip_y,
             s_gpu.clip_w,s_gpu.clip_h,s_gpu.zeta_offset,s_gpu.depth_test,s_gpu.blend_enable)) {
         uint32_t offset=dma_resolve(s_gpu.color_offset);
         for(i=0;i<32;i++) {
@@ -2699,7 +2699,7 @@ static int hw_skip_shadow(void)
         || s_gpu.blend_dfactor!=0x301 || s_gpu.depth_mask
         || !t->valid || (t->color!=0x05 && t->color!=0x11)
         || t->width!=256 || t->height!=256)return 0;
-    /* RE-SoT: an unused, still-bound stage is not a shadow dependency. */
+    /* POPSoT: an unused, still-bound stage is not a shadow dependency. */
     if(s_gpu.rc_seen && ((s_gpu.rc.stage_program&31)<1 || (s_gpu.rc.stage_program&31)>3))return 0;
     for(i=0;i<32;i++)if(s_shadow_targets[i].valid
         && s_shadow_targets[i].offset==dma_resolve(t->offset)
@@ -2744,7 +2744,7 @@ static int hw_skip_postprocess(const Nv2aVshOutput *v, uint32_t n)
     return !enabled;
 }
 
-/* RE-SoT: batch reuse, both targets (written for the demo, 2026-10-17). There, the
+/* POPSoT: batch reuse, both targets (written for the demo, 2026-10-17). There, the
  * first level's vegetation is ~1290 instances per frame of the same three
  * batches (same arrays and index list, only instance constants differ), and
  * re-converting them held the executor to 26 fps; reuse measured 43 fps.
@@ -2752,14 +2752,14 @@ static int hw_skip_postprocess(const Nv2aVshOutput *v, uint32_t n)
  * attribute layout and sampled source bytes match one already uploaded in
  * this frame and ring generation draws from those host ranges instead.
  *
- * RE-SoT (xbox-demo): across frames too. With reuse limited to one frame,
+ * POPSoT (xbox-demo): across frames too. With reuse limited to one frame,
  * 89% of batches missed (bath fight and hourglass room, 2026-10-18) and every
  * static mesh of the level was converted and uploaded again each frame: the
  * executor reached 7.3 ms a frame at 850-1300 draws, 67-90 fps. A batch now
  * stays valid while the ring generation that holds it lasts, and its source
  * bytes are hashed in full, not sampled, so a vertex that changed is a miss
  * rather than a stale draw. */
-#if RESOT_RUNTIME_DEMO
+#if POPSOT_RUNTIME_DEMO
 #define HW_REUSE_ENTRIES 8192
 #define HW_REUSE_ACROSS_FRAMES 1
 #else
@@ -2893,10 +2893,10 @@ static int hw_reuse_match(const HwReuse *e, uint64_t key, uint32_t content,
 static int ng_draw_program_batch(void);
 static int hw_draw_program_batch(void)
 {
-    /* RE-SoT: the native encoders run the program in vs_uber, or return 0
+    /* POPSoT: the native encoders run the program in vs_uber, or return 0
      * for the CPU interpreter (no FINAL, constant writes, >8 inputs). */
     if (ng_active()) return ng_draw_program_batch();
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     static uint32_t stamp[65536], batch_id;
     static uint16_t remap[65536];
     D3D11_MAPPED_SUBRESOURCE vmap, imap;
@@ -2907,15 +2907,15 @@ static int hw_draw_program_batch(void)
     float (*vout)[4];
     uint16_t *iout;
     LARGE_INTEGER t0, t1;
-    HwReuse *reuse = NULL;                  /* RE-SoT: see HwReuse */
+    HwReuse *reuse = NULL;                  /* POPSoT: see HwReuse */
     uint64_t reuse_key = 0;
     uint32_t reuse_content = 0;
     int reuse_ok;
 
     if (s_hw.cpu_vsh || n < 3 || n > NV_MAX_INDICES)
         return 0;
-    if (hw_skip_shadow()) return 1; /* RE-SoT: before conversion/upload. */
-    /* RE-SoT: verify the four corners of a possible final glow composite. */
+    if (hw_skip_shadow()) return 1; /* POPSoT: before conversion/upload. */
+    /* POPSoT: verify the four corners of a possible final glow composite. */
     if (hw_postprocess_candidate(n)) {
         Nv2aVshOutput post[4];
         float in[NV2A_VSH_INPUTS][4];
@@ -2946,7 +2946,7 @@ static int hw_draw_program_batch(void)
     if (!prog)
         return 0;
 
-    /* RE-SoT: classify the whole flat batch, including the pause layers
+    /* POPSoT: classify the whole flat batch, including the pause layers
      * already narrowed by the target's projection. The full-height bounds
      * distinguish these from smaller UI widgets. */
     s_hw.batch_full_width = s_hw.batch_projected_screen = s_hw.batch_hud = 0;
@@ -3005,12 +3005,12 @@ static int hw_draw_program_batch(void)
                 if (o0.fog[0] > fhi) fhi = o0.fog[0];
                 if (o0.d0[3] < alo) alo = o0.d0[3];
                 if (o0.d0[3] > ahi) ahi = o0.d0[3];
-                /* RE-SoT: RECOMP_TRACE_ALLVTX=<texture offset, hex> prints every
+                /* POPSoT: RECOMP_TRACE_ALLVTX=<texture offset, hex> prints every
                  * vertex of batches sampling it (glyph rectangles of a font). */
                 static int allvtx_init; static uint32_t allvtx;
                 if (!allvtx_init) { const char *e = getenv("RECOMP_TRACE_ALLVTX");
                     allvtx = e ? (uint32_t)strtoul(e, NULL, 16) : 0; allvtx_init = 1; }
-                if (n <= 4 || k < 3 || (allvtx && s_gpu.texs[0].offset == allvtx)) /* RE-SoT: projected light-map coordinates on mesh draws. */
+                if (n <= 4 || k < 3 || (allvtx && s_gpu.texs[0].offset == allvtx)) /* POPSoT: projected light-map coordinates on mesh draws. */
                     fprintf(stderr, "[FTRACE]     vtx %u pos %g %g t0 %g %g t1 %g %g"
                                     " t2 %g %g t3 %g %g\n", k, o0.pos[0], o0.pos[1],
                             o0.tex[0][0], o0.tex[0][1], o0.tex[1][0], o0.tex[1][1],
@@ -3030,7 +3030,7 @@ static int hw_draw_program_batch(void)
         LeaveCriticalSection(&s_hw.lock);
         return 1;
     }
-    /* RE-SoT: an identical batch already uploaded this frame (see HwReuse). */
+    /* POPSoT: an identical batch already uploaded this frame (see HwReuse). */
     reuse = reuse_ok ? hw_reuse_slot(reuse_key) : NULL;
     if (reuse && hw_reuse_match(reuse, reuse_key, reuse_content, slot_attr, nslot)) {
         s_hw_reuse_hits++;
@@ -3149,7 +3149,7 @@ static int hw_draw_program_batch(void)
     return 1;
 #else
     return 0;
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
 static void hw_put_vertex(HwVertex *o, const Nv2aVshOutput *v)
@@ -3162,19 +3162,19 @@ static void hw_put_vertex(HwVertex *o, const Nv2aVshOutput *v)
     memcpy(o->tex, v->tex, sizeof o->tex);
 }
 
-/* RE-SoT: separate native command encoder, sharing only NV2A state and shader math. */
+/* POPSoT: separate native command encoder, sharing only NV2A state and shader math. */
 #include "nv2a_hw_native.inc"
 
 /* One batch of transformed vertices, in the primitive type the title used. */
 static void hw_draw_batch(const Nv2aVshOutput *v, uint32_t n)
 {
     HwVertex *o = s_hw.verts;
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     D3D11_MAPPED_SUBRESOURCE map;
 #endif
     uint32_t i, count = 0;
 
-    if (hw_skip_shadow() || hw_skip_postprocess(v, n)) return; /* RE-SoT: CPU-transformed batches too. */
+    if (hw_skip_shadow() || hw_skip_postprocess(v, n)) return; /* POPSoT: CPU-transformed batches too. */
 
     /* Full-width 2D keeps its width (see hw_draw_program_batch). */
     {
@@ -3191,7 +3191,7 @@ static void hw_draw_batch(const Nv2aVshOutput *v, uint32_t n)
         }
         if (i == n)
             hw_classify_screen(lo, hi, top, bottom);
-        /* RE-SoT: where the CPU path's flat 2D lands, for the HUD rule. */
+        /* POPSoT: where the CPU path's flat 2D lands, for the HUD rule. */
         if (s_ftrace == 2 && i == n && n)
             fprintf(stderr, "[FTRACE]     cpu bbox x %g..%g y %g..%g w 1..1 z test %u hud %d\n",
                     lo, hi, top, bottom, (unsigned)s_gpu.depth_test, s_hw.batch_hud);
@@ -3250,7 +3250,7 @@ static void hw_draw_batch(const Nv2aVshOutput *v, uint32_t n)
         s_hw_stat_draw_ticks += (uint64_t)(t1.QuadPart - t0.QuadPart);
         return;
     }
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     HwSurface *bound;
     if ((bound = hw_bind_draw_state(NULL)) != NULL
         && hw_ring_map(s_hw.vb, &s_hw.vb_off, HW_VB_BYTES,
@@ -3268,7 +3268,7 @@ static void hw_draw_batch(const Nv2aVshOutput *v, uint32_t n)
         s_gpu.tris_drawn += count / 3;
         s_gpu.xf_drawn += count / 3;
     }
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
     LeaveCriticalSection(&s_hw.lock);
     QueryPerformanceCounter(&t1);
     s_hw_stat_draw_ticks += (uint64_t)(t1.QuadPart - t0.QuadPart);
@@ -3282,14 +3282,14 @@ static void hw_clear(uint32_t param)
         EnterCriticalSection(&s_hw.lock); ng_clear(param); LeaveCriticalSection(&s_hw.lock);
         return;
     }
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     HwSurface *s;
     HwDepth *d;
     uint32_t x0 = s_gpu.clip_x, y0 = s_gpu.clip_y;
     uint32_t x1 = s_gpu.clip_x + s_gpu.clip_w, y1 = s_gpu.clip_y + s_gpu.clip_h;
 
     EnterCriticalSection(&s_hw.lock);
-    nv_hw_vis_end(&s_hw_visibility, s_hw.ctx); /* RE-SoT: exclude clear draws. */
+    nv_hw_vis_end(&s_hw_visibility, s_hw.ctx); /* POPSoT: exclude clear draws. */
     s = hw_surface();
     if (!s) {
         LeaveCriticalSection(&s_hw.lock);
@@ -3376,22 +3376,22 @@ static void hw_clear(uint32_t param)
     }
     s_gpu.clears++;
     LeaveCriticalSection(&s_hw.lock);
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
 /* Put a surface (and the movie overlay, when one is showing) in the window.
  * Called with the lock held. */
-static void hw_compose_locked(void) /* RE-SoT: snapshot before post-flip fences. */
+static void hw_compose_locked(void) /* POPSoT: snapshot before post-flip fences. */
 {
     D3D11_VIEWPORT vp;
     const uint32_t *opx;
     uint32_t ow, oh, orect[4], oserial;
     float px, py, pw, ph;
     static const float black[4] = {0, 0, 0, 1}, bf[4] = {0, 0, 0, 0};
-    ID3D11ShaderResourceView *none[8] = {0}; /* RE-SoT: unbind cubes too. */
+    ID3D11ShaderResourceView *none[8] = {0}; /* POPSoT: unbind cubes too. */
 
-    nv_hw_vis_end(&s_hw_visibility, s_hw.ctx); /* RE-SoT: exclude host UI/blits. */
+    nv_hw_vis_end(&s_hw_visibility, s_hw.ctx); /* POPSoT: exclude host UI/blits. */
     hw_resize_backbuffer();
     if (!s_hw.bb_rtv)
         return;
@@ -3454,10 +3454,10 @@ static void hw_compose_locked(void) /* RE-SoT: snapshot before post-flip fences.
             ID3D11DeviceContext_Draw(s_hw.ctx, 3, 0);
         }
     }
-    /* RE-SoT: top-left host menu remains visible over every movie. Keep the
+    /* POPSoT: top-left host menu remains visible over every movie. Keep the
      * panel at its native pixel size at 720p, scale up with larger windows. */
     if (xbox_FramebufferDebugPanelGet(&opx, &ow, &oh)) {
-        /* RE-SoT: safely resize the host overlay texture when switching F5/F6. */
+        /* POPSoT: safely resize the host overlay texture when switching F5/F6. */
         if (s_hw.debug_tex && (s_hw.debug_width != ow || s_hw.debug_height != oh)) {
             if (s_hw.debug_srv) ID3D11ShaderResourceView_Release(s_hw.debug_srv);
             ID3D11Texture2D_Release(s_hw.debug_tex);
@@ -3482,7 +3482,7 @@ static void hw_compose_locked(void) /* RE-SoT: snapshot before post-flip fences.
                 (ID3D11Resource *)s_hw.debug_tex, 0, NULL, opx, ow * 4, 0);
             vp.TopLeftX = 8 * scale; vp.TopLeftY = 8 * scale;
             vp.Width = ow * scale; vp.Height = oh * scale;
-            /* RE-SoT: straight-alpha background lets the scene show through. */
+            /* POPSoT: straight-alpha background lets the scene show through. */
             ID3D11DeviceContext_PSSetShader(s_hw.ctx, s_hw.ps_debug, NULL, 0);
             ID3D11DeviceContext_OMSetBlendState(s_hw.ctx, s_hw.debug_blend, bf, 0xFFFFFFFFu);
             ID3D11DeviceContext_RSSetViewports(s_hw.ctx, 1, &vp);
@@ -3493,7 +3493,7 @@ static void hw_compose_locked(void) /* RE-SoT: snapshot before post-flip fences.
     ID3D11DeviceContext_PSSetShaderResources(s_hw.ctx, 0, 8, none);
 }
 
-/* RE-SoT: composition and the host wait are separate. The backbuffer holds
+/* POPSoT: composition and the host wait are separate. The backbuffer holds
  * the completed flip even if subsequent methods modify the guest surfaces. */
 static void hw_swap_locked(int vsync)
 {
@@ -3502,14 +3502,14 @@ static void hw_swap_locked(int vsync)
     /* A flip waits for the host's vertical blank, which is what paces a title
      * that draws as fast as it is allowed to; repaints do not. */
     QueryPerformanceCounter(&t0);
-    /* RE-SoT: F6 changes the sync interval live; idle repaints remain
+    /* POPSoT: F6 changes the sync interval live; idle repaints remain
      * nonblocking. This does not alter the guest engine's own timing. */
     {
         extern int xbox_FramebufferVSync(void);
         int preference = xbox_FramebufferVSync();
         int enabled = preference < 0 ? s_hw.vsync : preference;
         int interval = vsync && enabled ? 1 : 0;
-        /* RE-SoT: report actual guest-flip presentation on preference changes,
+        /* POPSoT: report actual guest-flip presentation on preference changes,
          * excluding movie/idle repaints which intentionally never wait. */
         static int last_preference = -1;
         if (vsync && last_preference != enabled) {
@@ -3526,16 +3526,16 @@ static void hw_swap_locked(int vsync)
     s_hw.present_ticks += (uint64_t)(t1.QuadPart - t0.QuadPart);
 }
 
-/* RE-SoT: idle/movie presentation still composes and swaps immediately. */
+/* POPSoT: idle/movie presentation still composes and swaps immediately. */
 static void hw_present_locked(int vsync)
 {
     hw_compose_locked();
     hw_swap_locked(vsync);
 }
 
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 
-/* RE-SoT: called after DMA_GET is published for the fully decoded submission.
+/* POPSoT: called after DMA_GET is published for the fully decoded submission.
  * The completed picture was already captured into the swapchain at the flip. */
 void nv2a_hw_flush_present(void)
 {
@@ -3547,10 +3547,10 @@ void nv2a_hw_flush_present(void)
         EnterCriticalSection(&s_hw.lock); ng_present(1); LeaveCriticalSection(&s_hw.lock);
         return;
     }
-#if RESOT_HW_D3D11
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_HW_D3D11
+#if POPSOT_RUNTIME_RETAIL
     if (!s_hw.ok) return;
-    /* RE-SoT: visibility reports also progress in submissions without flips. */
+    /* POPSoT: visibility reports also progress in submissions without flips. */
     EnterCriticalSection(&s_hw.lock);
     hw_visibility_poll();
     LeaveCriticalSection(&s_hw.lock);
@@ -3566,10 +3566,10 @@ void nv2a_hw_flush_present(void)
         s_hw.last_flip_ms = GetTickCount();
     }
     LeaveCriticalSection(&s_hw.lock);
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
-/* RE-SoT: opt-in clock check separates guest time sources from frame rate.
+/* POPSoT: opt-in clock check separates guest time sources from frame rate.
  * It verifies the exposed clocks, not the title's own simulation integrator. */
 static void hw_clock_check(void)
 {
@@ -3579,7 +3579,7 @@ static void hw_clock_check(void)
     LARGE_INTEGER host, system, frequency;
     uint64_t tsc;
     extern uint64_t xbox_ReadTimeStampCounter(void);
-    if (enabled < 0) enabled = getenv("RESOT_CLOCK_CHECK") != NULL;
+    if (enabled < 0) enabled = getenv("POPSOT_CLOCK_CHECK") != NULL;
     if (!enabled) return;
     QueryPerformanceCounter(&host);
     QueryPerformanceFrequency(&frequency);
@@ -3593,7 +3593,7 @@ static void hw_clock_check(void)
     previous_host = host.QuadPart; previous_system = system.QuadPart; previous_tsc = tsc;
 }
 
-/* RE-SoT: the F6 diagnostics panel reads a half-second snapshot of what a
+/* POPSoT: the F6 diagnostics panel reads a half-second snapshot of what a
  * frame costs (the same quantities as the five-second [HW] report): fps,
  * frame ms, draws, GPU- and CPU-transformed batches, triangles, texture
  * uploads, vertices, interpreter ms, draw-call ms, executor ms, present ms,
@@ -3653,8 +3653,8 @@ static void hw_diag_sample(void)
 static void hw_flip(void)
 {
     if (ng_active()) { ng_flip(); return; }
-#if RESOT_HW_D3D11
-    /* RE-SoT: preserve the older frame if a submission contains two flips. */
+#if POPSOT_HW_D3D11
+    /* POPSoT: preserve the older frame if a submission contains two flips. */
     if (s_hw.pending_present) nv2a_hw_flush_present();
     EnterCriticalSection(&s_hw.lock);
     hw_glow_dump_check(s_hw.biggest, 1);
@@ -3663,7 +3663,7 @@ static void hw_flip(void)
     s_hw.biggest = NULL;
     s_hw.biggest_area = 0;
     s_hw.frame++;
-    hw_diag_sample(); /* RE-SoT: F6 diagnostics */
+    hw_diag_sample(); /* POPSoT: F6 diagnostics */
     {
         /* Every five seconds: what a frame costs, so "slow" has a reason. */
         static DWORD t0;
@@ -3695,17 +3695,17 @@ static void hw_flip(void)
                         (unsigned long long)((s_hw_stat_verts - vx0) / frames),
                         (double)(s_hw_stat_vsh_ticks - vs0) * ms,
                         (double)(s_hw_stat_draw_ticks - dr0) * ms,
-                        /* RE-SoT: deferred Present is outside the scan timer. */
+                        /* POPSoT: deferred Present is outside the scan timer. */
                         exec_ms - (xbox_FramebufferDeferPresent() ? 0.0 : present_ms),
                         present_ms, frame_ms - exec_ms
                             - (xbox_FramebufferDeferPresent() ? present_ms : 0.0));
-                /* RE-SoT: cumulative batch reuse (HwReuse). */
+                /* POPSoT: cumulative batch reuse (HwReuse). */
                 fprintf(stderr, "  [HW] batch reuse: %llu hits, %llu misses\n",
                         (unsigned long long)s_hw_reuse_hits,
                         (unsigned long long)s_hw_reuse_misses);
             }
             t0 = now; f0 = s_hw.frame;
-            hw_clock_check(); /* RE-SoT: optional host/guest clock comparison. */
+            hw_clock_check(); /* POPSoT: optional host/guest clock comparison. */
             d0 = s_hw.draws; tr0 = s_hw.tris; up0 = s_hw.tex_uploads;
             vs0 = s_hw_stat_vsh_ticks; dr0 = s_hw_stat_draw_ticks; vx0 = s_hw_stat_verts;
             pr0 = s_hw.present_ticks; ex0 = g_nv2a_exec_ticks;
@@ -3714,12 +3714,12 @@ static void hw_flip(void)
     }
     s_hw.last_flip_ms = GetTickCount();
     if (xbox_FramebufferDeferPresent()) {
-        /* RE-SoT: snapshot before later methods can modify the guest surface. */
+        /* POPSoT: snapshot before later methods can modify the guest surface. */
         hw_compose_locked();
         s_hw.pending_present = s_hw.bb_rtv != NULL;
     } else hw_present_locked(1);
     LeaveCriticalSection(&s_hw.lock);
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
 /* Called by the window thread about 60 times a second. A title that is not
@@ -3729,7 +3729,7 @@ void nv2a_hw_idle_present(void)
 {
     if (ng_active()) {
         if (!s_hw.ok) return;
-        /* RE-SoT: Bink uses PVIDEO without guest flips. The generic 100-ms
+        /* POPSoT: Bink uses PVIDEO without guest flips. The generic 100-ms
          * idle repaint limit reduced native movies to 10 Hz. Service a live
          * overlay at the presentation thread's cadence (also on Android). */
         const uint32_t *movie_pixels;
@@ -3743,11 +3743,11 @@ void nv2a_hw_idle_present(void)
         LeaveCriticalSection(&s_hw.lock);
         return;
     }
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     if (!s_hw.ok)
         return;
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: the title may be polling a report without submitting another
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: the title may be polling a report without submitting another
      * frame. Nonblocking polling here lets that report finish independently. */
     EnterCriticalSection(&s_hw.lock);
     hw_visibility_poll();
@@ -3756,11 +3756,11 @@ void nv2a_hw_idle_present(void)
     if (GetTickCount() - s_hw.last_flip_ms < 100)
         return;
     EnterCriticalSection(&s_hw.lock);
-    /* RE-SoT: a flip may have arrived while idle presentation waited. */
+    /* POPSoT: a flip may have arrived while idle presentation waited. */
     if (!s_hw.pending_present && GetTickCount() - s_hw.last_flip_ms >= 100)
         hw_present_locked(0);
     LeaveCriticalSection(&s_hw.lock);
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
 /* Copy the shown frame into a caller buffer of w x h XRGB pixels (for the
@@ -3772,7 +3772,7 @@ int nv2a_hw_readback(uint32_t *dst, uint32_t w, uint32_t h)
         EnterCriticalSection(&s_hw.lock); result = ng_readback(dst,w,h); LeaveCriticalSection(&s_hw.lock);
         return result;
     }
-#if RESOT_HW_D3D11
+#if POPSOT_HW_D3D11
     D3D11_TEXTURE2D_DESC td;
     D3D11_MAPPED_SUBRESOURCE map;
     ID3D11Texture2D *stage = NULL;
@@ -3786,7 +3786,7 @@ int nv2a_hw_readback(uint32_t *dst, uint32_t w, uint32_t h)
         ID3D11Texture2D_GetDesc(s_hw.front->tex, &td);
         td.Usage = D3D11_USAGE_STAGING;
         td.BindFlags = 0;
-        td.MiscFlags = 0;                       /* RE-SoT: surfaces generate mips now */
+        td.MiscFlags = 0;                       /* POPSoT: surfaces generate mips now */
         td.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
         if (SUCCEEDED(ID3D11Device_CreateTexture2D(s_hw.dev, &td, NULL, &stage))) {
             ID3D11DeviceContext_CopyResource(s_hw.ctx, (ID3D11Resource *)stage,
@@ -3810,7 +3810,7 @@ int nv2a_hw_readback(uint32_t *dst, uint32_t w, uint32_t h)
     return ok;
 #else
     return 0;
-#endif /* RESOT_HW_D3D11 */
+#endif /* POPSOT_HW_D3D11 */
 }
 
 /* Methods only the hardware path acts on. Returns 1 when it took the method. */
@@ -3835,7 +3835,7 @@ static void hw_clear(uint32_t param) { (void)param; }
 static void hw_flip(void) {}
 static int  hw_method(uint32_t method, uint32_t param) { (void)method; (void)param; return 0; }
 void nv2a_hw_idle_present(void) {}
-void nv2a_hw_flush_present(void) {} /* RE-SoT: no hardware pending frame. */
-int  xbox_DiagRenderer(double *out, int n) { (void)out; (void)n; return 0; } /* RE-SoT */
+void nv2a_hw_flush_present(void) {} /* POPSoT: no hardware pending frame. */
+int  xbox_DiagRenderer(double *out, int n) { (void)out; (void)n; return 0; } /* POPSoT */
 int  nv2a_hw_readback(uint32_t *dst, uint32_t w, uint32_t h) { (void)dst; (void)w; (void)h; return 0; }
 #endif

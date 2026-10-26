@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -111,7 +111,7 @@ public final class TouchControls extends View implements InputManager.InputDevic
         }
         visible = preferences.getBoolean("visible", !gamepadConnected());
         setFocusable(false);
-        setContentDescription("reSOT touch controller");
+        setContentDescription("POPSoT touch controller");
     }
 
     // ── lifecycle ────────────────────────────────────────────

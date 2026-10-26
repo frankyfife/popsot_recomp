@@ -7,7 +7,7 @@ of 14:25 (logs/history) shows both did run: "No enemies" set the spawner
 switch at 0x01 in 0102 (the ramparts), and the sword entry logged "sword 2
 of 4". The prototype's switch only drops the spawn requests of spawn points
 (Spawn_WP__MSG, 0x001CAE51), i.e. sand creatures from portals; the ramparts'
-guards are placed in the level and stay. With RESOT_CHEATS=nospawn the
+guards are placed in the level and stay. With POPSOT_CHEATS=nospawn the
 level select's 6101 has no enemy on the stairs where one stands otherwise.
 The entries are now called "No portal enemies" / "Keine Portal-Gegner"
 (and "Endless portal enemies"). The sword change calls the prince's own
@@ -21,7 +21,7 @@ map keys; the worlds look like development test maps without a start for
 check point -1. They are no longer in the level select (user's decision).
 POP1 stays: it loads the classic-style dungeon (POP1_Sec1-4, PrinceCostume02).
 
-Sword change, checked: RESOT_SWORD_TEST=<seconds> requests the sword entry
+Sword change, checked: POPSOT_SWORD_TEST=<seconds> requests the sword entry
 once by itself. In the level select's 6101 (which merges Prince_Sword02 and
 Prince_Sword03) the straight sword on the Prince's back becomes the curved
 one ("sword 2 of 4"). The retail fn_SetWeapon (0x0026CE80) takes only the
@@ -29,19 +29,40 @@ prince and steps the index itself; the PC version's takes the sword and the
 index. A sword whose world the level has not merged (early levels load only
 Prince_Sword01) does not show.
 
-Menu camera, checked: with RESOT_CAM_TRACE=1 the camera shown in the main
+Menu camera, checked: with POPSOT_CAM_TRACE=1 the camera shown in the main
 menu ("[CAM] shown") is the PC pose (-82.927 2.869 -2.608, yaw -2.9409,
 pitch 0.1740) in mode pc and the game's (-83.589 1.389 -2.662) in mode
 original; the pictures differ (palace visible through the palms). The user
 still finds the position wrong; the PC pose is the one from their popfix.ini
 of 2026-10-25.
 
+## 2026-10-26: the old name removed; no F5 panel
+
+At the user's request every use of the old project name went: identifiers,
+environment variables and CMake options (POPSOT_*, popsot_*), the comment
+marker of the runtime's patches (POPSoT:), file names (popsot_runtime.h,
+popsot_texpack.h, ...; the Android package com.fulger.popsot), menus and
+docs; the old logo images are gone (the Android launcher draws without one).
+Builds use -DPOPSOT_TARGET=<target> (tools/recomp.ps1 passes it). The one
+mention left is the MIT copyright line of the original authors in LICENSE,
+which the licence requires to be kept; the project's own line was added
+beside it. The settings move from resot-options.ini was dropped again (the
+user's file had already moved).
+
+The F5 info panel (FPS, world, renderer) is no longer reachable on Windows:
+its key and its Debug page entry are gone; F6 shows the same and more.
+
+Checked: retail builds, 359 XBE claims hold, the level select's 6101 loads
+with sound, both reSOT-era menus bind all their choices; the launcher
+builds and starts the game with POPSOT_ASSET_DIR. The demo was not built
+(no build tree in this checkout).
+
 ## 2026-10-26: POPSoT Launcher (Qt), the new name
 
 The user asked for a plain launcher like FuturamaPC's, the ISO installation
 with the USA disc required and the European one optional (German), no
 animation, no GitHub links, the PC version's icon, and "Port Options"
-instead of "reSOT Options"; name chosen: POPSoT Recomp. See
+instead of "POPSoT Options"; name chosen: POPSoT Recomp. See
 port/windows/README.md "Play: POPSoT Launcher".
 
 Checks (Y:\xbox games, the user's images):
@@ -55,8 +76,8 @@ Checks (Y:\xbox games, the user's images):
   to Assets\xbox-retail (whose German speech tools/german-speech.py wrote);
   only saves, the cache and the two dashboard update XBEs differed (the
   latter are now skipped).
-- sot-xbox-retail.exe started on that folder (RESOT_ASSET_DIR, as Play does)
-  reports it as its game folder and runs; resot-options.ini was moved to
+- sot-xbox-retail.exe started on that folder (POPSOT_ASSET_DIR, as Play does)
+  reports it as its game folder and runs; popsot-options.ini was moved to
   popsot-options.ini on the first start.
 - The window: Windows 11 style (dark), the PC icon in the title bar and the
   header, the tabs, German texts. The wizard's pages and Play were not
@@ -94,9 +115,9 @@ title sets that opacity per place: a fit of after = (1 - a) * before + c *
 copy gives a = 0.41 in c_flip10574 and 0.82 in c_flip14497, where the
 blurred copy almost replaces the picture and the bright trousers spread
 far. That is the title's own value, but over a sharp 4K image it reads as a
-halo. The option now has a strength: reSOT Options > Graphics > Weichzeichner
+halo. The option now has a strength: POPSoT Options > Graphics > Weichzeichner
 (Soft focus) cycles Off, 25, 50, 75, 100 % (100 = Xbox), saved as
-[Graphics] SoftFocusStrength (RESOT_SOFT_FOCUS_STRENGTH overrides);
+[Graphics] SoftFocusStrength (POPSOT_SOFT_FOCUS_STRENGTH overrides);
 TextureGlowEffect stays the on/off switch. The D3D11 renderer scales the
 overlay's opacity in the pixel shader (misc.w) for that one draw. Same
 scene, 6101 at 16:9 Ultra: at 1 % the Prince is as crisp as with the
@@ -137,7 +158,7 @@ session started in stereo, so the "(nach Neustart)" note was right there.
 labelled Texture glow effect switches the frame's last full-screen
 composite: the 160x120 soft-focus copy laid over at 41 % (blend 302/303).
 Same scene at 16:9 Ultra: with it the white trousers have a soft halo, with
-RESOT_TEXTURE_GLOW=0 they are crisp; RECOMP_HW_SOFT_FOCUS=0 (the tap
+POPSOT_TEXTURE_GLOW=0 they are crisp; RECOMP_HW_SOFT_FOCUS=0 (the tap
 sharpening) does not change the halo. The levels of that chain line up with
 the frame within a quarter texel (brightness profiles of the 160x120 and
 80x60 levels against the frame, three captures). The halo is the Xbox's own
@@ -177,11 +198,11 @@ in all of them.
 
 ## 2026-10-26: speaker setting not kept; HD font chopped and thin (user report)
 
-**5.1 not kept.** Switching reSOT Options > Sound > Speakers to 5.1 showed
+**5.1 not kept.** Switching POPSoT Options > Sound > Speakers to 5.1 showed
 "(nach Neustart)", but after the restart (Alt+F4, start again) the entry read
-Stereo. `resot_options_audio_activate` (port/windows/src/options.c) changed
+Stereo. `popsot_options_audio_activate` (port/windows/src/options.c) changed
 the value in memory and never called `save_config()`, which every other
-reSOT menu setting does at once; the speaker layout is only read at start.
+POPSoT menu setting does at once; the speaker layout is only read at start.
 It now saves at once (room reverb too). Not yet confirmed in game: scripted
 pad runs deliberately save nothing.
 
@@ -319,7 +340,7 @@ STR_SetString (its arguments are no strings), so the banks are fixed in
 guest RAM right after sub_00069B10 (world text) and sub_00069D50
 (language change): the first 64 MB and every committed page range of the
 extended heap. Log: `German hint fixes: 1 verb tables, 15 bracketed
-buttons` after each world load in 0101. `RESOT_TEXT_FIXES=0` keeps the
+buttons` after each world load in 0101. `POPSOT_TEXT_FIXES=0` keeps the
 original. A hint with the new verb was not seen on screen in a run.
 
 **Correction:** New Game does not stop on the balcony; the Prince walks
@@ -354,7 +375,7 @@ already blurred area on the Xbox, so the taps merge. Ultra rendered those
 levels at the internal resolution: every tap hit sharp detail, and at the
 20x15 and 10x7 levels a few texels are a third of the screen. Ultra now
 keeps the screen-fraction chains (4:3 targets below 640 wide,
-`resot_effect_screen_chain`) at the guest's size, like High; shadow maps
+`popsot_effect_screen_chain`) at the guest's size, like High; shadow maps
 and other auxiliary targets still follow the internal resolution.
 Checked: `effect_quality_smoke` passes with the new cases; a 6101 capture
 at Ultra has the chain at 427x240 ... 21x7 (320x240 widened to 16:9) and
@@ -437,7 +458,7 @@ statistic alone before them):**
 
 **Main-menu camera** (after popsot-fixes `src/menucam.cpp`, user request: on
 PC the camera could be placed in the start screen and stored, which hides
-the empty edges at 16:9). Traced with `RESOT_CAM_TRACE=1` (main camera at
+the empty edges at 16:9). Traced with `POPSOT_CAM_TRACE=1` (main camera at
 CAM_Inverse's entry, every 30th frame, with the current WOW): the front end
 is world "Menu", its camera rests at -83.589 1.389 -2.662 (K -0.991 -0.101
 0.085) and New Game flies it to -92.802 -0.965 3.932 (K -0.906 -0.394
@@ -447,11 +468,11 @@ the line menu -> end, view turned to the end pose or aimed at the Prince,
 hold at the end, blend over or cut). Default poses: the user's
 `camera_start` / `camera_end` from `popfix.ini` in the GOG folder
 (-82.927 2.869 -2.608 -2.9409 0.1740 / -93.671 0.653 4.524 -2.7889
--0.0786). `[Menu]` keys in `resot-options.ini` through two new
+-0.0786). `[Menu]` keys in `popsot-options.ini` through two new
 `options.c` functions; scripted runs do not write them.
 
 **Checked** (captures at 3840x2160 with `RECOMP_FRAME_TRACE`):
-- original (`RESOT_MENU_CAMERA=0`) against the offsets 3.5 / 6.25: the
+- original (`POPSOT_MENU_CAMERA=0`) against the offsets 3.5 / 6.25: the
   moved camera shows the palace and the Prince at the window instead of
   foliage with an empty corner;
 - free camera in the main menu: started from the moved pose (-87.06 1.03
@@ -469,7 +490,7 @@ The user notes the picture is not quite the PC one (accepted).
   back at 0 more than 2600 times in 90 s: the universe's behaviour clears
   it every frame (0x001BC4A4). Set at fn_RegenerateLife's entry instead
   (new entry hook, re-lift: scripts_0009.c). Checked with
-  `RESOT_PROTO_TRACE=hurt` (life halved once in play): 50 at 50.8 s, then
+  `POPSOT_PROTO_TRACE=hurt` (life halved once in play): 50 at 50.8 s, then
   +1 about every second, 86 at 89.8 s.
 - +0xBC interface: 1 in play; 0 hid the life bar in 6101 (snapshots).
 - +0xD8 developer pad (scan finding 1): set, its slot [0x76C01C] pointed to
@@ -477,19 +498,19 @@ The user notes the picture is not quite the PC one (accepted).
   X, Y, B changed the life or the sword (fn_iCheats queries pad codes 7,
   5, ... through 0x000DC4F0). Not offered; the button mapping is open.
 
-## 2026-10-25: reSOT Debug page, pause menu entry, prototype spawner cheats
+## 2026-10-25: POPSoT Debug page, pause menu entry, prototype spawner cheats
 
-**Why in the reSOT menu, not a launcher.** The user asked for FuturamaPC's
+**Why in the POPSoT menu, not a launcher.** The user asked for FuturamaPC's
 launcher options (hidden levels, cut content, debug options) or, if more
-sensible, the reSOT menu. FuturamaPC needs a control pipe from its Qt
+sensible, the POPSoT menu. FuturamaPC needs a control pipe from its Qt
 launcher into the running game for anything that acts in play
-(`launcher/README.md`, page "Original"); reSOT's native menu pages run in
+(`launcher/README.md`, page "Original"); POPSoT's native menu pages run in
 the game, take effect at once and are reachable from the pause menu now.
 
-**Pause menu.** The pause menu (traced with `RESOT_MENU_TRACE=1`) opens its
+**Pause menu.** The pause menu (traced with `POPSOT_MENU_TRACE=1`) opens its
 page "Pause" at return 0x001A323E, closes it at 0x001A3441 and opens
 "Optionen" next at 0x001A3470, like the main menu's 0x00234B42 /
-0x00234D8B / 0x00234DCD. The same hooks add "reSOT-Optionen" to the end of
+0x00234D8B / 0x00234DCD. The same hooks add "POPSoT-Optionen" to the end of
 the pause page and build the native pages into the pause menu (16 pages,
 122 of 122 choices bound; the pause menu is built at start, again after
 each map change). The level select is left out there: chosen from the pause
@@ -503,7 +524,7 @@ again (0x000DB861-0x000DB88C). 0x43B12C is TIM_gf_SpeedFactor (the PS2
 map's name; written by 21 script sites and set to 1.0 by
 ENG_ReinitOneWorld, main_0000.c); 0x43B100 is 1.0 in the XBE and has no
 writer in the lifted code, so the page writes the game speed there.
-Measured with `RESOT_TIMER_DIAG=1` (game clock 0x758C80 against the wall
+Measured with `POPSOT_TIMER_DIAG=1` (game clock 0x758C80 against the wall
 clock, 45 s in the main menu): at 50 % 9.98 / 19.95 s and 19.99 / 39.97 s,
 at 100 % 19.95 / 19.93 s and 39.98 / 39.95 s. The 6101 intro cutscene ended
 about 10 s later at 50 %, not twice as late (it follows its audio,
@@ -514,15 +535,15 @@ Spawn_WP__MSG tests byte +0x210 of the global object [0x766C3C] with mask
 3 and drops the spawn request; Spawn_WP_bhv_spawn tests [0x76766C] +0x210
 with mask 8 and, when its count is reached, starts it again (0x0021F8AB,
 call 0x00266E20). Retail never sets them. "No enemies" sets 0x01,
-"Endless enemies" 0x08; only bits set by reSOT are cleared again.
+"Endless enemies" 0x08; only bits set by POPSoT are cleared again.
 
-**Checked** (6101_couloir via `RESOT_START_LEVEL`):
-- pause -> reSOT-Optionen -> Debug: labels "Info-Anzeige (F5): An" and
+**Checked** (6101_couloir via `POPSOT_START_LEVEL`):
+- pause -> POPSoT-Optionen -> Debug: labels "Info-Anzeige (F5): An" and
   "Spielgeschwindigkeit: 50%" after A; B three times back to play;
 - Cheats page from the pause menu: "Schwert wechseln: 1 von 4", A, menu
   closed -> `[CHEAT] sword 2 of 4`; Debug "Freie Kamera" -> on, the camera
   flew with the left stick after the menu closed;
-- `RESOT_CHEATS=nospawn`: `[CHEAT] spawner switch 01 set (object
+- `POPSOT_CHEATS=nospawn`: `[CHEAT] spawner switch 01 set (object
   748D5C20)`; at 70-145 s no guards at the stairs, where the run without
   it shows them from 70 s on.
 
@@ -562,7 +583,7 @@ subtitled on Xbox, and the bonus films carry theirs in the video
 (`tools/german-speech.py --films`, see above). Two developer strings
 ("Load Map", "Hourglass Room") are English in every language.
 
-**Checked.** Run into `0101_Entree` (`RESOT_START_LEVEL`), snapshots every
+**Checked.** Run into `0101_Entree` (`POPSOT_START_LEVEL`), snapshots every
 3 s and a capture at 3840x2160 at 62 s: the first tutorial hint reads "Der
 linke Analog-Stick steuert den Prinzen / der rechte Analog-Stick steuert
 die Kamera", drawn with the HD font (crisp, no fringes), bottom centre,
@@ -587,7 +608,7 @@ and size (u64 at +0x18/+0x20, mip levels one after the other), two
 key; the HUD is group 0B007Bxx (0B007B58 16x16 -> 256x256, 0B007B5A-5D
 64x32 -> 512x256, 0B007B5E 32x32 -> 512x512, 0B007B62-73 16x16 icons).
 
-**Pairing.** Our packs are keyed by picture (resot_texpack.h), the PC pack
+**Pairing.** Our packs are keyed by picture (popsot_texpack.h), the PC pack
 by Jade key, so `tools/hd-ui.py --hud-pack` pairs each dumped texture with
 the 0B007Bxx record whose smallest stored level, scaled to the original
 size, differs least (mean premultiplied difference), and only when the
@@ -614,7 +635,7 @@ after that run), the 16x16 icons (0B007B62-73; not seen in a dump yet).
 ## 2026-10-25: HD HUD on xbox-retail (redrawn from a level dump)
 
 The user suggested taking the HUD from the level runs and redrawing it.
-A run into `6101_couloir` with `RESOT_TEXTURE_DUMP=1` (fight, cheats on)
+A run into `6101_couloir` with `POPSOT_TEXTURE_DUMP=1` (fight, cheats on)
 listed the HUD in `dump/ui_keys.txt`: health bar frame
 `de18894ce22822b0` and fill `29b1e5be337ecb6d` (64x32), frame end piece
 `4376096df446c350`, sand tank holder `b50489193fc08f85` (64x32, tiled),
@@ -670,7 +691,7 @@ then hands the game nothing but Start while the camera is on. Back or F8
 switches it, Y or P freezes the world. `python tools/test-xbe-sites.py
 xbox-retail`: 333 claims, 0 failed.
 
-**Checked.** Run into `6101_couloir` (`RESOT_START_LEVEL`, invulnerable),
+**Checked.** Run into `6101_couloir` (`POPSOT_START_LEVEL`, invulnerable),
 pad script: Back at 72 s, left stick up 3 s, right stick right 0.7 s, Y,
 left stick down 2.5 s; snapshots every 5 s. stderr: `[FREECAM] on`,
 `start at 72.99 128.29 -26.46, yaw -1.13 pitch -0.18, signs 1 -1`,
@@ -699,18 +720,18 @@ each in the XBE:
 - Cheat_Test is inlined into the two spawners (0x001CAE51, 0x0021F897);
   nothing sets its bits, as on PC.
 
-`source/xbox-retail/target_hooks.c`: a reSOT "Cheats" page (Unverwundbar,
+`source/xbox-retail/target_hooks.c`: a POPSoT "Cheats" page (Unverwundbar,
 Unendlich Sand, Ein Treffer toetet; On/Off labels), Ctrl+F1..F3 for the
 same and Ctrl+F4 for the next sword, entry hooks on 0x001764E0 and
 0x0017A0C0 (re-lift: two lines in gen/scripts/scripts_0003.c). Two test
-aids: `RESOT_CHEATS=invulnerable,sand,onehit` and
-`RESOT_START_LEVEL=<room>` (picks the level about three seconds after the
+aids: `POPSOT_CHEATS=invulnerable,sand,onehit` and
+`POPSOT_START_LEVEL=<room>` (picks the level about three seconds after the
 main menu is built). `python tools/test-xbe-sites.py xbox-retail`: 325
 claims, 0 failed.
 
 **Checked.** Two runs into `6101_couloir` with X pressed every 0.7 s from
-60 s (`RESOT_START_LEVEL=6101_couloir`), one with all three cheats, one
-with `RESOT_CHEATS=none`:
+60 s (`POPSOT_START_LEVEL=6101_couloir`), one with all three cheats, one
+with `POPSOT_CHEATS=none`:
 - with them: the attackers burst at the hits, the health bar and all four
   sand tanks stayed full, the fight ended and the area went on;
 - without: the tanks were empty, the health ran down and the game showed
@@ -736,12 +757,12 @@ map 0x0B00A848): `prince.bf` stream FF0BA848 is the world list
 FF0TLLLL). New Game calls it only after the opening film (return
 0x002B18E2, map 0x2200B526 = stream FF02B526, "0101_Entree"; the top byte
 is not part of the stream key), which a first run that stopped at the
-profile screen had missed. Replacing that map (`RESOT_START_MAP`) was
+profile screen had missed. Replacing that map (`POPSOT_START_MAP`) was
 dropped for a menu, which needs no restart.
 
 **What was added** (`source/xbox-retail/target_hooks.c`):
 - A main-menu entry "Spezielle Karte laden" / "Special Load Map" before
-  "reSOT Options", opening a native page with four parts: areas 01-22,
+  "POPSoT Options", opening a native page with four parts: areas 01-22,
   24-51, 61-91 and Extras (POP1, WhiteRoom, magic_corridor,
   Magic_Fountain, MenuCredits); 41 world lists in all, one per area, the
   first room of each. The rooms are each world list's last world, read
@@ -787,8 +808,8 @@ The lowercase letters are its small caps.
 **Glyph rectangles.** Matching the TTF against the atlas image was not
 reliable: the glyphs touch, and the order is not a plain sequence. So the
 game drew every character itself:
-- `RESOT_FONT_PROBE=<first>,<count>[,<separator>]` shows those codes in
-  place of the main menu's reSOT entry.
+- `POPSOT_FONT_PROBE=<first>,<count>[,<separator>]` shows those codes in
+  place of the main menu's POPSoT entry.
 - `RECOMP_TRACE_ALLVTX=80AC9000` prints every vertex of the font batches.
 
 Results:
@@ -800,13 +821,13 @@ Results:
 
 The 182 rectangles are in `tools/hd-ui/font_rects.json`.
 
-**Texture packs** (`port/third_party/xboxrecomp/src/kernel/resot_texpack.h`,
+**Texture packs** (`port/third_party/xboxrecomp/src/kernel/popsot_texpack.h`,
 D3D11 and SDL GPU):
 - **Key:** a texture is identified by FNV-1a 64 of its decoded level-0
   pixels, size and NV2A format.
 - **Replacement:** `<pack>/<key>.tga` replaces it at its own size, with a
   full mip chain. The resource is recreated when its shape changes.
-- **Dump:** `RESOT_TEXTURE_DUMP=1` writes new textures to `<pack>/dump/`.
+- **Dump:** `POPSOT_TEXTURE_DUMP=1` writes new textures to `<pack>/dump/`.
 
 Keys:
 - font `61ae24597fbff11f`;
@@ -815,7 +836,7 @@ Keys:
 For finding such textures there are two further switches:
 - `RECOMP_TEX_DUMP_ADDR` / `RECOMP_TEX_DUMP_RGBA` write chosen textures as
   RGBA TGA.
-- `RESOT_DUMP_RAM=<file>[,seconds]` writes guest RAM once.
+- `POPSOT_DUMP_RAM=<file>[,seconds]` writes guest RAM once.
 
 **`tools/hd-ui.py`** writes both atlases at 8x (4096x1024 and 4096x2048).
 
@@ -829,7 +850,7 @@ Font:
   iso-contour: grave accent, macron, AE and ae.
 
 Buttons:
-- The icons come from `tools/hd-ui/buttons.svg`, drawn for reSOT, rendered
+- The icons come from `tools/hd-ui/buttons.svg`, drawn for POPSoT, rendered
   by ImageMagick/librsvg.
 - Every icon sits within one pixel of the original element's ink box.
   An earlier, larger version was clipped by the game's rectangles.
@@ -887,8 +908,8 @@ before the stream key is built. `0x00758F24` stays as it is, so:
 - the uix font is unchanged.
 
 `[Language] Text=german` is now the Windows default; `english` keeps the
-original. `RESOT_TEXT_LANGUAGE` also takes a raw index 0..4, for tests.
-`RESOT_TEXT_DIAG=1` logs each text group key and the language.
+original. `POPSOT_TEXT_LANGUAGE` also takes a raw index 0..4, for tests.
+`POPSOT_TEXT_DIAG=1` logs each text group key and the language.
 
 **Checks.**
 - `test-xbe-sites.py`: 259 claims, 0 failed. The re-lift adds only the hook
@@ -902,9 +923,9 @@ original. `RESOT_TEXT_LANGUAGE` also takes a raw index 0..4, for tests.
   - umlauts drawn by the game's own font.
 - The game then starts and plays as with English.
 
-reSOT's own pages follow the text language (`s_static_texts_de` in
+POPSoT's own pages follow the text language (`s_static_texts_de` in
 `target_hooks.c`; `native_german()` labels in `options.c`, Latin-1 for the
-game font). Checked: "reSOT-Optionen", "Grafik", "Steuerung", "FPS-Limit:
+game font). Checked: "POPSoT-Optionen", "Grafik", "Steuerung", "FPS-Limit:
 60", "VSync: Aus", "Textur-Gluehen" as drawn, "Aufloesung",
 "Nachbearbeitung: Ultra". The F7 panel stays English.
 
@@ -943,7 +964,7 @@ are byte-identical to the USA ones. The cinematics (`CINE_010`, `CINE_110`,
 cinematic sound is already on the USA disc. Only the European disc has the
 bonus films 90n3 and 90n4.
 
-**Fix** (`target_hooks.c`; `RESOT_MOVIE_LANGUAGE=german`, from
+**Fix** (`target_hooks.c`; `POPSOT_MOVIE_LANGUAGE=german`, from
 `[Language] Movies=german`, the Windows default):
 - Entry hooks move the track ids at `BinkSetSoundTrack` (`sub_003A6570`,
   called at 0x0001E736) and `BinkSetMixBins` (`sub_003A8340`, four calls)
@@ -951,7 +972,7 @@ bonus films 90n3 and 90n4.
 - The `%i` of the loading and logo films in `_sprintf` (`sub_00347456`,
   four calls in `sub_000CA460`/`sub_000CA680`) becomes 4.
 - `Cine_%04d` (call at 0x0002F4AD): 90n0 becomes 90n4 when
-  `RESOT_GERMAN_BONUS` is set. `main.c` sets it when `video\CINE_9014.INT`
+  `POPSOT_GERMAN_BONUS` is set. `main.c` sets it when `video\CINE_9014.INT`
   exists.
 - `tools/german-speech.py --films` copies `CINE_90n4` (n = 1, 3, 4, 5, 6)
   from the European disc; `--remove-films` removes them.
@@ -969,7 +990,7 @@ bonus films 90n3 and 90n4.
   (correlation 0.78), not the English one (0.47).
 - `CINE_9014` shows German subtitles ("Der Prinz kann mit ...").
 
-**Text** (solved in the entry above). Index 4 is not enough. `RESOT_TEXT_LANGUAGE=german` (hook
+**Text** (solved in the entry above). Index 4 is not enough. `POPSOT_TEXT_LANGUAGE=german` (hook
 `sub_00069660_enter`, off by default: `[Language] Text=english`) leaves
 every menu empty. Both `prince.bf` files have the same 3308 keys (FAT
 version 0x25, one FAT). 3010 of them differ: the European build is three
@@ -982,11 +1003,11 @@ can be appended without moving the existing data.
 ## 2026-10-22: Windows FPS limiter defaults to 60
 
 The user saw the GPU at 99 % with about 300 frames per second. Their
-`resot-options.ini` had `FPSLimit=0` and `VSync=0`, so frames were not
+`popsot-options.ini` had `FPSLimit=0` and `VSync=0`, so frames were not
 limited, at 450 % (2880x2160) with Ultra.
 - `port/windows/default-options.ini` and the fallback in `options.c` are now
   `FPSLimit=60`.
-- The user's local `bin/resot-options.ini` (not in the repository) was set
+- The user's local `bin/popsot-options.ini` (not in the repository) was set
   to 60 as well.
 - Android keeps its own default; further work targets the Windows build.
 
@@ -1107,7 +1128,7 @@ twice as fast as on the Xbox, and the surface stays flat.
   33333 us for that call and restored afterwards.
 - On frames without a step, only the guard and the done flag (+0xA0) are
   kept, the same as the original.
-- `RESOT_RAW_WATER=1` restores the per-frame step.
+- `POPSOT_RAW_WATER=1` restores the per-frame step.
 
 **Checks.**
 - `research/relift` run without the change gives exactly the checked-in
@@ -1138,7 +1159,7 @@ offset is nearly the same everywhere and shows as no refraction. The renderer
 side (projective lookup in guest texels, PASS_THROUGH, 3 taps) works as
 written. No separate GPU change is needed.
 
-**Diagnostics.** `RESOT_WATER_DIAG=1` prints, every 2 s per water object:
+**Diagnostics.** `POPSOT_WATER_DIAG=1` prints, every 2 s per water object:
 - the number of fields and how many of them are frozen;
 - the peak amplitude;
 - steps per calls.
@@ -1147,7 +1168,7 @@ A 150-s run of the retail pad timeline (new game) has no water object, so it
 gave no output. The demo XBE has neither this water shader nor the driver.
 
 **Not yet checked:** in the game, at the pool, with and without
-`RESOT_RAW_WATER=1`. The surface now changes at 30 Hz, as on the Xbox;
+`POPSOT_RAW_WATER=1`. The surface now changes at 30 Hz, as on the Xbox;
 interpolating between steps for 60-Hz display is possible later.
 
 ## 2026-10-22: F9 frame capture; 2160p internal resolution; ghosting measured
@@ -1166,7 +1187,7 @@ duplicate).
 **F9 capture** (`fb_present.c`, `nv2a_pb_exec.c`, `nv2a_hw_d3d11.inc`).
 F9 asks for a frame trace without a flag file, repeatable. With the D3D11
 renderer and no `RECOMP_HW_GLOW_DUMP`, the dumps go to `logs/capture/c_*`
-in the EXE's folder. Test: retail, `bin/resot-options.ini` at 450 %, and F9
+in the EXE's folder. Test: retail, `bin/popsot-options.ini` at 450 %, and F9
 posted to the game window at 55 s. The log shows
 `[CAPTURE] F9 … requested` and `frame begins (flip 6830) by key`. The
 capture has `c_flip6830_after.bmp` at 3839×2160 and the 320 target at
@@ -1179,7 +1200,7 @@ cycle) and Android (menu cycle) offer "2160p (450%)".
 was phase-correlated with the first effect target (`805B4000`, 320) at 1×,
 2× (`RECOMP_HW_FX_SCALE`) and Ultra. In all six captures the offset is
 within 0.04 guest pixels. The copy into the chain is in register at every
-scale, so reSOT does not show the misregistration xemu #2174 describes for
+scale, so POPSoT does not show the misregistration xemu #2174 describes for
 this copy. The `805FF000` (160) target reads −2 of its own rows in every
 mode, scale-independent; the blurred 160 targets give no reliable peak.
 
@@ -1215,8 +1236,8 @@ balcony introduction) show the window and torch glow in register at 2×,
 smoother, without the shifted copies RECOMP.md records from an earlier
 build.
 
-**The change.** New level 4, Ultra (`RESOT_EFFECT_ULTRA`,
-`resot_effect_quality.h`). `hw_surface_scale` returns the internal
+**The change.** New level 4, Ultra (`POPSOT_EFFECT_ULTRA`,
+`popsot_effect_quality.h`). `hw_surface_scale` returns the internal
 resolution for every auxiliary target. This is the one function the
 D3D11, D3D12 and Vulkan back ends share.
 - **Hosts.** Windows F7 shows five buttons (Off … Ultra), and the in-game
@@ -1450,7 +1471,7 @@ Validation:
 - Both `tools/recomp.ps1 -Target xbox-demo|xbox-retail -BuildOnly` builds and
   `tools/build-android.ps1` succeed (`logs/hud-ring-*-build.txt`). MSBuild
   initially required rerunning outside the sandbox after access denied.
-- `adb install -r bin/reSOT-android.apk`, retail GameActivity launch, screenshot
+- `adb install -r bin/POPSoT-android.apk`, retail GameActivity launch, screenshot
   and log pulls. `logs/hud-ring-after-android.png` shows `1201_CorridorExit`
   with the empty ring directly below the filled tanks at the left edge.
   User confirms: "perfetto ora si vede bene". No extra game testing followed
@@ -1498,21 +1519,21 @@ Commands and results:
 - `tools/recomp.ps1 -Target xbox-demo -BuildOnly`, retail equivalent and
   `tools/build-android.ps1`: both final Windows executables and the release APK
   build. Final logs: `logs/shader-translate-{demo,retail,android}-final-build.txt`.
-  APK `bin/reSOT-android.apk`, about 27.3 MB, includes the compiler/optimizer
+  APK `bin/POPSoT-android.apk`, about 27.3 MB, includes the compiler/optimizer
   and their complete upstream notices. Build tools required execution outside
   the sandbox; original restricted attempts failed in compiler/native services.
 - Windows Vulkan: demo 50 s, scripted `22000:start:600,28000:a:600`;
   retail 30 s, `2000:a:200,6000:a:200`, via `tools/run.ps1 -Windowed -Seconds ...
-  -Set @{RESOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT=...}`. Both menus rendered
+  -Set @{POPSOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT=...}`. Both menus rendered
   and frame dumps were inspected. Each logged seven successful vertex programs,
   no translator failures. Demo run used synchronous compilation before the final
   Windows default changed; retail final run confirms background compilation and
   6,361 reference-pipeline draws while translating. Retail steady menu windows
   were about 157�168 FPS; demo about 186�195. These are not controlled benchmarks.
   Evidence: `logs/shader-translate-*-windows.txt` and `*-frame*`.
-- Android device `24069PC21G` (SM8635): `adb install -r bin/reSOT-android.apk`,
-  rooted `am start -n com.fulger.resot/.GameActivity --es target demo|retail
-  --es game /sdcard/Android/data/com.fulger.resot/files/xbox-demo|xbox-retail`,
+- Android device `24069PC21G` (SM8635): `adb install -r bin/POPSoT-android.apk`,
+  rooted `am start -n com.fulger.popsot/.GameActivity --es target demo|retail
+  --es game /sdcard/Android/data/com.fulger.popsot/files/xbox-demo|xbox-retail`,
   screenshot/log pulls, then force-stop the test app. Both logs report post-
   processing Low and VSync off. Demo menu and `01_GP01_E3_Long` opening scene
   were inspected; retail screenshot shows `1301_Lobby` and the Prince. Recorded
@@ -1535,7 +1556,7 @@ remain outside this translation change.
 
 ## 2026-10-21: hide Off in the in-game post-processing selector
 
-Both hosts' in-game reSOT Options now cycle Low/Mid/High, skipping Off.
+Both hosts' in-game POPSoT Options now cycle Low/Mid/High, skipping Off.
 Windows F7 retains Off/Low/Mid/High, and both INI readers still accept
 `[Graphics] PostProcessingQuality=0`. An existing Off value is displayed as
 Custom in the in-game menu and preserved until that selector is changed.
@@ -1578,8 +1599,8 @@ First-run file creation was not exercised at runtime in these final builds.
 The final Windows ZIP contains no separate INI, as requested: defaults remain
 embedded in the EXEs, and Android's defaults remain inside the APK. The runtime
 creates the user's INI on first launch. Final local artifacts are
-`bin/release-0.1.2/reSOT-0.1.2-windows-x64.zip` and
-`bin/release-0.1.2/reSOT-0.1.2-android.apk`, with `SHA256SUMS.txt` alongside.
+`bin/release-0.1.2/POPSoT-0.1.2-windows-x64.zip` and
+`bin/release-0.1.2/POPSoT-0.1.2-android.apk`, with `SHA256SUMS.txt` alongside.
 Both EXE version resources report 0.1.2; APK output metadata reports 0.1.2 /
 versionCode 3. These ignored outputs are not added to the source commit.
 
@@ -1620,7 +1641,7 @@ Commands completed before the user stopped further testing:
   images; Low/Mid/High traces record their respective quality. The longer Off
   trace records 22 omitted shadow-caster draws. Longer runs received a window
   close; do not count those as completed gameplay checks. Player INI unchanged.
-- `adb install -r bin/reSOT-android.apk`: installed. Android demo Off title
+- `adb install -r bin/POPSoT-android.apk`: installed. Android demo Off title
   image inspected (`logs/effect-quality-android-demo-q0.png`), with recognized
   chain/consumer skips in its trace. This is not a gameplay, water or temporal
   effect validation. Other scheduled device checks were stopped.
@@ -1691,7 +1712,7 @@ the INI-only activation and writes an activation line through the ordinary
 stderr logger.
 
 Windows returns to the original file-tail architecture, removing the pipe
-redirection added during the previous repair attempts. `resot_redirect_log`
+redirection added during the previous repair attempts. `popsot_redirect_log`
 now gives the viewer the precise path it successfully opened. External disk
 redirects use `_fileno(stdout)` / `_fileno(stderr)` instead of fixed descriptors
 1/2; F6's log reader uses the same correction. This removes the GUI CRT
@@ -1708,7 +1729,7 @@ passed all ten shader entry points. Both Windows commands,
 passed (`logs/log-source-demo-build.txt`, `logs/log-source-retail-build.txt`).
 `tools/build-android.ps1` passed (`logs/log-source-android-build.txt`). Outputs
 are `bin/sot-xbox-demo.exe`, `bin/sot-xbox-retail.exe`, and
-`bin/reSOT-android.apk`. The APK was not installed. Visible console output
+`bin/POPSoT-android.apk`. The APK was not installed. Visible console output
 and the Android overlay remain subject to user confirmation.
 
 ## 2026-10-20: restore Post processing levels, live logs and native F11 frame
@@ -1746,7 +1767,7 @@ passed (`logs/postfx-restore-demo-build.txt`,
 `logs/postfx-restore-retail-build.txt`); `tools/build-android.ps1` passed
 (`logs/postfx-restore-android-build.txt`). Outputs are the two Windows EXEs
 and the combined Android APK in `bin/`. The APK was not installed.
-The SHA-256 of `bin/resot-options.ini` was unchanged before/after the build:
+The SHA-256 of `bin/popsot-options.ini` was unchanged before/after the build:
 `9D29EBF271BAAA03816C071A4AE3539CF01C7C81BDEEF39C37218DD024A95748`.
 The user's original visual report and the reported regressions have not been
 reproduced or verified fixed in a game run here. No performance improvement
@@ -1776,7 +1797,7 @@ both completed successfully (`logs/postfx-freshness-demo-build.txt` and
 `logs/postfx-freshness-retail-build.txt`). `tools/build-android.ps1` completed
 successfully for the combined APK (`logs/postfx-freshness-android-build.txt`).
 The updated files are `bin/sot-xbox-demo.exe`, `bin/sot-xbox-retail.exe` and
-`bin/reSOT-android.apk`. The APK was not installed. Startup, live switching,
+`bin/POPSoT-android.apk`. The APK was not installed. Startup, live switching,
 visual correction and performance remain unverified here.
 
 ## 2026-10-20 (evening): Android demo ISR crash, retail multi-second freezes
@@ -1809,9 +1830,9 @@ but the creation log does: `[HW native] pipeline N (shader 4) created in
 1,885 ms. Shader 4 is `vs_uber` with the full NV2A combiner; the persistent
 cache (2.7 MB loaded) helps only for combinations already seen, so a new
 area stalls the pushbuffer executor while Adreno compiles. Guest-draw
-pipelines are now compiled on two `resot-pso` threads and their draws are
+pipelines are now compiled on two `popsot-pso` threads and their draws are
 skipped until ready; the 5-second cache save moved to the same threads.
-`RESOT_ASYNC_PIPELINES` (default on for Android, off on Windows).
+`POPSOT_ASYNC_PIPELINES` (default on for Android, off on Windows).
 
 Commands: `tools/build-android.ps1` (passed; installed with `adb install
 -r`), `tools/recomp.ps1 -Target xbox-demo -BuildOnly` and `-Target
@@ -1885,11 +1906,11 @@ Commands/results:
   `tools/build-android.ps1`: both Windows targets and release APK build.
   Logs: `logs/opence-specialize-*-final-build.txt` (ignored).
 - `tools/run.ps1 -Target xbox-retail -Windowed -Seconds 20 -Set
-  @{RESOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT='2000:a:200,6000:a:200'}`:
+  @{POPSOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT='2000:a:200,6000:a:200'}`:
   title reached, specialization active; steady windows 148–155 FPS on PC.
   Not a controlled Windows performance comparison. Local evidence:
   `logs/opence-windows-retail-vulkan-err.txt`.
-- `adb install -r bin/reSOT-android.apk`, rooted `am start` for each target,
+- `adb install -r bin/POPSoT-android.apk`, rooted `am start` for each target,
   `adb pull .../files/logs/<target>-err.txt`, `adb shell screencap -p`:
   final APK installed; demo and retail title images inspected by eye.
 
@@ -1925,7 +1946,7 @@ retain their platform-specific implementations. D3D12's fixed vertex pitch
 is an intentional restriction, not an optimization accidentally left out.
 
 `llvm-readobj --coff-exports bin/SDL3.dll` confirms both Vulkan cache exports
-(`RESOT_SetVulkanPipelineCachePath`, `RESOT_SaveVulkanPipelineCache`) and
+(`POPSOT_SetVulkanPipelineCachePath`, `POPSOT_SaveVulkanPipelineCache`) and
 both D3D12/Vulkan query APIs in the DLL used by Windows. No dependency
 download or DLL replacement was needed.
 
@@ -1946,7 +1967,7 @@ Six sequential Windows startup checks used:
 
 ```powershell
 ./tools/run.ps1 -Target <xbox-demo|xbox-retail> -Windowed -Seconds 20 -Set @{
-    RESOT_RENDERER = '<d3d11|vulkan|d3d12>'
+    POPSOT_RENDERER = '<d3d11|vulkan|d3d12>'
     RECOMP_PAD_SCRIPT = '2000:a:200,6000:a:200'
     RECOMP_FB_DUMP = '<absolute logs/windows-parity-<target>-<renderer>.bmp>'
     RECOMP_FB_WINDOW_DUMP_EVERY = '120'
@@ -1970,9 +1991,9 @@ the packaged F11 fullscreen instruction; game source and data were untouched.
 
 ## 2026-10-20: Android Sand Birds crash and retail making-of audio loss
 
-Collected `adb pull /sdcard/Android/data/com.fulger.resot/files/logs
+Collected `adb pull /sdcard/Android/data/com.fulger.popsot/files/logs
 logs/android-20261020-sandbirds`, crash logcat and exit-info. The new demo
-crash is **11:09:55**, PID 17251, APU thread `resot-1003`, uptime 206 s:
+crash is **11:09:55**, PID 17251, APU thread `popsot-1003`, uptime 206 s:
 `sub_002EF6CD+0x22C`, guest address `0xFFFFFFBE`, ESI zero. This is a new
 occurrence after the previous dispatch-timeout correction, not merely the
 old 2026-10-19 crash. The user identifies the scene as Sand Birds.
@@ -2022,7 +2043,7 @@ Validation commands: `python tools/check-hlsl.py` (10 entries pass);
 --output-on-failure` (1/1 each); corresponding `kernel-irql-<demo|retail>`
 builds and ctests (1/1 each); `tools/recomp.ps1 -Target <target> -BuildOnly`
 (both Windows builds pass); `tools/build-android.ps1` (release APK builds).
-`adb install -r bin/reSOT-android.apk` succeeded, without uninstall/data clear.
+`adb install -r bin/POPSoT-android.apk` succeeded, without uninstall/data clear.
 Temporary sampling instrumentation was removed before this final APK.
 
 Device retest of the final APK:
@@ -2079,9 +2100,9 @@ a game from the new screens.
 ## 2026-10-20: ADB installation and Android retail resolution measurements
 
 User authorized renewed device tests. `adb devices -l` identified the connected
-24069PC21G/peridot. `adb install -r bin/reSOT-android.apk` succeeded for the
+24069PC21G/peridot. `adb install -r bin/POPSoT-android.apk` succeeded for the
 initial APK and the subsequent revision; no uninstall/data clear was issued.
-The initial external `resot-options.ini` did not exist. Benchmark INIs set
+The initial external `popsot-options.ini` did not exist. Benchmark INIs set
 FPSLimit=0, VSync=0, PostProcessing=0 and scale 100/50/75. The phone retains
 75% (360p) for the next launch; keyboard/controller mappings use their defaults.
 
@@ -2146,7 +2167,7 @@ Commands and observations:
   with a surviving ILU whose destination must remain R1.
 - `tools/recomp.ps1 -Target xbox-demo -BuildOnly` and
   `tools/recomp.ps1 -Target xbox-retail -BuildOnly`: both built.
-- `tools/build-android.ps1`: release APK built, `bin/reSOT-android.apk`.
+- `tools/build-android.ps1`: release APK built, `bin/POPSoT-android.apk`.
 
 Builds required execution outside the sandbox: MSBuild's tracker and Gradle's
 native services were denied inside it. An initial obsolete test build tree
@@ -2165,9 +2186,9 @@ MSVC 19.51 (Visual Studio 2026), x64 Release.
 
 ## 2026-10-20: Android crash logs, system responsiveness and unmeasured draw optimization
 
-Collected `adb pull /sdcard/Android/data/com.fulger.resot/files/logs
+Collected `adb pull /sdcard/Android/data/com.fulger.popsot/files/logs
 logs/android-20261020-user` (82 files), `adb logcat -b crash -d -v threadtime`,
-`adb shell dumpsys activity exit-info com.fulger.resot`, `top -H`, `meminfo`
+`adb shell dumpsys activity exit-info com.fulger.popsot`, `top -H`, `meminfo`
 and `thermalservice`. Original logs are retained locally. The latest recorded
 demo native crash is 2026-10-19 21:48:07: `sub_002EF6CD+0x22C`, guest fault
 VA `0xFFFFFFBE`, `edi=0xFFFFFFB4`, with the DirectSound voice-list service
@@ -2194,7 +2215,7 @@ so this regression can be configured outside the top-level project.
 Android samples initially show several game threads at Linux nice -20.
 Runtime-created workers and the title worker now start at normal priority;
 this does not control priorities later chosen by SDL, GPU drivers or Android.
-Runtime worker IDs are exposed as `resot-<id>` thread names. The mobile frame
+Runtime worker IDs are exposed as `popsot-<id>` thread names. The mobile frame
 limiter uses nanosleep instead of a polling tail, and both mobile targets use
 16/2-MB vertex/index rings rather than the demo's desktop 64/8-MB reuse ring.
 An explicit event-loop delay was tried and removed: no demonstrated benefit.
@@ -2261,7 +2282,7 @@ Commands: `python tools/check-hlsl.py`,
 texture conversion), `tools/recomp.ps1 -Target xbox-demo -BuildOnly`,
 `tools/recomp.ps1 -Target xbox-retail -BuildOnly`, `tools/build-android.ps1`.
 Sandboxed builds initially failed on Gradle/MSBuild access; builds outside
-the sandbox passed. `adb install -r bin/reSOT-android.apk` retained data.
+the sandbox passed. `adb install -r bin/POPSoT-android.apk` retained data.
 
 With only the simple-shader enablement installed, steady demo title/menu
 windows measured 62.9–63.1 FPS, about 94% simple draws, executor 5.28–6.14 ms
@@ -2301,7 +2322,7 @@ changes as well, so no isolated cause is assigned to this difference.
 ## 2026-10-19: continued Android menu profiling, vertex operand reads
 
 Same connected SM8635 phone and 480p options as the preceding entry;
-`adb pull .../files/resot-options.ini logs/android-operands-options.ini`
+`adb pull .../files/popsot-options.ini logs/android-operands-options.ini`
 confirmed FPSLimit=0, VSync=0, PostProcessing=0 and internal resolution 100.
 `tools/build-native-shaders.py` now skips unused source reads in the native
 vertex interpreter and returns identity swizzles directly. D3D11's shader
@@ -2337,7 +2358,7 @@ KickOffs and the guest repeatedly calling ordinals 294/277. Start did not
 resume it; the user confirmed the freeze. The change was removed and the
 previous APK variant rebuilt/reinstalled without clearing saves or options.
 This is a temporal association, not an established shader cause.
-Recovery was verified with `adb install -r bin/reSOT-android.apk` and a fresh
+Recovery was verified with `adb install -r bin/POPSoT-android.apk` and a fresh
 launch: the animated garden/title returned, with 27.4/27.6 FPS windows and
 a later 28.5 FPS window in `logs/android-recovery-live.txt`; screenshot
 `logs/android-recovery.png`. Options are byte-identical to the earlier
@@ -2375,7 +2396,7 @@ requirements increases compatibility, not a demonstrated FPS fix here.
 With the user's authorization, ADB tests ran on the connected 24069PC21G,
 SM8635 phone, system Vulkan. Existing APK and options were preserved in
 ignored `logs/android-perf-before.apk` and `android-perf-options-before.ini`.
-`adb install -r bin/reSOT-android.apk` updated the app without uninstalling
+`adb install -r bin/POPSoT-android.apk` updated the app without uninstalling
 or clearing saves. Main-menu tests kept InternalResolutionPercent=100,
 FPSLimit=0, VSync=0, PostProcessing=0. Screenshots confirmed the same Menu
 scene at 2712x1220 display resolution. Sequential observations (discarding
@@ -2402,7 +2423,7 @@ alpha comparisons for foliage. Both GPU and fallback CPU vertex paths select
 the appropriate fragment shader; the specialized pipelines bind one sampler.
 About 80% of menu guest draws use these shaders. Vertex programs still use
 `vs_uber`; remaining GPU work and CPU overhead limit the frame rate.
-`RESOT_NATIVE_SIMPLE=0` disables specialization for developer A/B runs.
+`POPSOT_NATIVE_SIMPLE=0` disables specialization for developer A/B runs.
 Retail only; demo retains the generic fragment path.
 
 Checks: `python tools/check-hlsl.py`, both Windows `recomp.ps1 -BuildOnly`
@@ -2434,7 +2455,7 @@ window averages, **not** frame percentiles or 1% lows. Distinct slow cases:
 - 65.4 FPS: executor 2.9 ms, present 11.5 ms.
 
 Diagnostic runs used `tools/run.ps1 -Target xbox-retail -Windowed -Seconds
-900 -Set @{RESOT_ASSET_DIR='<portable retail folder>';
+900 -Set @{POPSOT_ASSET_DIR='<portable retail folder>';
 RECOMP_FRAME_TRACE='<absolute flag path>'; RECOMP_HW_TRACE_PIXEL='700,500';
 RECOMP_HW_GLOW_DUMP='<absolute dump prefix>'}`. The user loaded the garden
 and positioned the camera. An intermediate copy named
@@ -2526,7 +2547,7 @@ after, readbacks rescaled to 1280x720); in the traced frame no other
 main-view batch matched the rule. Not checked: Android at runtime, the
 main menu and other retail menus, the "Saving profile" box, the pause
 menu and HUD after the change, a console comparison, the demo (code
-under `RESOT_RUNTIME_RETAIL`, not run).
+under `POPSOT_RUNTIME_RETAIL`, not run).
 
 ## 2026-10-19: Android back on GPU vertex programs; vertex threads off there
 
@@ -2546,7 +2567,7 @@ demo log). The user reports the menu hanging with no UI.
 **Change.** Android uses the Windows configuration again: `vs_uber` and the
 named-register `ps_main` (the long first-frame compile is what the pipeline
 cache now absorbs), with bound-only texture sampling. Vertex worker threads
-default to 0 on Android (`RESOT_VSH_THREADS` still sets them). The
+default to 0 on Android (`POPSOT_VSH_THREADS` still sets them). The
 `ps_main_arr` variant was removed.
 
 **Checks.** `check-hlsl.py` passes; both `-BuildOnly` builds and
@@ -2567,10 +2588,10 @@ rate than before.
   ms: the GPU was no longer the limit.
 
 **Changes.**
-- `port/third_party/sdl-gpu-query/resot_pipeline_cache_vulkan.inc`, applied
+- `port/third_party/sdl-gpu-query/popsot_pipeline_cache_vulkan.inc`, applied
   by `tools/patch-sdl-gpu-query.py`: one `VkPipelineCache` per device for
   SDL's graphics pipelines, loaded from and saved to a file
-  (`RESOT_SetVulkanPipelineCachePath`, `RESOT_SaveVulkanPipelineCache`).
+  (`POPSOT_SetVulkanPipelineCachePath`, `POPSOT_SaveVulkanPipelineCache`).
   The runtime saves it every 5 s when pipelines were created and at
   shutdown: `bin/shadercache/vulkan-pipelines.bin` on Windows,
   `vulkan-pipelines.bin` in the game's data folder on Android.
@@ -2583,8 +2604,8 @@ rate than before.
 **Checks.** `check-hlsl.py` passes all entries. `tools/setup-native-gpu.ps1`
 rebuilt SDL3.dll with the patch (`logs/sdl-cache-build.txt`). Windows
 retail, Vulkan: a first run wrote a 1,793,992-byte cache; the second logged
-`RE-SoT pipeline cache: 1793992 bytes loaded` and grew it to 3,328,959.
-Threaded CPU path (`RESOT_NATIVE_CPU_VSH=1`, `logs/vmt-vk/cache1.txt`):
+`POPSoT pipeline cache: 1793992 bytes loaded` and grew it to 3,328,959.
+Threaded CPU path (`POPSOT_NATIVE_CPU_VSH=1`, `logs/vmt-vk/cache1.txt`):
 `vertex` 3.9-4.5 ms, 92-112 FPS (semaphore version 4.2-4.3 ms; this PC did
 not show the Android wake cost). Default Vulkan (`logs/samp-vulkan/`) menu
 189 FPS; D3D11 (`logs/samp-d3d11/`) 164-201 FPS in the courtyard; snapshots
@@ -2615,14 +2636,14 @@ indexed form for Android.
 - The CPU interpreter runs a batch's distinct vertices on worker threads
   (`vmt_*`, nv2a_pb_exec.c): cores minus two, at most seven, batches of at
   least 128 distinct vertices, serial for programs that write constants.
-  `RESOT_VSH_THREADS=<n>` overrides; startup logs `[VSH] CPU vertex
+  `POPSOT_VSH_THREADS=<n>` overrides; startup logs `[VSH] CPU vertex
   programs: N worker thread(s)`. Android's native renderer now uses this by
-  default instead of `vs_uber` (`RESOT_NATIVE_GPU_VSH=1` selects it);
+  default instead of `vs_uber` (`POPSOT_NATIVE_GPU_VSH=1` selects it);
   Windows keeps `vs_uber`.
 
 **Checks.** `python tools/check-hlsl.py` passes all entries (new:
 `ps_main_arr`). Windows retail, Vulkan:
-- CPU path with threads (`RESOT_NATIVE_CPU_VSH=1`, `logs/vmt-vk/`): 6
+- CPU path with threads (`POPSOT_NATIVE_CPU_VSH=1`, `logs/vmt-vk/`): 6
   workers on 8 cores; menu `vertex` 4.2-4.3 ms, executor 7.4-7.8 ms, 100-106
   FPS (single thread earlier: 11.6-12.1 ms, 16.2-16.6 ms, 51-54 FPS).
 - Default (`vs_uber` + named `ps_main`, `logs/split-vk/`): menu pages
@@ -2687,7 +2708,7 @@ pushed as vertex uniform buffers 1 and 2 only when they change. Each batch's
 distinct vertices go up as their raw input registers (`fetch_attr`, the same
 reads as the interpreter, at most eight inputs) with a 16-bit index ring.
 The interpreter remains for programs that write constants, have no FINAL or
-read more than eight inputs, and with `RESOT_NATIVE_CPU_VSH=1`. The CPU
+read more than eight inputs, and with `POPSOT_NATIVE_CPU_VSH=1`. The CPU
 checks of the D3D11 path (glow-composite corners, flat 2D bounds for the
 widened picture) are kept.
 
@@ -2698,17 +2719,17 @@ widened picture) are kept.
 
 Windows retail, native Vulkan, same scripted 130-second run as the HUD check
 (`./tools/run.ps1 -Target xbox-retail -Seconds 130 -Windowed -NoVsync
--SnapshotEvery 15 -Set @{RESOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT=...}`):
+-SnapshotEvery 15 -Set @{POPSOT_RENDERER='vulkan'; RECOMP_PAD_SCRIPT=...}`):
 - GPU programs (`logs/uber-gpu/`): `vertex` 0.02-0.03 ms; menu executor
   4.6-6.7 ms; first courtyard 66-124 FPS, executor 3.7-10.4 ms. Snapshots
   (title, main menu, cutscene, courtyard with tutorial text and health bar,
   landscape view) look right; compared by eye only, not pixel by pixel.
-- `RESOT_NATIVE_CPU_VSH=1` (`logs/uber-cpu/`): menu `vertex` 11.6-12.1 ms,
+- `POPSOT_NATIVE_CPU_VSH=1` (`logs/uber-cpu/`): menu `vertex` 11.6-12.1 ms,
   executor 16.2-16.6 ms, 51-54 FPS. At this slower rate the timed presses
   selected Xbox Live at about 35 s and the title launched `dashupdate.xbe`
   and exited, so the gameplay part of the comparison is missing.
 - One texture upload per frame appeared in the GPU run's samples and not in
-  the CPU run; a traced 40-second run (`RESOT_TEX_DEBUG`, removed) showed
+  the CPU run; a traced 40-second run (`POPSOT_TEX_DEBUG`, removed) showed
   only first uses in the texture cache (127, none re-decoded) and 0.0
   uploads per frame. Its source was not identified.
 
@@ -2716,33 +2737,33 @@ Not checked: Android (APK built, not run on a device); D3D12 at run time;
 the demo at run time with this build; fog, lighting and skinning programs
 compared numerically against the interpreter; programs that fall back.
 
-**Xbox Live menu (retail).** `RESOT_MENU_TRACE=1` (`logs/uber-gpu/menutrace.txt`)
+**Xbox Live menu (retail).** `POPSOT_MENU_TRACE=1` (`logs/uber-gpu/menutrace.txt`)
 shows the main menu's choices: Start New Game (return `0x00234B78`), Load
 Saved Game, Options, Xbox Live (`0x00234D3A`, text `0B008C4E:56`), Extra
 Features. The handle goes to `[ebp+0x288]`, which only the bind at
 `0x00235406` reads (scan of `0x00230000-0x00238000`). Wrappers of
 `0x002A3910` and `0x00116660` skip exactly those two calls; the skipped
 bind returns what `0x00116660`'s epilogue (`0x00116765-0x00116799`) would.
-`RESOT_XBOX_LIVE_MENU=1` keeps it. The pause menu's Xbox Live choice
+`POPSOT_XBOX_LIVE_MENU=1` keeps it. The pause menu's Xbox Live choice
 (`0x001A33F6`) is unchanged.
 
 `tools/recomp.ps1 -Target xbox-retail` (full relift: 13 functions wrapped as
 `sub_X_gen`, was 11) passed (`logs/live-retail-recomp.txt`). A traced run
 (`logs/live-menu/`) shows the main page built as Start New Game, Load Saved
-Game, Options, Extra Features, then reSOT Options; snapshots show that list
+Game, Options, Extra Features, then POPSoT Options; snapshots show that list
 with no gap. The trace shows the remaining choices bound to actions (A3, A4,
-A5, A7 and the reSOT entry A8) and no bind for the removed one. Scripted
+A5, A7 and the POPSoT entry A8) and no bind for the removed one. Scripted
 presses could not reliably reach Extra Features (the profile page consumed
 them), so choosing each remaining entry was not exercised.
 
 Final builds after these changes: both `-BuildOnly` builds and
 `tools/build-android.ps1` pass (`logs/uber-android-build.txt`,
-`bin/reSOT-android.apk`, 21.7 MB); the Android build's generated shader
+`bin/POPSoT-android.apk`, 21.7 MB); the Android build's generated shader
 header contains `vs_uber`.
 
 ## 2026-10-19: Look sensitivity, F5 renderer line, Android retail profile search
 
-**Look sensitivity** (25–200%, steps of 25, default 100%) is in reSOT
+**Look sensitivity** (25–200%, steps of 25, default 100%) is in POPSoT
 Options → Controls of both games' main menus, in Windows F7 → Controls and in
 the Android menus. It is saved as `[Controls] LookSensitivityPercent`. The
 gain is applied after the title's own radial deadzone, to the float result of
@@ -2775,7 +2796,7 @@ run has created, reloaded and selected a profile with this APK.
 Build checks: `tools/recomp.ps1 -Target xbox-demo -BuildOnly` and the retail
 equivalent pass (`logs/look-demo-build.txt`, `look-retail-build.txt`);
 `tools/build-android.ps1` passes (`logs/look-android-build.txt`,
-`bin/reSOT-android.apk`, 21.6 MB). No shaders changed. Nothing was run in
+`bin/POPSoT-android.apk`, 21.6 MB). No shaders changed. Nothing was run in
 the game for this entry.
 
 ## 2026-10-19: Android crash logs, native vertex buffers and device Hor+
@@ -2838,7 +2859,7 @@ validation was performed here.
 ## 2026-10-18: shared internal resolution, Android retail files and driver picker
 
 User reports a large Android speed improvement at lower resolution. Windows
-now uses the same six internal scale choices in both reSOT Options and F7,
+now uses the same six internal scale choices in both POPSoT Options and F7,
 stored as `Graphics/InternalResolutionPercent` (100 default). The obsolete
 window-size index is ignored. Both native GPU encoders and D3D11 resize
 their main color/depth targets and viewport/scissor coordinates independently
@@ -2940,7 +2961,7 @@ Checks performed:
 
 - `python tools/check-hlsl.py`: seven checks passed.
 - `tools/build-android.ps1`: both targets and all four hook DSOs built;
-  release APK `bin/reSOT-android.apk` is approximately 21.6 MB. It is smaller
+  release APK `bin/POPSoT-android.apk` is approximately 21.6 MB. It is smaller
   because legacy packaging compresses the libraries, then extracts them at
   install time as libadrenotools requires. Log:
   `logs/android-scale-driver-build.txt`.
@@ -2948,7 +2969,7 @@ Checks performed:
   `libmain_hook.so`, `libhook_impl.so`, `libfile_redirect_hook.so` and
   `libgsl_alloc_hook.so`, plus both BSD dependency licence notices.
 - NDK `llvm-readelf --dyn-syms` confirms SDL exports
-  `RESOT_SetAndroidVulkanGetInstanceProcAddr` and `RESOT_GetVulkanQueryAPI`;
+  `POPSOT_SetAndroidVulkanGetInstanceProcAddr` and `POPSOT_GetVulkanQueryAPI`;
   retail's ELF dependencies are all packaged SDL/system libraries.
   The merged manifest has `extractNativeLibs=true`.
 - `tools/recomp.ps1 -Target xbox-retail -BuildOnly` and the demo equivalent
@@ -2959,7 +2980,7 @@ Checks performed:
 - Compiled production `GpuDrivers.java` and
   `port/android/tests/GpuDriversImportTest.java` with JDK javac and Android
   API 36's android.jar into `build/tests/android-driver-import`, then ran
-  `com.fulger.resot.GpuDriversImportTest` on the JVM: valid ZIP/arm64, traversal,
+  `com.fulger.popsot.GpuDriversImportTest` on the JVM: valid ZIP/arm64, traversal,
   absolute paths, duplicate canonical paths, entry count, wrong architecture
   and truncated ELF cases passed. This tests importer/ELF helpers, not the
   Android picker, preference UI, or native loader on a phone.
@@ -2975,12 +2996,12 @@ vertex interpreter remains a potential bottleneck.
 ## 2026-10-18: Android retail boot confirmed; option refresh and native performance
 
 The user confirms retail now runs on Android after the Partition1 volume-open
-correction. They report stale value labels in the retail main-menu reSOT
+correction. They report stale value labels in the retail main-menu POPSoT
 Options page (values update only after leaving/reopening), Bink stutter on
 both Vulkan hosts, and low Vulkan frame rate. This confirms device boot and
 menu progress, not complete rendering/audio/gameplay accuracy.
 
-Found that `resot_guest_read_word` unconditionally rejected every non-Windows
+Found that `popsot_guest_read_word` unconditionally rejected every non-Windows
 read. Retail's existing label-refresh hook therefore could not resolve any
 text object on Android, despite the options revision changing. Android now
 accepts bounded reads in main/contiguous RAM and committed, readable extended
@@ -3028,7 +3049,7 @@ Commands and checks:
 - `tools/recomp.ps1 -Target xbox-retail -BuildOnly` and the demo equivalent:
   both final Windows builds passed.
 - `tools/build-android.ps1`: final APK built with both targets;
-  `bin/reSOT-android.apk` (50.8 MB). Build logs use `vulkan-perf-*-build.txt`.
+  `bin/POPSoT-android.apk` (50.8 MB). Build logs use `vulkan-perf-*-build.txt`.
 - CMake build + CTest of `build/tests/vsh`: epilogue, sparse/poisoned inputs,
   changed start slot, word-by-word program uploads and missing program passed.
 - Differential harness in `build/tests/vsh-differential`: **10,000 randomized
@@ -3039,12 +3060,12 @@ Commands and checks:
   **3/3 passed**. The probe test exercises Windows; Android metadata checks
   compile but have not been executed on a device here.
 - Baseline and after runs: `tools/run.ps1 -Target xbox-retail -Seconds 40
-  -Windowed -NoVsync -Set @{RESOT_RENDERER='vulkan';RECOMP_PAD_SCRIPT=
+  -Windowed -NoVsync -Set @{POPSOT_RENDERER='vulkan';RECOMP_PAD_SCRIPT=
   '2000:a:200,5000:a:200,8000:a:200,12000:a:200';RECOMP_FPS_LIMIT='0'}`;
   the timings run used 45 seconds. The saved INI already had FPSLimit=0,
   VSync=0, PostProcessing=0. These saved preferences were not changed.
 - Final movie run: `tools/run.ps1 -Target xbox-retail -Seconds 15 -Windowed
-  -NoVsync -Set @{RESOT_RENDERER='vulkan'}`; log retained as
+  -NoVsync -Set @{POPSOT_RENDERER='vulkan'}`; log retained as
   `logs/vulkan-movie-cadence-err.txt`.
 
 ## 2026-10-18: Android retail Partition1 volume-directory failure isolated
@@ -3110,7 +3131,7 @@ alive. Other POSIX hosts keep their existing exit behavior.
 
 Validation commands: `python tools/check-hlsl.py` passed all seven checks;
 `tools/build-android.ps1` built both game libraries and the release APK
-(`bin/reSOT-android.apk`, 50.8 MB);
+(`bin/POPSoT-android.apk`, 50.8 MB);
 `tools/recomp.ps1 -Target xbox-retail -BuildOnly` and the demo equivalent
 both passed. Logs: `logs/fix-android-storage-build.txt`,
 `logs/fix-retail-storage-build.txt`, `logs/fix-demo-storage-build.txt`.
@@ -3143,12 +3164,12 @@ Commands run:
 - `tools/recomp.ps1 -Target xbox-retail -BuildOnly` and the equivalent
   `xbox-demo` command: both Windows Release builds passed.
 - `tools/build-android.ps1`: release APK built with both targets, including
-  the Android options default; output `bin/reSOT-android.apk` (50.8 MB).
+  the Android options default; output `bin/POPSoT-android.apk` (50.8 MB).
 - `python tools/run-build-tool.py ctest --test-dir build/tests/native-gpu -C Release --output-on-failure`:
   native D3D12/Vulkan GPU checks and guest-label probe passed (3/3). These
   standalone tests do not exercise the changed texture upload helper.
 - `tools/run.ps1 -Target xbox-retail -Seconds 35 -Windowed -Set
-  @{RESOT_RENDERER='vulkan';RECOMP_PAD_SCRIPT='3000:a:200,6000:a:200,10000:a:200,15000:start:200,20000:a:200'}`:
+  @{POPSOT_RENDERER='vulkan';RECOMP_PAD_SCRIPT='3000:a:200,6000:a:200,10000:a:200,15000:start:200,20000:a:200'}`:
   native Vulkan executed 159,138 draws; sampled windows after startup reported
   28.6–40.6 FPS (initial window 2.0 FPS). No fatal error in the captured log.
   This was a runtime smoke test, without visual inspection or a baseline A/B
@@ -3174,7 +3195,7 @@ recorded.
   service and the native extract-xiso run are gone from the Android build.
 - An extracted demo folder copied to `files/xbox-demo` started and the game
   process ended. The user's `xbox_kernel.log` stops after `Path init`
-  (`game=/storage/emulated/0/Android/data/com.fulger.resot/files/xbox-demo`)
+  (`game=/storage/emulated/0/Android/data/com.fulger.popsot/files/xbox-demo`)
   and `Unrecognized Xbox path: ERRasser.log`; a Windows run of the same demo
   continues from there with `NtReleaseMutant` and `AvSetDisplayMode`.
   The user's `files/logs/xbox-demo-err.txt` shows that the game got much
@@ -3218,13 +3239,13 @@ the launcher and the ISO installation are all unverified there.
 
 - `.\tools\build-android.ps1` (NDK 29.0.14206865, CMake 3.30.3, AGP 9.0.1,
   Gradle 9.1.0, compileSdk 36, minSdk 29): `BUILD SUCCESSFUL`,
-  `bin/reSOT-android.apk`, 50.8 MB, package `com.fulger.resot` 0.1.0, signed
-  with the debug key (`apksigner verify`). It holds `libresot_demo.so`
-  (21.1 MB), `libresot_retail.so` (26.5 MB), `libSDL3.so` and
-  `libresot_launcher.so` for arm64-v8a, the logo, the Atlantis MF face and the
+  `bin/POPSoT-android.apk`, 50.8 MB, package `com.fulger.popsot` 0.1.0, signed
+  with the debug key (`apksigner verify`). It holds `libpopsot_demo.so`
+  (21.1 MB), `libpopsot_retail.so` (26.5 MB), `libSDL3.so` and
+  `libpopsot_launcher.so` for arm64-v8a, the logo, the Atlantis MF face and the
   licences under `assets/licenses/`. Both game libraries link with
   `-Wl,--no-undefined`; `SDL_main` and the three `TouchControls` JNI
-  functions are exported; `libSDL3.so` exports `RESOT_GetVulkanQueryAPI`.
+  functions are exported; `libSDL3.so` exports `POPSOT_GetVulkanQueryAPI`.
 - Before Gradle, the same `port/android/CMakeLists.txt` built by hand
   (`cmake -G Ninja` with the NDK toolchain): every lifted file of both
   targets compiles for AArch64 with clang, with no change to
@@ -3232,7 +3253,7 @@ the launcher and the ISO installation are all unverified there.
   `nv2a_pb_replay.c`, `nv2a_pgraph_d3d11.c`, `nv2a_core.c` and
   `nv2a_pb_test.c` reference the D3D8 layer and xemu's register model, which
   nothing on Windows pulls from their static libraries either.
-- The shared changes (GPU backend split by `RESOT_HW_D3D11`, `fb_present.c`,
+- The shared changes (GPU backend split by `POPSOT_HW_D3D11`, `fb_present.c`,
   `scene.c`, the MMIO decoder, `win32_compat`, the SDL export) were rebuilt
   for Windows: `.\tools\recomp.ps1 -Target xbox-demo -BuildOnly` and
   `-Target xbox-retail -BuildOnly` both rebuilt `bin/sot-xbox-*.exe` with no
@@ -3254,7 +3275,7 @@ the user pressing A B X Y) read slot 0 as A=0x1000, B=0x2000, X=0x4000,
 Y=0x8000: the system reports the buttons correctly, and the host chain
 (`xinput_device.c` -> `options.c` filter -> `xbox_HlePadState`) is an
 identity with the default bindings and was not changed by 7b82563. The
-player's `resot-options.ini` held `[Joystick] Action5=2` (Jump on B) and
+player's `popsot-options.ini` held `[Joystick] Action5=2` (Jump on B) and
 `Action9=0` (Cancel unbound). Two ways that file gets rewritten were found:
 
 - A capture opened from the game's Joystick page took the next new pad
@@ -3264,7 +3285,7 @@ player's `resot-options.ini` held `[Joystick] Action5=2` (Jump on B) and
 - A run with `RECOMP_PAD_SCRIPT` saved whatever its timed presses changed.
   A smoke run here with the demo's old script logged `post-processing
   off/on/off`, `FPS limit: 0` and `host VSync off` and wrote them into
-  `bin/resot-options.ini` (restored to its previous `[Launcher]`-only
+  `bin/popsot-options.ini` (restored to its previous `[Launcher]`-only
   content afterwards). Scripted runs (`RECOMP_PAD_SCRIPT`/`RECOMP_PAD_LIVE`)
   now keep option changes for the run only (`[OPTIONS] scripted pad:
   changes not saved`).
@@ -3300,7 +3321,7 @@ the executable copied to a scratch folder with its own ini
 | retail, 90 s, Vulkan | `vulkan native`, queries ABI 1 | no `[POSTFX]` line in the traced frame | 12, 30, 29, 32, 39, 29, 33, 42, 36, 36, 42 |
 | retail, 90 s, D3D12 | `d3d12 native`, queries ABI 1 | no `[POSTFX]` line in the traced frame | 15, 52, 54, 59, 56, 49, 45, 40, 47, 46, 38 |
 
-The pad script reached reSOT Options in every run and turned the FPS limit
+The pad script reached POPSoT Options in every run and turned the FPS limit
 to None and VSync off partway (logged, not saved), so the samples mix
 settings and scenes; they are not a before/after comparison. No `fatal`
 line in any run. Retail logged zero visibility queries, as in the earlier
@@ -3387,7 +3408,7 @@ using cached, hash-checked official archives. In addition to the SDK/DXC hashes
 already recorded below, SDL's official source ZIP is checked against SHA-256
 `9CD42377704398796071B8597CD7E21DA254A43BAD98C4199739647ADC13FA6F`.
 The installer extracts sources, applies the published additions and compiles an
-altered SDL3.dll. Its licence and `SDL3-RESOT.txt` accompany portable builds.
+altered SDL3.dll. Its licence and `SDL3-POPSOT.txt` accompany portable builds.
 `dumpbin /exports bin/SDL3.dll` showed both versioned query API getters;
 `dumpbin /dependents` listed only Windows system DLLs. No separate Visual C++
 runtime DLL or SDK is required by the player. A full portable asset-copy run
@@ -3419,7 +3440,7 @@ consuming a guard page or raising an exception. These tests contain no game data
 
 ```powershell
 ./tools/run.ps1 -Target xbox-retail -Seconds 150 -Windowed -DumpFrames -SnapshotEvery 5 -Set @{
-  RESOT_RENDERER='vulkan'; RESOT_GPU_DEBUG='1'
+  POPSOT_RENDERER='vulkan'; POPSOT_GPU_DEBUG='1'
   RECOMP_PAD_SCRIPT='15000:start:400,25000:start:400,35000:a:400,45000:start:400,60000:a:400,75000:a:400,90000:start:400,100000:a:400,110000:a:400'
   RECOMP_PAD_LIVE='logs/native-retail-live.txt'
 }
@@ -3446,13 +3467,13 @@ validation error. No lifted code or function boundaries were edited.
 `source/xbox-retail/target_hooks.c` now probes each optional metadata word
 before dereferencing it, performs address arithmetic without 32-bit wrapping,
 rejects stale vector bounds and still requires the existing text-action vtable
-and reSOT text-group reference before refreshing a label. The shared probe is
+and POPSoT text-group reference before refreshing a label. The shared probe is
 `port/game/guest_probe.h`; it checks committed readable host regions and
 rejects guards without triggering the crash handler. It does not swallow
 exceptions from lifted game execution.
 
 Repeated the same pad timeline through 110 seconds, using native D3D12,
-`RESOT_GPU_DEBUG=1`, `-Seconds 115 -SnapshotEvery 5` (no live movement file).
+`POPSOT_GPU_DEBUG=1`, `-Seconds 115 -SnapshotEvery 5` (no live movement file).
 The process survived to the requested 115-second limit. Its log explicitly
 skipped unreadable `0xA7F52955` and three other stale words, with no crash or
 SDL GPU error. The final GPU readback showed the Prince in the first courtyard
@@ -3537,7 +3558,7 @@ and exact dimensions, then both tests were rerun successfully.
 
 **Demo observations:** a 20-second D3D12 run and a 30-second Vulkan run,
 using `tools/run.ps1 -Target xbox-demo -Windowed -DumpFrames -Set
-@{RESOT_RENDERER='d3d12'}` / `'vulkan'` with scripted A/Start inputs, selected
+@{POPSOT_RENDERER='d3d12'}` / `'vulkan'` with scripted A/Start inputs, selected
 the requested native SDL GPU driver. GPU readbacks were visually inspected:
 D3D12 showed the demo menu, Vulkan the animated palace/garden sequence after
 Start. These captures are local ignored diagnostics, not new README media.
@@ -3560,7 +3581,7 @@ acquiring the swapchain image. The upstream SDL DLL is unchanged.
 
 ```powershell
 ./tools/run.ps1 -Target xbox-demo -Seconds 55 -Windowed -DumpFrames -Set @{
-  RESOT_RENDERER='d3d12'; RESOT_GPU_DEBUG='1'
+  POPSOT_RENDERER='d3d12'; POPSOT_GPU_DEBUG='1'
   RECOMP_PAD_SCRIPT='2000:a:200,6000:a:200,12000:a:200,22000:start:600,28000:a:600,45000:start:600'
 }
 ```
@@ -3575,7 +3596,7 @@ claim that Entree gameplay renders correctly or that native performance is
 comparable to the existing D3D11/GPU-vertex path.
 
 **Final bounded Vulkan run:** the same scripted A/Start inputs (without the
-last 45-second Start), with `RESOT_RENDERER='vulkan'`, `RESOT_GPU_DEBUG='1'`
+last 45-second Start), with `POPSOT_RENDERER='vulkan'`, `POPSOT_GPU_DEBUG='1'`
 and `-Seconds 45`, stopped at the requested limit. It selected `SDL GPU
 vulkan`, loaded `0101_Entree`/`0101_Porte` and recorded 350,887 native draws;
 no SDL GPU error was logged (`logs/native-vulkan-bounded.txt`). Five-second
@@ -3613,7 +3634,7 @@ logs a native D3D11 fallback. Successful DXVK modules remain loaded for the
 process lifetime, including their asynchronous workers.
 
 `d3d11` is still the default for missing/invalid preferences. The saved
-selection and active backend are separate; `RESOT_RENDERER=vulkan` overrides
+selection and active backend are separate; `POPSOT_RENDERER=vulkan` overrides
 only this run and is not copied into the saved choice when another setting
 is saved. The local development INI was left at `Renderer=d3d11`.
 
@@ -3643,7 +3664,7 @@ device. A separate executable without DXVK verifies failed-load cleanup,
 then native D3D11 rendering/readback/resize. These are synthetic host tests,
 not proof of complete game correctness.
 
-**Default regression on the final build:** removed the `RESOT_RENDERER`
+**Default regression on the final build:** removed the `POPSOT_RENDERER`
 environment override and ran `./tools/run.ps1 -Target xbox-demo -Windowed
 -Seconds 15`, with `Renderer=d3d11` saved and DXVK still installed. The log
 reports `active renderer: Direct3D 11`, continued drawing until the harness
@@ -3655,7 +3676,7 @@ smoke test was rerun and passed (`ctest --test-dir build/tests-nv2a-d3d12
 
 **Game, separately for each XBE:**
 `./tools/run.ps1 -Target xbox-demo -Windowed -Seconds 20 -DumpFrames -Set
-@{RESOT_RENDERER='vulkan'}` and the same command for `xbox-retail`.
+@{POPSOT_RENDERER='vulkan'}` and the same command for `xbox-retail`.
 Both runs report verified Vulkan handles and `active renderer: Vulkan (DXVK)`.
 GPU surface readbacks were visually inspected: demo Start menu over the
 garden; retail Start New Game menu over the garden. Neither log reports a
@@ -3682,9 +3703,9 @@ and flushed before DXGI presentation. Resize drops wrapped references and
 waits for the queue fence. D3D12/D3D11On12 entry points load from system DLLs
 at run time; device initialization failure logs a fallback to D3D11.
 
-F7 Graphics saves `Graphics/Renderer=d3d11|d3d12` in `resot-options.ini`;
+F7 Graphics saves `Graphics/Renderer=d3d11|d3d12` in `popsot-options.ini`;
 restart applies it. The panel names the active backend independently of
-the saved choice. `RESOT_RENDERER` overrides the INI for a run. D3D11 remains
+the saved choice. `POPSOT_RENDERER` overrides the INI for a run. D3D11 remains
 the default; Vulkan remains unavailable. No guest addresses or seeds changed.
 
 **Build checks:** `python tools/check-hlsl.py` passed all seven entries;
@@ -3703,7 +3724,7 @@ D3D11 DLL corrected it and the test then passed.
 
 **Game checks, separately for each XBE:**
 `./tools/run.ps1 -Target xbox-demo -Windowed -Seconds 25 -DumpFrames -Set
-@{RESOT_RENDERER='d3d12'; RECOMP_PAD_SCRIPT='2000:a:200,6000:a:200,12000:a:200,18000:a:200'}`
+@{POPSOT_RENDERER='d3d12'; RECOMP_PAD_SCRIPT='2000:a:200,6000:a:200,12000:a:200,18000:a:200'}`
 and the same command with `-Target xbox-retail`. Both logs report
 `active renderer: Direct3D 12 (D3D11On12)`, with no Present/backbuffer error
 reported. Demo readback shows the menu garden and Camera selected; retail
@@ -3715,7 +3736,7 @@ not comparative benchmarks.
 Logs/readbacks: ignored `logs/d3d12-{demo,retail}-boot.{txt,bmp}`.
 
 **D3D11 regression:** `./tools/run.ps1 -Target xbox-demo -Windowed -Seconds
-15 -Set @{RESOT_RENDERER='d3d11'}` on the final build reported the D3D11
+15 -Set @{POPSOT_RENDERER='d3d11'}` on the final build reported the D3D11
 backend and continued rendering until the harness stopped it, with no
 Present error reported (`logs/d3d11-demo-regression.txt`). Retail D3D11
 regression was not rerun in this change.
@@ -3728,9 +3749,9 @@ path. Native D3D12 command encoding remains future work.
 
 ## 2026-10-18: replacement logo and Windows icons
 
-Replaced `docs/media/reSOT.png` with the user's Downloads `reSOT_logo.png`
+Replaced `docs/media/POPSoT.png` with the user's Downloads `POPSoT_logo.png`
 (byte-for-byte). The README and launcher resource 202 already reference this
-asset. Converted it to `port/windows/res/resot.ico`, preserving transparency
+asset. Converted it to `port/windows/res/popsot.ico`, preserving transparency
 and proportions with transparent square padding, at 16/24/32/48/64/128/256 px.
 The executable and launcher window both use icon resource 1.
 
@@ -3749,7 +3770,7 @@ Recovered the host options overlay from the user's older project snapshot
 current shared settings and native menu APIs in `port/windows/src/options.c`.
 F7 toggles options; F6 still routes to diagnostics. Options take display
 priority while open and suppress game input. Graphics and bindings share
-`resot-options.ini` with the native menu; F5/F6/F7 are reserved during binding
+`popsot-options.ini` with the native menu; F5/F6/F7 are reserved during binding
 capture. The scripted-input background-focus allowance is preserved.
 
 **Run:** `python tools/check-hlsl.py` (all seven shader entries passed),
@@ -3767,12 +3788,12 @@ The user reported stuttering audio and 120 -> 85-90 FPS in the bath area
 (`06_GP24_Bath_Fight`, `2401_LowerBath`/`UpperBath`).
 
 **Run:** `tools/run.ps1 -Windowed -Set @{RECOMP_APU_WAV='logs/apu-out.wav';
-RESOT_PROFILE_MS='2'}`, played by the user to the bath fight. **Seen:** the
+POPSOT_PROFILE_MS='2'}`, played by the user to the bath fight. **Seen:** the
 recorded output had about five gaps a second of exact digital zero, each one
 to four 256-sample frames long plus 32 samples, all starting on a frame
 boundary; the APU frame thread was not late (`late 0`). The frame thread
 emitted silence while DirectSound held the front end (FECTL trapped or
-halted). **Change** (`apu_core.c`, `RESOT_RUNTIME_DEMO`): wait for the front
+halted). **Change** (`apu_core.c`, `POPSOT_RUNTIME_DEMO`): wait for the front
 end, as xemu does, and make the frames up afterwards (up to 16). The `[APU]`
 line now also reports lateness, the longest block, the longest wait for the
 APU lock and the time the front end was held. Hot `getenv` calls were made
@@ -3787,7 +3808,7 @@ The frame drop is not fixed. In the same scene the title thread spent 33-62%
 of its samples in `xbox_Nv2aWaitClear` (KickOff waiting for the executor).
 A ten-second `[KICK]` line now counts KickOff waits and the executor's time.
 **Run:** `run.ps1 -Windowed -Seconds 80 -Set @{RECOMP_PAD_SCRIPT=
-'30000:start:800,36000:a:800,42000:a:800'; RESOT_PROFILE_MS='2'}`.
+'30000:start:800,36000:a:800,42000:a:800'; POPSOT_PROFILE_MS='2'}`.
 **Seen:** about 20 KickOffs per frame (22261 in 10 s at 112 fps), nearly all
 of them waiting for the executor to come back from the segment before: the
 title and the executor run in lockstep. Three experiments, none kept:
@@ -3834,7 +3855,7 @@ vertex program met for the first time was compiled on the executor, under the
 dispatch lock. 37 programs dumped from the first level (`RECOMP_HW_VSH_DUMP=
 all`) compiled offline in 24-158 ms (mean 69) at the current flags,
 `SKIP_OPTIMIZATION` mean 44, `LEVEL0` mean 71: the flags are not the answer.
-**Change** (`nv2a_hw_d3d11.inc`, `RESOT_RUNTIME_DEMO`, `RESOT_ASYNC_VSH=0`
+**Change** (`nv2a_hw_d3d11.inc`, `POPSOT_RUNTIME_DEMO`, `POPSOT_ASYNC_VSH=0`
 restores the old path): a program missing from the disk cache is compiled
 on a background thread and its batches use the vertex interpreter until it
 is ready. **Seen:** scripted run with an empty cache: KickOff wait max 23.5 ms
@@ -3852,7 +3873,7 @@ batches missed. A batch now stays valid while the vertex/index ring
 generation that holds it lasts (rings 64 MB / 8 MB, 8192 entries), and its
 source range is hashed in full -- from its lowest to its highest index, once
 per executed segment -- instead of 64 sampled dwords (`nv2a_hw_d3d11.inc`,
-`RESOT_RUNTIME_DEMO`). Hashing from vertex 0 put `hw_reuse_key` at 56-60% of
+`POPSOT_RUNTIME_DEMO`). Hashing from vertex 0 put `hw_reuse_key` at 56-60% of
 the executor and 47 fps; from the lowest index it is 6-8%. **Run:** the
 scripted 80 s run above. **Seen:** reuse about 80% (3.4 M hits, 0.77 M
 misses), 7-14 thousand vertices uploaded a frame instead of 50-80 thousand,
@@ -3878,7 +3899,7 @@ blue edges and white-blue lettering on a blue glow, with the golden sand kept.
 **Run:** a folder with `sot-xbox-retail.exe` (rebuilt with
 `tools/recomp.ps1 -Target xbox-retail -BuildOnly`), the earlier
 `sot-xbox-demo.exe`, the extracted demo ISO and a junction `retail` to
-`Assets/xbox-retail`, no `resot-options.ini`. **Seen:** both buttons enabled,
+`Assets/xbox-retail`, no `popsot-options.ini`. **Seen:** both buttons enabled,
 "E3 2003 demo" and "NTSC retail" under them with their folders (screenshot).
 Enter from the retail executable: `[LAUNCHER] start`, retail booted on
 `retail` with `ext-vma=1`. Left, Enter: `[LAUNCHER] handed off`, the demo
@@ -3892,7 +3913,7 @@ demo on `pop4demounused.xiso`; Right, Enter handed off and retail booted on
 
 **Runtime merge.** `port/third_party/xboxrecomp-demo` and `-retail` became
 one tree, `port/third_party/xboxrecomp`, compiled per build tree with
-`RESOT_RUNTIME_DEMO` or `RESOT_RUNTIME_RETAIL`. Check: each changed source
+`POPSOT_RUNTIME_DEMO` or `POPSOT_RUNTIME_RETAIL`. Check: each changed source
 (`apu_core.c`, `guest_vmem.c`, `kernel_bridge.c`, `kernel_file.c`,
 `kernel_hal.c`, `nv2a_pb_exec.c` with `nv2a_hw_d3d11.inc`,
 `xbox_memory_layout.c`, `fb_present.c`) was preprocessed (`cl /EP`) per
@@ -3901,7 +3922,7 @@ differences: equivalent rewrites (a `{}` case block, parentheses, an empty
 visibility poll in the demo), declarations, the retail DMA-token helpers
 compiled but not called in the demo, and diagnostics that only run with an
 environment variable and are now shared (`RECOMP_TRACE_WRITES`,
-`RESOT_CLOCK_CHECK`, the demo's `RECOMP_FRAME_TRACE`/`RECOMP_HW_GLOW_DUMP`
+`POPSOT_CLOCK_CHECK`, the demo's `RECOMP_FRAME_TRACE`/`RECOMP_HW_GLOW_DUMP`
 output, which retail now writes in the demo's per-flip form).
 `python tools/check-hlsl.py`, `test-apu-dma.py`, `test-apu-irq.py`,
 `test-retail-io-apc.py`, `test-retail-save-io.py`, `test-visibility.py`,
@@ -3920,7 +3941,7 @@ executable; it was extracted (608 MB, `default.xbe`, `prince.bf`, `sound`,
 `video`, `preview.*`), `[Launcher] GameDir=pop4demounused.xiso` was saved,
 and Start Demo handed over to `sot-xbox-demo.exe`, which booted on that
 folder with `ext-vma=0` (no retail default leaked); the user reports it
-works. Also seen: the child `--resot-extract-xiso -l` listing of the retail
+works. Also seen: the child `--popsot-extract-xiso -l` listing of the retail
 ISO through a pipe (171 files, 2,499,878,784 bytes). Not checked: a retail
 extraction end to end, cancel, insufficient disk space, an ISO path outside
 the code page.
@@ -3939,37 +3960,37 @@ the tested scenes, duration and settings were not specified, and broader
 performance, audio, save/load and memory-unit validation is incomplete.
 Rendering and Hor+ status are unchanged. No console comparison was supplied.
 
-## 2026-10-17 (night): retail reSOT Options, F6 diagnostics panel
+## 2026-10-17 (night): retail POPSoT Options, F6 diagnostics panel
 
 **Retail menu map.** The retail XBE's menu library was matched routine by
 routine to the demo's and checked in its code (addresses in
-`source/xbox-retail/target_hooks.c`). `RESOT_MENU_TRACE=1` run
+`source/xbox-retail/target_hooks.c`). `POPSOT_MENU_TRACE=1` run
 (`logs/retail-menu-trace-err.txt`): the main menu (init 0x002345D0) has
 Start New Game, Load Saved Game, Options, Xbox Live, Extra Features; the
 pause menu (0x001A2D60) has Pause, Options (Sound, Display, Camera,
 Controller), Language, Game Over and the Xbox Live pages; 0x002849C0 builds
 Load Saved Game and Making of; the 19-choice grid of 0x002C5FB0 is the Xbox
-Live name keyboard. `RESOT_TEXT_DUMP` shows that group 0x0B0041D2 still holds
+Live name keyboard. `POPSOT_TEXT_DUMP` shows that group 0x0B0041D2 still holds
 "View Cutscenes" (5), "Special" (7) and "Special Load Map" (8), but no
 routine of the XBE builds a page with them: there is no hidden level select
 to re-link in retail. (Dumping group 0x0B004619 faulted in 0x000F84A0: it is
 not a text group; the dump is a trace-only tool.)
 
-**Retail reSOT Options.** "reSOT Options" is added to the main page before
+**Retail POPSoT Options.** "POPSoT Options" is added to the main page before
 its close (0x00234D86) and its nine pages are built before the next page
 (0x00234DC8), with xmm1 = 0.4 and flags 5; message choices are taken in the
 0x00039B20 override; labels refresh through 0x00038DD0 (eax = 1).
 `tools/recomp.ps1 -Target xbox-retail -SkipAnalysis`
-(`logs/retail-native-build.txt`), then a run with `RESOT_MENU_TRACE=1`
+(`logs/retail-native-build.txt`), then a run with `POPSOT_MENU_TRACE=1`
 (`logs/retail-native-err.txt`): `9 pages, 63 of 63 choices bound, main entry
-000000A9 bound`, and `reSOT labels refreshed (55, revision N)` after each
+000000A9 bound`, and `POPSoT labels refreshed (55, revision N)` after each
 change. The user checked the retail pages and reported them working.
 **Not checked:** returning to the main menu from a level (the pages are
 rebuilt for each new main menu by design, not yet seen).
 
 **F6 diagnostics.** F6 is now a diagnostics panel (`port/windows/src/diag.c`)
 fed by new runtime counters in both copies (`xbox_DiagRenderer`,
-`xbox_DiagAudio`, `xbox_DiagDpc`, `xbox_DiagMemory`, marked RE-SoT); the old
+`xbox_DiagAudio`, `xbox_DiagDpc`, `xbox_DiagMemory`, marked POPSoT); the old
 options panel was removed from `options.c`, whose settings are reached from
 the game's menu. Demo run, F6 then Ctrl+Shift+C (`logs/diag-f6-demo.png`):
 the panel showed frame, executor, renderer, reuse, heap, contiguous, host,
@@ -3978,9 +3999,9 @@ audio, DPC, IRQL, world and log lines; the clipboard held 94 lines
 **Not checked:** the panel in retail by us; the click on Copy (only the
 keyboard shortcut was driven).
 
-## 2026-10-17 (night): xbox-demo, reSOT Options pages placed and live
+## 2026-10-17 (night): xbox-demo, POPSoT Options pages placed and live
 
-- Two faults in the native reSOT Options pages, both in
+- Two faults in the native POPSoT Options pages, both in
   `source/xbox-demo/target_hooks.c`. (1) 0x0023F110 takes the column's left
   edge in xmm0 (stored at +0x294); every game page passes 0.4 from
   0x003339EC, our pages passed whatever xmm0 held, so Graphics and the
@@ -3988,14 +4009,14 @@ keyboard shortcut was driven).
   `native_build_page` now sets xmm0 = 0.4 and restores it. (2) A choice's
   label is copied into its text object only when 0x000605C0 runs the text
   actions (page changes), so a changed value kept its old label.
-  `options.c` now counts changes (`resot_native_revision`), and the
+  `options.c` now counts changes (`popsot_native_revision`), and the
   XInputGetState hook runs 0x000605C0 for our value choices when the count
   moves, after checking that the text object still carries the injected
   reference (text action vtable 0x0032380C, group 0x0B00FE00).
 - `python tools/check-hlsl.py` ok; `tools/recomp.ps1 -Target xbox-demo
-  -BuildOnly` (`logs/resot-options-fix-build.txt`).
-- Run with `RESOT_MENU_TRACE=1` (`logs/resot-options-fix-run.txt`): stderr
-  shows `reSOT labels refreshed (55, revision N)` after each change. The user
+  -BuildOnly` (`logs/popsot-options-fix-build.txt`).
+- Run with `POPSOT_MENU_TRACE=1` (`logs/popsot-options-fix-run.txt`): stderr
+  shows `POPSoT labels refreshed (55, revision N)` after each change. The user
   checked the pages in this build and reported the layout and the labels
   correct. **Not checked:** a capture of the binding pages after the fix by
   us; the labels after returning to the menu from a level.
@@ -4016,7 +4037,7 @@ keyboard shortcut was driven).
 
 **Demo frame rate.** `tools/run.ps1 -Target xbox-demo -Windowed -Seconds 100
 -Set @{RECOMP_PAD_SCRIPT='15000:start:500,22000:a:500,50000:start:500';
-RESOT_PROFILE_MS='2'}` at the user's flicker location in the first level
+POPSOT_PROFILE_MS='2'}` at the user's flicker location in the first level
 reported 26 fps: 4,600 draws, 720k vertices per frame, 35 ms executor and
 3.5 ms title per frame; the executor thread's samples were 30% `fetch_attr`
 and 22% `hw_draw_program_batch`. A frame trace shows ~1,290 instances per
@@ -4036,12 +4057,12 @@ beyond the user's play).
 draws of three textures (`80BDB000`, `80C17000`, `813C8000`) that the frame
 with it has: the title did not submit them. The user reports flicker, and
 sometimes distorted objects, unchanged at 43 fps and at `-Aspect 4:3
--Set @{RESOT_NO_FOV_HOOK='1'}`, so neither frame rate nor the widescreen
+-Set @{POPSOT_NO_FOV_HOOK='1'}`, so neither frame rate nor the widescreen
 projection/culling hooks explain it. The user recalled it did not happen
 originally; it was first reported 2026-10-16, the day ordered GPU fences
 became the default. With `tools/run.ps1 -Target xbox-demo -Windowed -Set
-@{RESOT_ORDERED_FENCES='0'}` the user played to the same place and saw no
-flicker. The demo's default is now the poll mirror; `RESOT_ORDERED_FENCES=1`
+@{POPSOT_ORDERED_FENCES='0'}` the user played to the same place and saw no
+flicker. The demo's default is now the poll mirror; `POPSOT_ORDERED_FENCES=1`
 selects ordered release. The mechanism (the title omitting draws while the
 previous frame's fences are still pending behind the executor) is inferred,
 not traced in the title. The ordered release had been added for a "rare
@@ -4328,8 +4349,8 @@ After separating snapshot from swap, a 50-second repeat
 (`logs/demo-ordered-snapshot-unpaused50.txt`) reached the unpaused soldiers'
 scene at 59.8/59.6 FPS, then 58.2 with frame tracing. Ordered completion and
 deferred swap are now the demo defaults. Diagnostic opt-outs are
-`RESOT_ORDERED_FENCES=0` and `RESOT_DEFER_PRESENT=0`; the earlier legacy
-comparison flag remains `RESOT_LEGACY_FENCES=1`.
+`POPSOT_ORDERED_FENCES=0` and `POPSOT_DEFER_PRESENT=0`; the earlier legacy
+comparison flag remains `POPSOT_LEGACY_FENCES=1`.
 
 The unpaused before/after post-processing captures were taken as
 `logs/demo-defer-unpaused-*` and `logs/demo-snapshot-unpaused-*`; they were
@@ -4422,7 +4443,7 @@ No full retail playthrough or console comparison has been made.
 `port/third_party/xboxrecomp` became two complete copies,
 `xboxrecomp-demo` (moved with `git mv`) and `xboxrecomp-retail`, identical
 at the split except the retail copy's comment on the projected-UI classifier.
-CMake now builds one target per tree (`-DRESOT_TARGET`), `recomp.ps1` lifts
+CMake now builds one target per tree (`-DPOPSOT_TARGET`), `recomp.ps1` lifts
 with and builds against that target's copy in `build/<target>`, and
 `check-hlsl.py` checks both copies. Checks: `python tools/check-hlsl.py` (12
 entries ok), `python -m unittest discover -s tools/tests -p
@@ -4452,7 +4473,7 @@ inline-table area; generated sources were not edited.
 
 Initial run: `tools/run.ps1 -Target xbox-retail -Seconds 45 -Watchdog 40
 -Windowed -Aspect 4:3 -UsbPad -DumpFrames -Set
-@{RESOT_THREAD_DUMP_SECS='10'; RESOT_PROFILE_MS='5';
+@{POPSOT_THREAD_DUMP_SECS='10'; POPSOT_PROFILE_MS='5';
 RECOMP_FB_WINDOW_DUMP_EVERY='60'}`. It read the retail files and initialised
 the kernel/APU but drew nothing. Trace: `logs/retail-baseline-boot.txt`.
 An 18-second repeat with `RECOMP_SYNC_TRACE=1` is retained in
@@ -4503,15 +4524,15 @@ reused block at `0x808EB020`, page `PAGE_READONLY`. A trace of
 MmSetAddressProtect showed the title (`0x000D63E1`) marking texture pages
 `0x402` (read-only, write-combined); after the movies it frees them and the
 guest-heap reclaim handed them back still read-only. The allocator now
-restores read/write on a reused block (`xbox_memory_layout.c`, `RE-SoT`).
+restores read/write on a reused block (`xbox_memory_layout.c`, `POPSoT`).
 
 The next run did not crash but stayed black after the movies. Thread dump
-(`RESOT_THREAD_DUMP_SECS=15`): the main thread looped in `sub_000CA420`, which
+(`POPSOT_THREAD_DUMP_SECS=15`): the main thread looped in `sub_000CA420`, which
 polls XAPI GetExitCodeThread (`0x00331D1E`) until the movie thread
 (`0x000CA320`) is not `STILL_ACTIVE`. That routine reads the ETHREAD from
 ObReferenceObjectByHandle (+0x04 SignalState, +0x120 ExitStatus); the
 bridge returned a null object. It now returns a per-handle block filled from
-the host thread for `PsThreadObjectType` (`kernel_bridge.c`, `RE-SoT`).
+the host thread for `PsThreadObjectType` (`kernel_bridge.c`, `POPSoT`).
 
 After `recomp.ps1 -Target xbox-retail -BuildOnly`, a 150 s run with the pad
 script extended to `...,60000:a,75000:a,90000:start,100000:a,110000:a` and
@@ -4527,7 +4548,7 @@ Widescreen (the demo's fixes): `sub_000CFC10` builds the projection at
 `0x007682B0`, copies it to `0x00440C00` and calls `sub_000CD970` (return
 `0x000CFE8B`); an entry hook narrows both copies. `sub_002FD810` matches the
 demo's CAM_Engine_ComputePlans; the side-plane cosine/sine (`0x000452F0` /
-`0x00045340`) get the widened angle. `RESOT_PROJECTED_UI` and the Jade
+`0x00045340`) get the widened angle. `POPSOT_PROJECTED_UI` and the Jade
 crash-report globals were added to `target.h`. Full `recomp.ps1 -Target
 xbox-retail`: 14,418/14,420 functions (2 by hand), 0 failed; the three entry
 hooks are in `gen/`. A 160 s run at the default 16:9 logged the widening
@@ -4741,7 +4762,7 @@ stick).
 
 Observed:
 
-- A person played `run.ps1 -Set @{RESOT_THREAD_DUMP_SECS='15'; RESOT_PROFILE_MS='5'}`
+- A person played `run.ps1 -Set @{POPSOT_THREAD_DUMP_SECS='15'; POPSOT_PROFILE_MS='5'}`
   to the third level, where the game froze without starting its movie. The
   log: on the second `video\Intersti\Inter_11.int`, Bink's second worker
   thread (`PsCreateSystemThreadEx #20`, routine `0x0027FAE5`, ctx
@@ -4847,7 +4868,7 @@ balcony; gameplay by a person; sound; the console.
 ## 2026-10-14: xbox-demo, 16:9 default build, icon, scripted tour
 
 Build: `recomp.ps1 -BuildOnly` after the repository moved to `source/` and
-`port/`, with `RESOT_ASPECT=16:9` (now the default) and the icon resource.
+`port/`, with `POPSOT_ASPECT=16:9` (now the default) and the icon resource.
 `python tools/check-hlsl.py` passed first.
 
 Command (no `-Aspect`, to see the built-in default take effect):
@@ -4875,7 +4896,7 @@ Observed:
 - 30 renderer windows of five seconds: 24 at 58-60 fps, 1 at 50-58, 5 below
   50 (start-up, and loads: 0.1, 2.2, 3.5, 18.4, 47.8 fps).
 - No crash, exception or `SND_ASSERT` line in the log in 185 s.
-- `bin/sot-xbox-demo.exe` shows the reSOT icon in Explorer
+- `bin/sot-xbox-demo.exe` shows the POPSoT icon in Explorer
   (`ExtractAssociatedIcon`), with the version resource's description; the
   desktop shortcut from `tools/shortcut.ps1` points at `run.ps1 -Pad`.
 
@@ -4899,7 +4920,7 @@ Commands (each repeated when the emulated pad did not enumerate):
            RECOMP_APU_WAV='logs\out.wav'}
 .\tools\run.ps1 -Seconds 120 -SnapshotEvery 5 -Pad -Aspect 16:9 `
     -Set @{RECOMP_PAD_SCRIPT='30000:start:800,36000:a:800,62000:start:800,70000:start:800,78000:start:800,95000:start:800'}
-.\tools\run.ps1 -Seconds 125 -Pad -NoVsync -Set @{RESOT_PROFILE_MS='1'; RECOMP_PAD_SCRIPT='...same...'}
+.\tools\run.ps1 -Seconds 125 -Pad -NoVsync -Set @{POPSOT_PROFILE_MS='1'; RECOMP_PAD_SCRIPT='...same...'}
 ```
 
 Observed:
@@ -4935,7 +4956,7 @@ whether objects are culled in the extra side strips of the wide picture;
 any widescreen ratio other than 16:9; gameplay by a person; anything past
 240 s; the console.
 
-## 2026-10-13: xbox-demo, first build in the reSOT layout
+## 2026-10-13: xbox-demo, first build in the POPSoT layout
 
 Commands:
 
@@ -4962,7 +4983,7 @@ stencil and cube-map effects, which are known to be missing.
 
 ## 2026-10-12: xbox-demo, Direct3D 11 renderer and level entry
 
-Run in the previous project layout (`RE-SoT`) with the same sources.
+Run in the previous project layout (`POPSoT`) with the same sources.
 
 - The crash on entering the level (access violation in `sub_0001C9B0`, fault
   address `0xB039BBB7`) reproduced in every scripted run of the build before

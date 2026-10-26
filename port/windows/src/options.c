@@ -63,8 +63,8 @@ static const char *const s_native_joy[25] = {
     "L stick", "R stick", "Pad up", "Pad down", "Pad left", "Pad right", "L up", "L down",
     "L left", "L right", "R up", "R down", "R left", "R right"
 };
-/* RE-SoT: German labels for the game's own reSOT pages when its text is
- * German (RESOT_TEXT_LANGUAGE, from [Language] Text), in the font's Latin-1. */
+/* POPSoT: German labels for the game's own POPSoT pages when its text is
+ * German (POPSOT_TEXT_LANGUAGE, from [Language] Text), in the font's Latin-1. */
 static const char *const s_native_actions_de[ACTIONS] = {
     "Vorw" "\xE4" "rts", "R" "\xFC" "ckw" "\xE4" "rts", "Links", "Rechts", "Gehen", "Springen", "Schwert", "Dolch",
     "Spezial", "Abbrechen", "Zeit zur" "\xFC" "ck", "Umsehen", "Andere Ansicht", "Kamera zur" "\xFC" "ck", "Pause", "Zur" "\xFC" "ck",
@@ -79,7 +79,7 @@ static const char *const s_native_joy_de[25] = {
 static const char *const s_quality_names_de[]={"Aus","Niedrig","Mittel","Hoch","Ultra"};
 static int native_german(void)
 {
-    const char *e=getenv("RESOT_TEXT_LANGUAGE");
+    const char *e=getenv("POPSOT_TEXT_LANGUAGE");
     return e && (!strcmp(e,"german") || !strcmp(e,"de") || !strcmp(e,"4"));
 }
 static const char *const s_size_names[] = {"240p (50%)","360p (75%)","480p (100%)","720p (150%)","1080p (225%)","1440p (300%)","2160p (450%)"};
@@ -97,11 +97,11 @@ static uint32_t *s_bits;
 static HFONT s_font, s_title_font;
 static int s_keys[ACTIONS], s_joy[ACTIONS], s_fps = 0, s_resolution=3;
 static int s_vsync=0, s_texture_glow=0, s_capture = -1, s_capture_tab;
-/* RE-SoT: strength of the soft-focus overlay that s_texture_glow switches,
+/* POPSoT: strength of the soft-focus overlay that s_texture_glow switches,
  * percent of the title's own (100 = Xbox). */
 static int s_soft_strength=100;
 static int s_console_logs;
-extern void resot_console_logs_set(int);
+extern void popsot_console_logs_set(int);
 static int s_renderer; /* 0 (default): D3D11, 1: native D3D12, 2: native Vulkan; restart. */
 static const char *const s_renderer_tokens[] = {"d3d11","d3d12","vulkan"};
 static const char *const s_renderer_names[] = {"D3D11","D3D12 (native)","Vulkan (native)"};
@@ -137,16 +137,16 @@ extern void xbox_InputSetHostFilter(void (*)(void *, unsigned));
 
 /* The game's native pages refresh their labels when the revision moves. */
 static void mark_dirty(void) { InterlockedIncrement(&s_revision); InterlockedExchange(&s_dirty,1); }
-long resot_native_revision(void) { return InterlockedCompareExchange(&s_revision,0,0); }
+long popsot_native_revision(void) { return InterlockedCompareExchange(&s_revision,0,0); }
 
-/* RE-SoT: [Audio] Speakers (stereo, the default, or 5.1; from the next
+/* POPSoT: [Audio] Speakers (stereo, the default, or 5.1; from the next
  * start) and Reverb (the Xbox's I3DL2 room reverb, apu_xaudio2.c; on by
- * default, switched at once). RESOT_SPEAKERS / RESOT_REVERB override. */
+ * default, switched at once). POPSOT_SPEAKERS / POPSOT_REVERB override. */
 extern void xa2_configure(int speakers, int reverb);
 extern void xa2_set_reverb(int on);
 static int s_speakers=2, s_speakers_saved=2, s_reverb=1;
 
-void resot_options_audio_label(int item, char *out, unsigned size)
+void popsot_options_audio_label(int item, char *out, unsigned size)
 {
     int de=native_german();
     if (item==0)
@@ -158,12 +158,12 @@ void resot_options_audio_label(int item, char *out, unsigned size)
 
 static int save_config(void);
 
-void resot_options_audio_activate(int item)
+void popsot_options_audio_activate(int item)
 {
     AcquireSRWLockExclusive(&s_lock);
     if (item==0) s_speakers=s_speakers==6?2:6;
     else { s_reverb=!s_reverb; xa2_set_reverb(s_reverb); }
-    /* saved at once, as the other reSOT menu settings: the speaker layout
+    /* saved at once, as the other POPSoT menu settings: the speaker layout
      * only takes effect at the next start, so it has to reach the file */
     save_config();
     ReleaseSRWLockExclusive(&s_lock);
@@ -172,7 +172,7 @@ void resot_options_audio_activate(int item)
     mark_dirty();
 }
 
-int resot_options_get_string(const char *section, const char *key, char *out, unsigned size)
+int popsot_options_get_string(const char *section, const char *key, char *out, unsigned size)
 {
     if (!size) return 0;
     out[0] = 0;
@@ -180,14 +180,14 @@ int resot_options_get_string(const char *section, const char *key, char *out, un
     return out[0] != 0;
 }
 
-int resot_options_set_string(const char *section, const char *key, const char *value)
+int popsot_options_set_string(const char *section, const char *key, const char *value)
 {
     /* as save_config: a scripted pad's run keeps its changes to itself */
     if (!s_path[0] || getenv("RECOMP_PAD_SCRIPT") || getenv("RECOMP_PAD_LIVE")) return 0;
     return WritePrivateProfileStringA(section, key, value && *value ? value : NULL, s_path) != 0;
 }
 
-void resot_options_summary(char *out, unsigned size)
+void popsot_options_summary(char *out, unsigned size)
 {
     AcquireSRWLockShared(&s_lock);
     snprintf(out,size,"FPS limit %s, VSync %s, texture glow %s, resolution %s",
@@ -196,14 +196,14 @@ void resot_options_summary(char *out, unsigned size)
     ReleaseSRWLockShared(&s_lock);
 }
 
-int resot_options_blocks_input(void) { return InterlockedCompareExchange(&s_open,0,0) != 0; }
+int popsot_options_blocks_input(void) { return InterlockedCompareExchange(&s_open,0,0) != 0; }
 
 static int save_config(void)
 {
     char name[32], value[32];
     int i, ok = 1;
     /* A scripted pad (RECOMP_PAD_SCRIPT / RECOMP_PAD_LIVE) is a test run: its
-     * timed presses can land on reSOT Options and toggle settings or rebind
+     * timed presses can land on POPSoT Options and toggle settings or rebind
      * buttons. Keep those changes for the run, never in the player's file. */
     if (getenv("RECOMP_PAD_SCRIPT") || getenv("RECOMP_PAD_LIVE")) {
         static int logged;
@@ -369,9 +369,9 @@ static int event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
     }
     if ((message==WM_KEYDOWN || message==WM_SYSKEYDOWN ||
          message==WM_KEYUP || message==WM_SYSKEYUP) && wp==VK_F6)
-        return resot_diag_event(handle,message,wp,lp);
-    if (!resot_options_blocks_input()) {
-        if (resot_diag_event(handle,message,wp,lp)) return 1;
+        return popsot_diag_event(handle,message,wp,lp);
+    if (!popsot_options_blocks_input()) {
+        if (popsot_diag_event(handle,message,wp,lp)) return 1;
         return native_event(handle,message,wp,lp);
     }
     if (message==WM_SYSKEYDOWN && wp==VK_F4 && (lp&(1L<<29))) return 0;
@@ -454,7 +454,7 @@ static int event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
                 s_soft_focus=x<360;xbox_SetSoftFocus(s_soft_focus);save_config();
             }
             else if(s_graphics_expanded && body>=430 && body<460 && x>=245) {
-                s_console_logs=!s_console_logs;resot_console_logs_set(s_console_logs);save_config();
+                s_console_logs=!s_console_logs;popsot_console_logs_set(s_console_logs);save_config();
             }
             else if(s_controls_expanded && body>=controls_top() && body<controls_top()+28 && x>=360) {
                 memcpy(s_keys,s_default_keys,sizeof s_keys);memcpy(s_joy,s_default_joy,sizeof s_joy);
@@ -498,7 +498,7 @@ static int panel(const uint32_t **pixels,uint32_t *width,uint32_t *height)
     int i,y; size_t n;
     HWND window=(HWND)xbox_FramebufferWindowHandle();
     if(window && s_pending_size && !s_size_posted) {s_size_posted=1;PostMessageA(window,APPLY_SIZE,0,0);}
-    if(!resot_options_blocks_input()) return resot_diag_panel(pixels,width,height);
+    if(!popsot_options_blocks_input()) return popsot_diag_panel(pixels,width,height);
     AcquireSRWLockExclusive(&s_lock);
     if(!s_dc) {
         BITMAPINFO info;memset(&info,0,sizeof info);
@@ -551,7 +551,7 @@ static int panel(const uint32_t **pixels,uint32_t *width,uint32_t *height)
             box(245+i*47,Y(330),43,30,s_post_quality==i?RGB(46,95,135):RGB(36,46,63));
             text(248+i*47,Y(331),40,s_quality_names[i],RGB(235,242,251));
         }
-        /* RE-SoT: Sharp steps the soft-focus blur in host texels (no
+        /* POPSoT: Sharp steps the soft-focus blur in host texels (no
          * double image at high internal resolution); Xbox keeps its width. */
         text(20,Y(380),220,"Soft focus",RGB(220,229,242));
         box(245,Y(380),110,30,s_soft_focus?RGB(46,95,135):RGB(36,46,63));
@@ -634,7 +634,7 @@ static void input(void *state,unsigned port)
         if(scripted<0)scripted=getenv("RECOMP_PAD_LIVE")||getenv("RECOMP_PAD_SCRIPT");
         if(scripted)foreground=1;}
     AcquireSRWLockExclusive(&s_lock);
-    blocked=s_native_capture || resot_options_blocks_input();
+    blocked=s_native_capture || popsot_options_blocks_input();
     /* A pad binding is taken only once every pad input has been released
      * after the capture started, so the press that opened the row is never
      * bound. From the game's menu the pad has no Esc: Back cancels there and
@@ -695,20 +695,20 @@ static void input(void *state,unsigned port)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-void resot_scale_look(float *axes)
+void popsot_scale_look(float *axes)
 {
     AcquireSRWLockShared(&s_lock);
-    axes[0]=resot_look_value(axes[0],s_look_sensitivity);
-    axes[1]=resot_look_value(axes[1],s_look_sensitivity);
+    axes[0]=popsot_look_value(axes[0],s_look_sensitivity);
+    axes[1]=popsot_look_value(axes[1],s_look_sensitivity);
     ReleaseSRWLockShared(&s_lock);
 }
 
-void resot_native_label(int page, int item, char *out, unsigned size)
+void popsot_native_label(int page, int item, char *out, unsigned size)
 {
     char value[100];
     int de=native_german();
     AcquireSRWLockExclusive(&s_lock);
-    if (page==RESOT_NATIVE_GRAPHICS && de) {
+    if (page==POPSOT_NATIVE_GRAPHICS && de) {
         int cap=s_fps==30?0:s_fps==60?1:s_fps==120?2:3;
         switch (item) {
         case 0: snprintf(out,size,"FPS-Limit: %s",cap==3?"Keins":s_cap_names[cap]); break;
@@ -718,9 +718,9 @@ void resot_native_label(int page, int item, char *out, unsigned size)
         case 4: snprintf(out,size,"Nachbearbeitung: %s",s_post_quality?s_quality_names_de[s_post_quality]:"Eigene"); break;
         default: snprintf(out,size,"Aufl" "\xF6" "sung: %s",s_native_sizes[s_resolution]); break;
         }
-    } else if (page==RESOT_NATIVE_CONTROLS && item==0 && de) {
+    } else if (page==POPSOT_NATIVE_CONTROLS && item==0 && de) {
         snprintf(out,size,"Blickempfindlichkeit: %d%%",s_look_sensitivity);
-    } else if (page==RESOT_NATIVE_GRAPHICS) {
+    } else if (page==POPSOT_NATIVE_GRAPHICS) {
         switch (item) {
         case 0: snprintf(out,size,"FPS limit: %s",s_cap_names[s_fps==30?0:s_fps==60?1:s_fps==120?2:3]); break;
         case 1: snprintf(out,size,"VSync: %s",s_vsync?"On":"Off"); break;
@@ -729,10 +729,10 @@ void resot_native_label(int page, int item, char *out, unsigned size)
         case 4: snprintf(out,size,"Post processing: %s",s_post_quality?s_quality_names[s_post_quality]:"Custom"); break;
         default: snprintf(out,size,"Resolution: %s",s_native_sizes[s_resolution]); break;
         }
-    } else if (page==RESOT_NATIVE_CONTROLS && item==0) {
+    } else if (page==POPSOT_NATIVE_CONTROLS && item==0) {
         snprintf(out,size,"Look sensitivity: %d%%",s_look_sensitivity);
     } else if (item>=0 && item<ACTIONS) {
-        int joy=page==RESOT_NATIVE_JOY;
+        int joy=page==POPSOT_NATIVE_JOY;
         if (s_capture==item && s_capture_tab==joy && s_native_capture)
             snprintf(value,sizeof value,de?"Taste dr" "\xFC" "cken":joy?"press a button":"press a key");
         else if (joy) snprintf(value,sizeof value,"%s",(de?s_native_joy_de:s_native_joy)[s_joy[item]>=0 && s_joy[item]<=24 ? s_joy[item] : 0]);
@@ -760,12 +760,12 @@ void resot_native_label(int page, int item, char *out, unsigned size)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-void resot_native_activate(int page, int item)
+void popsot_native_activate(int page, int item)
 {
     HWND window=(HWND)xbox_FramebufferWindowHandle();
     int resize=0;
     AcquireSRWLockExclusive(&s_lock);
-    if (page==RESOT_NATIVE_GRAPHICS) {
+    if (page==POPSOT_NATIVE_GRAPHICS) {
         switch (item) {
         case 0: s_fps=s_fps==30?60:s_fps==60?120:s_fps==120?0:30; xbox_SetFrameLimit(s_fps); break;
         case 1: s_vsync=!s_vsync; xbox_SetVSync(s_vsync); break;
@@ -778,11 +778,11 @@ void resot_native_activate(int page, int item)
         case 4: s_post_quality=s_post_quality>=4?1:s_post_quality+1; xbox_SetPostProcessingQuality(s_post_quality); break;
         }
         save_config();
-    } else if (page==RESOT_NATIVE_CONTROLS && item==0) {
+    } else if (page==POPSOT_NATIVE_CONTROLS && item==0) {
         s_look_sensitivity=s_look_sensitivity>=200?25:s_look_sensitivity+25;
         save_config();
     } else if (item>=0 && item<ACTIONS) {
-        s_capture=item; s_capture_tab=page==RESOT_NATIVE_JOY; s_native_capture=1; s_capture_armed=0;
+        s_capture=item; s_capture_tab=page==POPSOT_NATIVE_JOY; s_native_capture=1; s_capture_armed=0;
         s_native_since=(int)GetTickCount();
     }
     mark_dirty();
@@ -790,7 +790,7 @@ void resot_native_activate(int page, int item)
     if (resize && window) PostMessageA(window,APPLY_SIZE,0,0);
 }
 
-void resot_native_reset_bindings(void)
+void popsot_native_reset_bindings(void)
 {
     AcquireSRWLockExclusive(&s_lock);
     memcpy(s_keys,s_default_keys,sizeof s_keys);memcpy(s_joy,s_default_joy,sizeof s_joy);
@@ -798,12 +798,10 @@ void resot_native_reset_bindings(void)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-/* The settings file beside the executable; the reSOT builds called it
- * resot-options.ini (moved over by resot_options_prepare_config). */
+/* The settings file beside the executable. */
 #define OPTIONS_INI     "popsot-options.ini"
-#define OPTIONS_OLD_INI "resot-options.ini"
 
-void resot_options_prepare_config(void)
+void popsot_options_prepare_config(void)
 {
     char path[1024], *slash;
     HMODULE module=GetModuleHandleA(NULL);
@@ -815,14 +813,8 @@ void resot_options_prepare_config(void)
     if(!resource || !n || n>=sizeof path)return;
     slash=strrchr(path,'\\');if(!slash)return;
     slash[1]=0;
-    if(strlen(path)+strlen(OPTIONS_OLD_INI)>=sizeof path)return;
-    {   /* the settings of the reSOT builds move to the new name once */
-        char old[1024];
-        snprintf(old,sizeof old,"%s" OPTIONS_OLD_INI,path);
-        strcat(path,OPTIONS_INI);
-        if(GetFileAttributesA(path)==INVALID_FILE_ATTRIBUTES && GetFileAttributesA(old)!=INVALID_FILE_ATTRIBUTES)
-            MoveFileA(old,path);
-    }
+    if(strlen(path)+strlen(OPTIONS_INI)>=sizeof path)return;
+    strcat(path,OPTIONS_INI);
     loaded=LoadResource(module,resource);data=loaded?LockResource(loaded):NULL;
     size=SizeofResource(module,resource);
     if(!data || !size)return;
@@ -834,7 +826,7 @@ void resot_options_prepare_config(void)
     CloseHandle(file);
 }
 
-void resot_options_init(void)
+void popsot_options_init(void)
 {
     char name[32],*slash;const char *env;int i;
     env=getenv("RECOMP_KEYBOARD");s_keyboard_enabled=!env || *env!='0';
@@ -846,15 +838,15 @@ void resot_options_init(void)
     slash=strrchr(s_path,'\\');if(slash)slash[1]=0;else s_path[0]=0;
     if(strlen(s_path)+strlen(OPTIONS_INI)>=sizeof s_path)return;
     strcat(s_path,OPTIONS_INI);
-    s_look_sensitivity=resot_look_percent((int)GetPrivateProfileIntA("Controls","LookSensitivityPercent",200,s_path));
+    s_look_sensitivity=popsot_look_percent((int)GetPrivateProfileIntA("Controls","LookSensitivityPercent",200,s_path));
     GetPrivateProfileStringA("Graphics","Renderer","d3d11",name,sizeof name,s_path);
-    env=getenv("RESOT_RENDERER");
+    env=getenv("POPSOT_RENDERER");
     s_renderer=!_stricmp(name,"vulkan")?2:!_stricmp(name,"d3d12")?1:0;
     /* Native D3D11 remains the default for absent or invalid preferences. */
     /* A command-line environment override affects this run, not the saved
      * selection when an unrelated option/binding is saved. */
     i=env&&*env?(!_stricmp(env,"vulkan")?2:!_stricmp(env,"d3d12")?1:0):s_renderer;
-    _putenv_s("RESOT_RENDERER",s_renderer_tokens[i]);
+    _putenv_s("POPSOT_RENDERER",s_renderer_tokens[i]);
     s_fps=(int)GetPrivateProfileIntA("Graphics","FPSLimit",60,s_path);
     if(s_fps!=0 && s_fps!=30 && s_fps!=60 && s_fps!=120)s_fps=0;
     s_resolution=3;
@@ -864,30 +856,30 @@ void resot_options_init(void)
     env=getenv("RECOMP_HW_VSYNC");
     s_vsync=GetPrivateProfileIntA("Graphics","VSync",env && *env!='0',s_path)!=0;
     s_post_quality=(int)GetPrivateProfileIntA("Graphics","PostProcessingQuality",1,s_path);
-    /* RE-SoT: RESOT_POST_QUALITY=0..4 / RESOT_TEXTURE_GLOW=0|1 for one run
+    /* POPSoT: POPSOT_POST_QUALITY=0..4 / POPSOT_TEXTURE_GLOW=0|1 for one run
      * (comparisons), without touching the player's INI. */
-    if((env=getenv("RESOT_POST_QUALITY"))&&*env)s_post_quality=atoi(env);
+    if((env=getenv("POPSOT_POST_QUALITY"))&&*env)s_post_quality=atoi(env);
     if(s_post_quality<0 || s_post_quality>4)s_post_quality=1;
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow=GetPrivateProfileIntA("Graphics","TextureGlowEffect",0,s_path)!=0;
-    if((env=getenv("RESOT_TEXTURE_GLOW"))&&*env)s_texture_glow=*env!='0';
+    if((env=getenv("POPSOT_TEXTURE_GLOW"))&&*env)s_texture_glow=*env!='0';
     s_soft_strength=(int)GetPrivateProfileIntA("Graphics","SoftFocusStrength",100,s_path);
-    if((env=getenv("RESOT_SOFT_FOCUS_STRENGTH"))&&*env)s_soft_strength=atoi(env);
+    if((env=getenv("POPSOT_SOFT_FOCUS_STRENGTH"))&&*env)s_soft_strength=atoi(env);
     if(s_soft_strength<1||s_soft_strength>100)s_soft_strength=100;
     env=getenv("RECOMP_HW_SOFT_FOCUS");
     s_soft_focus=GetPrivateProfileIntA("Graphics","SoftFocus",1,s_path)!=0;
     xbox_SetSoftFocus(env&&*env?*env!='0':s_soft_focus);
-    /* RE-SoT: [Language] Text / Movies: german (default) or english. The
-     * retail hooks read RESOT_TEXT_LANGUAGE / RESOT_MOVIE_LANGUAGE; an
+    /* POPSoT: [Language] Text / Movies: german (default) or english. The
+     * retail hooks read POPSOT_TEXT_LANGUAGE / POPSOT_MOVIE_LANGUAGE; an
      * environment value already set for this run wins. */
-    { static const char *const keys[2][2]={{"Text","RESOT_TEXT_LANGUAGE"},{"Movies","RESOT_MOVIE_LANGUAGE"}};
+    { static const char *const keys[2][2]={{"Text","POPSOT_TEXT_LANGUAGE"},{"Movies","POPSOT_MOVIE_LANGUAGE"}};
       for(i=0;i<2;i++) { char value[16];
         GetPrivateProfileStringA("Language",keys[i][0],"german",value,sizeof value,s_path);
         env=getenv(keys[i][1]); if(!env||!*env) _putenv_s(keys[i][1],value); } }
-    /* RE-SoT: [Graphics] HDInterface=1 (default): interface textures without a
-     * texture pack file are scaled up automatically (resot_texpack.h). */
-    env=getenv("RESOT_HD_UI");
-    if(!env||!*env) _putenv_s("RESOT_HD_UI",GetPrivateProfileIntA("Graphics","HDInterface",1,s_path)?"1":"0");
+    /* POPSoT: [Graphics] HDInterface=1 (default): interface textures without a
+     * texture pack file are scaled up automatically (popsot_texpack.h). */
+    env=getenv("POPSOT_HD_UI");
+    if(!env||!*env) _putenv_s("POPSOT_HD_UI",GetPrivateProfileIntA("Graphics","HDInterface",1,s_path)?"1":"0");
     s_pending_size=0; /* Internal resolution never changes the window. */
     for(i=0;i<ACTIONS;i++) {
         snprintf(name,sizeof name,"Action%d",i);
@@ -897,15 +889,15 @@ void resot_options_init(void)
         if(s_joy[i]<0 || s_joy[i]>24)s_joy[i]=s_default_joy[i];
     }
     s_console_logs=GetPrivateProfileIntA("Diagnostics","ConsoleLogs",0,s_path)!=0;
-    if(s_console_logs)resot_console_logs_set(1);
+    if(s_console_logs)popsot_console_logs_set(1);
     GetPrivateProfileStringA("Audio","Speakers","stereo",name,sizeof name,s_path);
-    if((env=getenv("RESOT_SPEAKERS"))&&*env)snprintf(name,sizeof name,"%s",env);
+    if((env=getenv("POPSOT_SPEAKERS"))&&*env)snprintf(name,sizeof name,"%s",env);
     s_speakers=s_speakers_saved=!strcmp(name,"5.1")||!strcmp(name,"6")?6:2;
     /* the title asks the console's audio setting at start: surround, so its
      * DirectSound pans into the rear mixbins too (kernel_xbox.c) */
     if(s_speakers==6 && !getenv("RECOMP_XC_AUDIO")) _putenv_s("RECOMP_XC_AUDIO","2");
     s_reverb=GetPrivateProfileIntA("Audio","Reverb",1,s_path)!=0;
-    if((env=getenv("RESOT_REVERB"))&&*env)s_reverb=*env!='0';
+    if((env=getenv("POPSOT_REVERB"))&&*env)s_reverb=*env!='0';
     xa2_configure(s_speakers,s_reverb);
     xbox_SetFrameLimit(s_fps);
     xbox_SetVSync(s_vsync);

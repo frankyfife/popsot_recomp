@@ -7,7 +7,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-int resot_path_kind(const char *dir, const char *name, char *out, size_t out_size)
+int popsot_path_kind(const char *dir, const char *name, char *out, size_t out_size)
 {
     char path[2048];
     struct stat st;

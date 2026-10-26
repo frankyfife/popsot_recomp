@@ -1,4 +1,4 @@
-/* RE-SoT: texture packs. A guest texture is identified by a 64-bit FNV-1a
+/* POPSoT: texture packs. A guest texture is identified by a 64-bit FNV-1a
  * hash of its decoded level-0 pixels (BGRA, as both hosts upload them), its
  * size and its NV2A colour format, so the key does not depend on swizzle,
  * palette or address. A file <key>.tga (16 hex digits, uncompressed 32-bit
@@ -6,12 +6,12 @@
  * mip chain. The texture coordinates stay valid because both hosts sample
  * normalised (linear textures are normalised by their guest size).
  *
- * Pack folder: RESOT_TEXTURE_PACK, else "textures" beside the executable.
- * RESOT_TEXTURE_DUMP=1 writes every new texture once to <pack>/dump/ as
+ * Pack folder: POPSOT_TEXTURE_PACK, else "textures" beside the executable.
+ * POPSOT_TEXTURE_DUMP=1 writes every new texture once to <pack>/dump/ as
  * <key>_<w>x<h>_fmt<NN>.tga, for building packs (tools/hd-ui.py). Cube maps
  * are not replaced. */
-#ifndef RESOT_TEXPACK_H
-#define RESOT_TEXPACK_H
+#ifndef POPSOT_TEXPACK_H
+#define POPSOT_TEXPACK_H
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,8 +31,8 @@ typedef struct {
     uint64_t last_key;          /* key of the latest lookup, 0 when not computed */
     uint64_t ui[512];           /* keys already listed in dump/ui_keys.txt */
     unsigned nui;
-} ResotTexPack;
-static ResotTexPack s_texpack;
+} PopsotTexPack;
+static PopsotTexPack s_texpack;
 
 static int texpack_key_cmp(const void *a, const void *b)
 {
@@ -42,11 +42,11 @@ static int texpack_key_cmp(const void *a, const void *b)
 
 static void texpack_init(void)
 {
-    const char *e = getenv("RESOT_TEXTURE_PACK");
+    const char *e = getenv("POPSOT_TEXTURE_PACK");
     s_texpack.ready = 1;
-    e = getenv("RESOT_TEXTURE_DUMP");
+    e = getenv("POPSOT_TEXTURE_DUMP");
     s_texpack.dump = e && *e && *e != '0';
-    e = getenv("RESOT_TEXTURE_PACK");
+    e = getenv("POPSOT_TEXTURE_PACK");
     if (e && *e) {
         snprintf(s_texpack.dir, sizeof s_texpack.dir, "%s", e);
     } else {
@@ -170,19 +170,19 @@ static void texpack_note_ui(uint64_t key, uint32_t w, uint32_t h, uint32_t fmt)
     fclose(f);
 }
 
-/* RE-SoT: automatic HD interface. A texture drawn after the frame's last
+/* POPSoT: automatic HD interface. A texture drawn after the frame's last
  * full-screen composite (menu text, prompts, HUD) that has no pack file is
  * scaled up to 8x (at most 2048 texels), Catmull-Rom on premultiplied
  * colour. Where the alpha is mostly hard-edged (icons, bars, glyphs) it is
  * also sharpened around its 0.5 iso-contour, so edges stay crisp at any
  * resolution, the raster equivalent of tracing it into vectors. Soft
  * textures (glows, fog layers) keep the plain bicubic result.
- * RESOT_HD_UI=0 or [Graphics] HDInterface=0 turns it off. */
+ * POPSOT_HD_UI=0 or [Graphics] HDInterface=0 turns it off. */
 static int texpack_hd_ui_enabled(void)
 {
     static int v = -1;
     if (v < 0) {
-        const char *e = getenv("RESOT_HD_UI");
+        const char *e = getenv("POPSOT_HD_UI");
         v = !(e && *e == '0');
     }
     return v;

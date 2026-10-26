@@ -203,7 +203,7 @@ static inline int mmio_emulate(PCONTEXT ctx, uint32_t off, void *dev,
 }
 
 #elif defined(__aarch64__) && defined(__linux__)
-/* RE-SoT: the same service for arm64 Linux/Android, where the trapped access
+/* POPSoT: the same service for arm64 Linux/Android, where the trapped access
  * is a SIGSEGV whose ucontext holds the faulting AArch64 instruction. Clang
  * lowers the lifted MEM8/16/32 accesses (volatile, one per guest access) to
  * single LDR/STR forms: unsigned offset, unscaled, pre/post-index, register

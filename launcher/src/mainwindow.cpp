@@ -393,7 +393,7 @@ void MainWindow::play()
     p.setProgram(dir_ + '/' + kGameExe);
     p.setWorkingDirectory(dir_);
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert(QStringLiteral("RESOT_ASSET_DIR"), QDir::toNativeSeparators(gameDir()));
+    env.insert(QStringLiteral("POPSOT_ASSET_DIR"), QDir::toNativeSeparators(gameDir()));
     env.insert(QStringLiteral("POPSOT_FROM_LAUNCHER"), QStringLiteral("1"));
     p.setProcessEnvironment(env);
     if (!p.startDetached()) {

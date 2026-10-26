@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import java.io.*;
 import java.nio.file.*;
@@ -19,7 +19,7 @@ public final class GpuDriversImportTest {
         throw new AssertionError("Invalid ZIP accepted");
     }
     public static void main(String[] args) throws Exception {
-        Path root=Files.createTempDirectory("resot-driver-test-");
+        Path root=Files.createTempDirectory("popsot-driver-test-");
         try {
             File good=Files.createDirectory(root.resolve("good")).toFile();
             GpuDrivers.unpack(new ByteArrayInputStream(zip("meta.json","libvulkan_test.so")),good);

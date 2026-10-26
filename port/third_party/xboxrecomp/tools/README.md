@@ -180,7 +180,7 @@ py -3 -m tools.recomp game_files/default.xbe --all --split 1000
 | `--func ADDR` | Recompile a single function (hex address) |
 | `--output-dir DIR` | Output directory (default: `tools/recomp/output/`) |
 | `--verbose` | Show per-function progress |
-| `--folders JSON` | RE-SoT: with `--split`, write each function to the folder the file assigns it, `gen/<folder>/<leaf>_NNNN.c`, plus `gen/README.md` (reSOT's `tools/sort-functions.py` writes the file) |
+| `--folders JSON` | POPSoT: with `--split`, write each function to the folder the file assigns it, `gen/<folder>/<leaf>_NNNN.c`, plus `gen/README.md` (POPSoT's `tools/sort-functions.py` writes the file) |
 
 **Output files:**
 | File | Contents |

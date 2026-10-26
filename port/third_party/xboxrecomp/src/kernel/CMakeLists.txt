@@ -41,31 +41,31 @@ target_include_directories(xbox_kernel PUBLIC
 )
 
 if(WIN32)
-    # RE-SoT: standalone runtime regression projects have their own source root.
-    get_filename_component(RESOT_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.." ABSOLUTE)
-    # RE-SoT: native GPU command encoder; no D3D11 translation backend.
-    set(RESOT_SDL_ROOT "${RESOT_SOURCE_ROOT}/build/deps/SDL3-3.4.18" CACHE PATH "SDL3 SDK (tools/setup-native-gpu.ps1)")
-    set(RESOT_DXC "${RESOT_SOURCE_ROOT}/build/deps/dxc/bin/x64/dxc.exe" CACHE FILEPATH "DXC shader compiler")
-    if(NOT EXISTS "${RESOT_SDL_ROOT}/include/SDL3/SDL_gpu.h" OR NOT EXISTS "${RESOT_DXC}")
+    # POPSoT: standalone runtime regression projects have their own source root.
+    get_filename_component(POPSOT_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.." ABSOLUTE)
+    # POPSoT: native GPU command encoder; no D3D11 translation backend.
+    set(POPSOT_SDL_ROOT "${POPSOT_SOURCE_ROOT}/build/deps/SDL3-3.4.18" CACHE PATH "SDL3 SDK (tools/setup-native-gpu.ps1)")
+    set(POPSOT_DXC "${POPSOT_SOURCE_ROOT}/build/deps/dxc/bin/x64/dxc.exe" CACHE FILEPATH "DXC shader compiler")
+    if(NOT EXISTS "${POPSOT_SDL_ROOT}/include/SDL3/SDL_gpu.h" OR NOT EXISTS "${POPSOT_DXC}")
         message(FATAL_ERROR "Native GPU dependencies missing. Run tools/setup-native-gpu.ps1 first.")
     endif()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     set(native_shaders "${CMAKE_BINARY_DIR}/native-shaders")
     add_custom_command(OUTPUT "${native_shaders}/nv2a_native_shaders.h"
-        COMMAND "${Python3_EXECUTABLE}" "${RESOT_SOURCE_ROOT}/tools/build-native-shaders.py"
-                --dxc "${RESOT_DXC}" --output "${native_shaders}"
-        DEPENDS "${RESOT_SOURCE_ROOT}/tools/build-native-shaders.py"
-            "${RESOT_SOURCE_ROOT}/tools/native-vertex-source.py"
-                "${RESOT_SOURCE_ROOT}/tools/check-hlsl.py"
+        COMMAND "${Python3_EXECUTABLE}" "${POPSOT_SOURCE_ROOT}/tools/build-native-shaders.py"
+                --dxc "${POPSOT_DXC}" --output "${native_shaders}"
+        DEPENDS "${POPSOT_SOURCE_ROOT}/tools/build-native-shaders.py"
+            "${POPSOT_SOURCE_ROOT}/tools/native-vertex-source.py"
+                "${POPSOT_SOURCE_ROOT}/tools/check-hlsl.py"
                 "${CMAKE_CURRENT_SOURCE_DIR}/nv2a_hw_d3d11.inc"
         VERBATIM)
     target_sources(xbox_kernel PRIVATE "${native_shaders}/nv2a_native_shaders.h")
-    target_include_directories(xbox_kernel PRIVATE "${RESOT_SDL_ROOT}/include" "${native_shaders}")
-    # RE-SoT: dedicated native shaders share the host compiler/optimizer.
-    if(NOT TARGET resot_shader_compiler)
-        add_subdirectory("${RESOT_SOURCE_ROOT}/port/render" "${CMAKE_BINARY_DIR}/shader-compiler")
+    target_include_directories(xbox_kernel PRIVATE "${POPSOT_SDL_ROOT}/include" "${native_shaders}")
+    # POPSoT: dedicated native shaders share the host compiler/optimizer.
+    if(NOT TARGET popsot_shader_compiler)
+        add_subdirectory("${POPSOT_SOURCE_ROOT}/port/render" "${CMAKE_BINARY_DIR}/shader-compiler")
     endif()
-    target_link_libraries(xbox_kernel PUBLIC "${RESOT_SDL_ROOT}/lib/x64/SDL3.lib" resot_shader_compiler)
+    target_link_libraries(xbox_kernel PUBLIC "${POPSOT_SDL_ROOT}/lib/x64/SDL3.lib" popsot_shader_compiler)
     # Optional native backend: D3D11 must still boot when SDL3.dll is absent.
     target_link_libraries(xbox_kernel PUBLIC delayimp)
     target_link_options(xbox_kernel INTERFACE "/DELAYLOAD:SDL3.dll")

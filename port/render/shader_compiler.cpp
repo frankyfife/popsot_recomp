@@ -96,14 +96,14 @@ bool optimize(const uint32_t *input,size_t count,std::vector<uint32_t>& output,b
     return optimizer.Run(input,count,&output);
 }
 }
-extern "C" void resot_shader_cache_init(const char *directory) {
+extern "C" void popsot_shader_cache_init(const char *directory) {
     std::lock_guard<std::mutex> guard(cache_mutex);
     cache_directory=directory ? directory : "";
     std::error_code ec;
     if (!cache_directory.empty()) std::filesystem::create_directories(cache_directory,ec);
     if (ec) cache_directory.clear();
 }
-extern "C" uint32_t *resot_compile_vertex(const char *glsl,size_t *bytes) {
+extern "C" uint32_t *popsot_compile_vertex(const char *glsl,size_t *bytes) {
     *bytes=0; if (!glsl) return nullptr;
     size_t length=std::strlen(glsl);
     std::vector<uint32_t> output;
@@ -127,7 +127,7 @@ extern "C" uint32_t *resot_compile_vertex(const char *glsl,size_t *bytes) {
     if (!optimize(raw.data(),raw.size(),output,false)) return nullptr;
     save(glsl,length,1,output); return copy(output,bytes);
 }
-extern "C" uint32_t *resot_optimize_fragment(const uint32_t *spirv,size_t input_bytes,size_t *bytes) {
+extern "C" uint32_t *popsot_optimize_fragment(const uint32_t *spirv,size_t input_bytes,size_t *bytes) {
     *bytes=0; if (!spirv || input_bytes<20 || input_bytes%4) return nullptr;
     std::vector<uint32_t> output;
     if (load(spirv,input_bytes,2,output)) return copy(output,bytes);

@@ -1,9 +1,9 @@
-/* reSOT: bounded reads of optional guest metadata owned by the title thread.
+/* POPSoT: bounded reads of optional guest metadata owned by the title thread.
  * This probe rejects unmapped/guarded ranges before a read, so an obsolete
  * host UI handle cannot raise a guest crash diagnostic. It does not replace
  * the synchronization required by concurrent guest allocation/free. */
-#ifndef RESOT_GUEST_PROBE_H
-#define RESOT_GUEST_PROBE_H
+#ifndef POPSOT_GUEST_PROBE_H
+#define POPSOT_GUEST_PROBE_H
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -14,7 +14,7 @@
 #include "xbox_memory_layout.h"
 #include "guest_vmem.h"
 #endif
-static int resot_guest_read_word(ptrdiff_t offset, uint64_t va, uint32_t *value)
+static int popsot_guest_read_word(ptrdiff_t offset, uint64_t va, uint32_t *value)
 {
     if (!value || !va || va > UINT32_MAX-3u) return 0;
 #if defined(_WIN32)

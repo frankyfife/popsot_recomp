@@ -5,7 +5,7 @@
  * puts all of it on the clipboard as text.
  *
  * Every number comes from the runtime copy this executable was built with
- * (xbox_Diag* in port/third_party/xboxrecomp-<target>/src, marked RE-SoT)
+ * (xbox_Diag* in port/third_party/xboxrecomp-<target>/src, marked POPSoT)
  * and is sampled twice a second on the window thread that draws the panel. */
 #include <windows.h>
 #define PSAPI_VERSION 2
@@ -27,7 +27,7 @@ extern int xbox_DiagDpc(int *out, int n);
 extern int xbox_DiagMemory(uint32_t *out, int n);
 extern int xbox_IrqlRaisedCount(void);
 extern int xbox_IrqlTransitions(void);
-extern void resot_current_wow(char *out, size_t size);
+extern void popsot_current_wow(char *out, size_t size);
 
 static volatile LONG s_open;
 static SRWLOCK s_lock = SRWLOCK_INIT;
@@ -147,8 +147,8 @@ static void sample(void)
     xbox_DiagDpc(d, 4);
     xbox_DiagMemory(m, 8);
     irql = xbox_IrqlTransitions();
-    resot_current_wow(wow, sizeof wow);
-    resot_options_summary(settings, sizeof settings);
+    popsot_current_wow(wow, sizeof wow);
+    popsot_options_summary(settings, sizeof settings);
     memset(&pm, 0, sizeof pm);
     pm.cb = sizeof pm;
     GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pm, sizeof pm);
@@ -202,7 +202,7 @@ static void copy_all(HWND window)
     GetLocalTime(&t);
     used += (size_t)snprintf(out + used, size - used,
         "POPSoT Recomp diagnostics, %s, %04u-%02u-%02u %02u:%02u:%02u\r\n",
-        RESOT_TARGET_ID, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+        POPSOT_TARGET_ID, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
     for (i = 0; i < s_line_count && used < size; i++)
         used += (size_t)snprintf(out + used, size - used, "%s\r\n", s_lines[i]);
     if (used < size)
@@ -222,7 +222,7 @@ static void copy_all(HWND window)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-int resot_diag_event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
+int popsot_diag_event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
 {
     HWND window = (HWND)handle;
     if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) && wp == VK_F6) {
@@ -250,7 +250,7 @@ int resot_diag_event(void *handle, unsigned message, uintptr_t wp, intptr_t lp)
     return 0;
 }
 
-int resot_diag_panel(const uint32_t **pixels, uint32_t *width, uint32_t *height)
+int popsot_diag_panel(const uint32_t **pixels, uint32_t *width, uint32_t *height)
 {
     static DWORD drawn;
     DWORD now = GetTickCount();

@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $exe = "$root\bin\sot-$Target.exe"
-$names = @{ 'xbox-demo' = 'reSOT - Xbox demo'; 'xbox-retail' = 'reSOT - Xbox retail' }
+$names = @{ 'xbox-demo' = 'POPSoT - Xbox demo'; 'xbox-retail' = 'POPSoT - Xbox retail' }
 $link = Join-Path $Folder "$($names[$Target]).lnk"
 
 $shell = New-Object -ComObject WScript.Shell
@@ -24,7 +24,7 @@ $s.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 $s.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$root\tools\run.ps1`" -Target $Target $Arguments".Trim()
 $s.WorkingDirectory = $root
 $s.WindowStyle = 7   # minimised
-$s.IconLocation = if (Test-Path $exe) { "$exe,0" } else { "$root\port\windows\res\resot.ico,0" }
+$s.IconLocation = if (Test-Path $exe) { "$exe,0" } else { "$root\port\windows\res\popsot.ico,0" }
 $s.Description = "Prince of Persia: The Sands of Time ($Target), recompiled, full screen"
 $s.Save()
 "Created $link"

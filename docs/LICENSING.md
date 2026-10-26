@@ -1,13 +1,13 @@
 # Licensing and provenance
 
-**reSOT's own files** (`port/windows`, `port/android`, `port/game`, `port/render`, `source/*/target.h`,
+**POPSoT's own files** (`port/windows`, `port/android`, `port/game`, `port/render`, `source/*/target.h`,
 `source/*/target_hooks.c`, `tools/`, `docs/`, the build files) are under the
 MIT licence in the repository root.
 
 **`port/third_party/xboxrecomp`** is the vendored xboxrecomp 0.13.1
 (https://github.com/sp00nznet/xboxrecomp), shared by both targets: MIT, with
 the xemu-derived APU and NV2A register files under LGPL-2.1-or-later as listed
-in its `NOTICE`. Local changes are marked `RE-SoT` in the sources and keep the
+in its `NOTICE`. Local changes are marked `POPSoT` in the sources and keep the
 licence of the file they are in.
 
 **`port/third_party/extract-xiso`** is extract-xiso 2.7.1
@@ -24,10 +24,10 @@ provides native D3D12 and Vulkan command encoders under the zlib licence.
 `tools/setup-native-gpu.ps1` checks the official SDK and source archive
 SHA-256 values, applies the additions in `port/third_party/sdl-gpu-query/`
 with `tools/patch-sdl-gpu-query.py`, then builds an **altered** SDL3.dll.
-The additions are reSOT code under the repository's MIT licence; the original
+The additions are POPSoT code under the repository's MIT licence; the original
 SDL licence is preserved. Downloaded SDKs/sources and built binaries remain
 under ignored `build/deps/` and `bin/`; no SDL binaries are committed.
-`LICENSE-SDL3.txt` accompanies portable builds and `SDL3-RESOT.txt` identifies
+`LICENSE-SDL3.txt` accompanies portable builds and `SDL3-POPSOT.txt` identifies
 the binary as modified, including its source archive hash and patch location.
 The native renderer uses SDL GPU directly, without D3D11 translation.
 
@@ -40,7 +40,7 @@ built for Android: `XisoExtractor.java` reads the disc in Java following
 extract-xiso's format handling, and carries its copyright notice, licence and
 acknowledgement (*This product includes software developed by in
 <in@fishtank.com>.*). The Gradle build copies `LICENSE-SDL3.txt`,
-`LICENSE-extract-xiso.txt`, reSOT's and xboxrecomp's licences and xboxrecomp's
+`LICENSE-extract-xiso.txt`, POPSoT's and xboxrecomp's licences and xboxrecomp's
 `NOTICE` into the APK's `assets/licenses/`. The launcher face
 (`AtlantisMF.ttf`, below) is packaged when present, as on Windows. The APK is
 signed with the building computer's debug key; it contains the C lifted from
@@ -61,7 +61,7 @@ above. No third-party custom GPU driver package is distributed in the APK;
 users import those separately, under the package's own terms.
 
 **Native shader compiler and optimizer (Windows/Android Vulkan).**
-`port/render` is reSOT code under MIT. It links unchanged upstream
+`port/render` is POPSoT code under MIT. It links unchanged upstream
 [glslang 16.0.0](https://github.com/KhronosGroup/glslang/tree/16.0.0)
 (commit `a57276bf558f5cf94d3a9854ebdf5a2236849a5a`),
 [SPIRV-Tools](https://github.com/KhronosGroup/SPIRV-Tools)
@@ -81,7 +81,7 @@ files, not committed game assets.
 **DirectXShaderCompiler v1.9.2609**
 (https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.9.2609)
 is a build dependency only. Its official checked SDK is installed under
-ignored `build/deps/dxc/`, with its upstream licences. It compiles reSOT's
+ignored `build/deps/dxc/`, with its upstream licences. It compiles POPSoT's
 host shaders to DXIL and SPIR-V; no compiler DLLs ship with the game.
 DXVK and D3D11On12 are no longer used by the renderer or included by packaging.
 

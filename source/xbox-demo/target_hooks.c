@@ -15,11 +15,11 @@
 #include "target.h"
 
 #if defined(_MSC_VER)
-#define RESOT_TLS __declspec(thread)
+#define POPSOT_TLS __declspec(thread)
 #else
-#define RESOT_TLS __thread
+#define POPSOT_TLS __thread
 #endif
-extern RESOT_TLS uint32_t g_eax, g_ebx, g_ecx, g_edx, g_esp, g_esi;
+extern POPSOT_TLS uint32_t g_eax, g_ebx, g_ecx, g_edx, g_esp, g_esi;
 extern ptrdiff_t g_xbox_mem_offset;
 
 #define GMEM32(va) (*(volatile uint32_t *)((uintptr_t)g_xbox_mem_offset + (uint32_t)(va)))
@@ -39,11 +39,11 @@ void sub_002E9F52_enter(void) { xbox_ApuGuestScopeLeave(); }
 /* The primary WOW merge at 0x0002A15D passes the source world in EBX and
  * the aggregate destination on the stack. Capture its BF name before the
  * loader disposes of the source. Other callers merge helper dependencies. */
-extern void resot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller);
+extern void popsot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller);
 void sub_000295F0_enter(void)
 {
     uint32_t caller = GMEM32(g_esp);
-    resot_scene_loaded(GMEM32(g_esp + 4), g_ebx, caller == 0x0002A162u, caller);
+    popsot_scene_loaded(GMEM32(g_esp + 4), g_ebx, caller == 0x0002A162u, caller);
 }
 
 /* All INT movies, including those whose original skip permission is off.
@@ -52,13 +52,13 @@ void sub_000295F0_enter(void)
  * Bink/overlay cleanup sub_00019000. Report EOF rather than jumping out of
  * the dispatcher, so the game's timeline and pending-movie transitions run.
  * The host supplies Space / pad A, restricted to the foreground window. */
-extern int resot_movie_skip_down(void);
+extern int popsot_movie_skip_down(void);
 extern void sub_00018EA0_gen(void);
 
 void sub_00018EA0(void)
 {
     static int was_down;
-    int down = resot_movie_skip_down();
+    int down = popsot_movie_skip_down();
     int pressed = down && !was_down;
     was_down = down;
     if (pressed && GMEM32(0x0034AC34u)) { /* Bink handle, read at 0x00018EA0 */
@@ -105,8 +105,8 @@ static float widen_factor(void)
                 aspect /= (float)atof(colon + 1);
         }
         s_widen = (aspect >= 4.0f / 3.0f && aspect <= 4.0f) ? aspect / (4.0f / 3.0f) : 1.0f;
-        /* RESOT_NO_FOV_HOOK=1: leave the projection alone (comparison runs). */
-        if (getenv("RESOT_NO_FOV_HOOK"))
+        /* POPSOT_NO_FOV_HOOK=1: leave the projection alone (comparison runs). */
+        if (getenv("POPSOT_NO_FOV_HOOK"))
             s_widen = 1.0f;
         if (s_widen > 1.0f)
             fprintf(stderr, "[BOOT] widescreen: projection widened %.4fx horizontally\n",
@@ -388,7 +388,7 @@ void sub_0031C4B2(void)
 }
 
 /* XInputGetState, polled once a frame on the title thread: also where the
- * reSOT Options labels catch up with a changed setting. */
+ * POPSoT Options labels catch up with a changed setting. */
 static void native_refresh(void);
 
 void sub_0031C68A(void)
@@ -423,7 +423,7 @@ void sub_0031C6FD(void)
     stdcall_return(997, 2);                /* ERROR_IO_PENDING, already done */
 }
 
-/* ── Menu construction trace (RESOT_MENU_TRACE=1) ──
+/* ── Menu construction trace (POPSOT_MENU_TRACE=1) ──
  *
  * Jade's menu pages, built by compiled AI code such as the main menu's
  * 0x001C5790: 0x0023F110 opens a page (eax = menu object), 0x0023F040 adds
@@ -433,7 +433,7 @@ void sub_0031C6FD(void)
 static int menu_trace(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_MENU_TRACE"); on = e && *e && *e != '0'; }
+    if (on < 0) { const char *e = getenv("POPSOT_MENU_TRACE"); on = e && *e && *e != '0'; }
     return on;
 }
 
@@ -458,7 +458,7 @@ void sub_0023F110_enter(void)
         GMEMF(g_esp + 20) = 0.05f;
     }
     if (GMEM32(g_esp) == MENU_TITLE_OPEN_RET && hidden_menus())
-        native_build(GMEM32(g_esp + 8));      /* reSOT Options pages */
+        native_build(GMEM32(g_esp + 8));      /* POPSoT Options pages */
 }
 
 /* ── Hidden menus: the demo's own level select ("Load Map") ──
@@ -475,8 +475,8 @@ void sub_0023F110_enter(void)
  * index 4) and given the open-page action the Options sub-pages use
  * (menu_bind_open_page). The same init's Language page (+0x284) is left
  * unlinked on purpose.
- * RESOT_HIDDEN_MENUS=0 disables them. */
-extern RESOT_TLS uint32_t g_edi, g_ebp, g_seh_ebp;
+ * POPSOT_HIDDEN_MENUS=0 disables them. */
+extern POPSOT_TLS uint32_t g_edi, g_ebp, g_seh_ebp;
 extern void sub_0023F040(void);
 extern void sub_00018100(void);
 extern void sub_00117580(void);
@@ -497,11 +497,11 @@ typedef struct {
     int bound;
     const uint32_t *host_page;        /* or a page built here (page_var 0) */
 } MenuEntry;
-static uint32_t s_resot_root;         /* reSOT Options page, built below */
-#define RESOT_TEXT_GROUP 0x0B00FE00u  /* not a key of the demo's BF: injected */
+static uint32_t s_popsot_root;         /* POPSoT Options page, built below */
+#define POPSOT_TEXT_GROUP 0x0B00FE00u  /* not a key of the demo's BF: injected */
 static MenuEntry s_entries[] = {
     { "Load Map", 0x0B00449Cu, 4u, 0x0BCu, 0, 0, 0 },  /* nine levels */
-    { "Port Options", RESOT_TEXT_GROUP, 0u, 0, 0, 0, &s_resot_root },
+    { "Port Options", POPSOT_TEXT_GROUP, 0u, 0, 0, 0, &s_popsot_root },
 };
 #define MENU_ENTRIES ((int)(sizeof s_entries / sizeof s_entries[0]))
 static uint32_t s_bind_edx, s_menu_vars;
@@ -510,7 +510,7 @@ static int s_entries_added;
 static int hidden_menus(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_HIDDEN_MENUS"); on = !e || *e != '0'; }
+    if (on < 0) { const char *e = getenv("POPSOT_HIDDEN_MENUS"); on = !e || *e != '0'; }
     return on;
 }
 
@@ -663,11 +663,11 @@ void sub_0023FCA0_enter(void)
                 g_ecx, g_eax, GMEM32(g_esp), GMEM32(g_esp + 4));
 }
 
-/* ── reSOT Options: native pages for the host settings ──
+/* ── POPSoT Options: native pages for the host settings ──
  *
  * Text: 0x001104E0 resolves a TEXT reference (edi = &{group key, index},
  * esi = the current language's table, from 0x0023EB7B) to a string pointer
- * in eax and returns. References to RESOT_TEXT_GROUP, which no file of the
+ * in eax and returns. References to POPSOT_TEXT_GROUP, which no file of the
  * BF uses, are answered here from a guest buffer that is rewritten at every
  * lookup, so a label shows the setting's current value.
  *
@@ -689,7 +689,7 @@ void sub_000C05D0(void)
     uint32_t output=g_eax, ret=GMEM32(g_esp);
     sub_000C05D0_gen();
     if(ret==0x000C08B2u)
-        resot_scale_look((float *)((uintptr_t)g_xbox_mem_offset+output));
+        popsot_scale_look((float *)((uintptr_t)g_xbox_mem_offset+output));
 }
 extern uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment);
 extern void sub_001104E0_gen(void);
@@ -697,9 +697,9 @@ extern void sub_00061470_gen(void);
 extern void sub_0023F110(void);
 extern void sub_0023FCA0(void);
 
-#define RESOT_MSG_KIND      0x52E5u
-#define RESOT_TEXT_SLOT     96u
-#define RESOT_TEXTS         80u
+#define POPSOT_MSG_KIND      0x52E5u
+#define POPSOT_TEXT_SLOT     96u
+#define POPSOT_TEXTS         80u
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50 };
 static const char *const s_static_texts[] = {
@@ -710,18 +710,18 @@ static const char *const s_static_texts[] = {
 };
 static uint32_t s_text_va;
 
-static void resot_text(uint32_t index, char *out, unsigned size)
+static void popsot_text(uint32_t index, char *out, unsigned size)
 {
     if (index < sizeof s_static_texts / sizeof s_static_texts[0])
         snprintf(out, size, "%s", s_static_texts[index]);
-    else if (index >= T_GFX && index < T_GFX + RESOT_NATIVE_GRAPHICS_ITEMS)
-        resot_native_label(RESOT_NATIVE_GRAPHICS, (int)(index - T_GFX), out, size);
+    else if (index >= T_GFX && index < T_GFX + POPSOT_NATIVE_GRAPHICS_ITEMS)
+        popsot_native_label(POPSOT_NATIVE_GRAPHICS, (int)(index - T_GFX), out, size);
     else if (index == T_LOOK)
-        resot_native_label(RESOT_NATIVE_CONTROLS, 0, out, size);
-    else if (index >= T_KEYS && index < T_KEYS + RESOT_NATIVE_ACTIONS)
-        resot_native_label(RESOT_NATIVE_KEYS, (int)(index - T_KEYS), out, size);
-    else if (index >= T_JOYS && index < T_JOYS + RESOT_NATIVE_ACTIONS)
-        resot_native_label(RESOT_NATIVE_JOY, (int)(index - T_JOYS), out, size);
+        popsot_native_label(POPSOT_NATIVE_CONTROLS, 0, out, size);
+    else if (index >= T_KEYS && index < T_KEYS + POPSOT_NATIVE_ACTIONS)
+        popsot_native_label(POPSOT_NATIVE_KEYS, (int)(index - T_KEYS), out, size);
+    else if (index >= T_JOYS && index < T_JOYS + POPSOT_NATIVE_ACTIONS)
+        popsot_native_label(POPSOT_NATIVE_JOY, (int)(index - T_JOYS), out, size);
     else
         snprintf(out, size, "?");
 }
@@ -729,18 +729,18 @@ static void resot_text(uint32_t index, char *out, unsigned size)
 void sub_001104E0(void)
 {
     uint32_t index;
-    char text[RESOT_TEXT_SLOT];
-    if (GMEM32(g_edi) != RESOT_TEXT_GROUP) { sub_001104E0_gen(); return; }
+    char text[POPSOT_TEXT_SLOT];
+    if (GMEM32(g_edi) != POPSOT_TEXT_GROUP) { sub_001104E0_gen(); return; }
     index = GMEM32(g_edi + 4);
     if (!s_text_va)
-        s_text_va = xbox_ContiguousAlloc(RESOT_TEXT_SLOT * RESOT_TEXTS, 16);
-    if (!s_text_va || index >= RESOT_TEXTS) {
+        s_text_va = xbox_ContiguousAlloc(POPSOT_TEXT_SLOT * POPSOT_TEXTS, 16);
+    if (!s_text_va || index >= POPSOT_TEXTS) {
         g_eax = 0x00325305u;              /* the routine's own "no text" result */
     } else {
-        resot_text(index, text, sizeof text);
-        memcpy((void *)((uintptr_t)g_xbox_mem_offset + s_text_va + index * RESOT_TEXT_SLOT),
+        popsot_text(index, text, sizeof text);
+        memcpy((void *)((uintptr_t)g_xbox_mem_offset + s_text_va + index * POPSOT_TEXT_SLOT),
                text, strlen(text) + 1);
-        g_eax = s_text_va + index * RESOT_TEXT_SLOT;
+        g_eax = s_text_va + index * POPSOT_TEXT_SLOT;
     }
     g_esp += 4;                           /* ret */
 }
@@ -770,7 +770,7 @@ static void native_layout(void)
     native_choice(p, 0, T_GRAPHICS, DO_OPEN, P_GFX);
     native_choice(p, 1, T_CONTROLS, DO_OPEN, P_CTRL);
     p = &s_pages[P_GFX]; p->title = T_GRAPHICS; p->top = 0.32f; p->step = 0.0667f;
-    p->n = RESOT_NATIVE_GRAPHICS_ITEMS;
+    p->n = POPSOT_NATIVE_GRAPHICS_ITEMS;
     for (i = 0; i < p->n; i++)
         native_choice(p, i, T_GFX + (uint32_t)i, DO_MSG, (int)MSG_ID(P_GFX, i));
     p = &s_pages[P_CTRL]; p->title = T_CONTROLS; p->top = 0.26f; p->step = 0.05f; p->n = 8;
@@ -800,7 +800,7 @@ static uint32_t f2u(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
  * Without xmm0 the column started wherever the last SSE code left it.
  * 0x0023FCA0: eax = menu, cdecl (menu). */
 typedef union { float f[4]; double d[2]; uint32_t u[4]; int32_t i[4]; uint64_t q[2]; } GuestXmm;
-extern RESOT_TLS GuestXmm g_xmm0;          /* the runtime's RecompXmm */
+extern POPSOT_TLS GuestXmm g_xmm0;          /* the runtime's RecompXmm */
 #define MENU_PAGE_X 0.4f
 
 static uint32_t native_build_page(uint32_t menu, NativePage *p)
@@ -812,7 +812,7 @@ static uint32_t native_build_page(uint32_t menu, NativePage *p)
     regs_save(&saved);
     g_esp -= 0x40;
     scratch = g_esp;
-    GMEM32(scratch + 0x20) = RESOT_TEXT_GROUP;
+    GMEM32(scratch + 0x20) = POPSOT_TEXT_GROUP;
     GMEM32(scratch + 0x24) = p->title;
     GMEM32(scratch + 0x30) = 0;
     args[0] = scratch + 0x30; args[1] = menu; args[2] = 0;
@@ -824,7 +824,7 @@ static uint32_t native_build_page(uint32_t menu, NativePage *p)
     regs_load(&saved);
     g_xmm0 = xmm0;
     for (i = 0; i < p->n; i++)
-        p->c[i].choice = menu_add_choice(menu, RESOT_TEXT_GROUP, p->c[i].text);
+        p->c[i].choice = menu_add_choice(menu, POPSOT_TEXT_GROUP, p->c[i].text);
     regs_save(&saved);
     args[0] = menu;
     g_eax = GMEM32(MENU_CURRENT);
@@ -844,8 +844,8 @@ static void native_build(uint32_t menu)
     native_layout();
     for (i = 0; i < P_PAGES; i++)
         s_pages[i].page = native_build_page(menu, &s_pages[i]);
-    s_resot_root = s_pages[P_ROOT].page;
-    fprintf(stderr, "[MENU] reSOT Options: %d pages built, root page %08X\n", P_PAGES, s_resot_root);
+    s_popsot_root = s_pages[P_ROOT].page;
+    fprintf(stderr, "[MENU] POPSoT Options: %d pages built, root page %08X\n", P_PAGES, s_popsot_root);
 }
 
 /* Message action as the options binder makes it at 0x0015B681..0x0015B6D8:
@@ -861,7 +861,7 @@ static int menu_bind_message(uint32_t choice, uint32_t id)
     scratch = g_esp;
     for (i = 0; i < 0x34; i += 4)
         GMEM32(scratch + 0x40 + i) = 0;
-    GMEM32(scratch + 0x40 + 0x28) = RESOT_MSG_KIND;
+    GMEM32(scratch + 0x40 + 0x28) = POPSOT_MSG_KIND;
     GMEM32(scratch + 0x40 + 0x30) = id;
     args[0] = GMEM32(MENU_CURRENT); args[1] = scratch + 0x40;
     g_eax = GMEM32(MENU_CURRENT);
@@ -887,7 +887,7 @@ static void native_bind(void)
             ok += c->what == DO_OPEN ? menu_bind_open_page(c->choice, s_pages[c->arg].page)
                                      : menu_bind_message(c->choice, (uint32_t)c->arg);
         }
-    fprintf(stderr, "[MENU] reSOT Options: %d of %d choices bound\n", ok, all);
+    fprintf(stderr, "[MENU] POPSoT Options: %d of %d choices bound\n", ok, all);
 }
 
 /* Labels. 0x0023EB10 gives each choice's object (+0x9C, stored at
@@ -914,7 +914,7 @@ static int native_text_object(uint32_t choice, uint32_t *out)
     for (it = GMEM32(text + 0x0C), end = GMEM32(text + 0x10); it && it < end; it += 4) {
         uint32_t action = GMEM32(it);
         if (action && GMEM32(action) == TEXT_ACTION_VTABLE
-                && GMEM32(action + 0x34) == RESOT_TEXT_GROUP) {
+                && GMEM32(action + 0x34) == POPSOT_TEXT_GROUP) {
             *out = text;
             return 1;
         }
@@ -927,7 +927,7 @@ static void native_refresh(void)
     static long seen;
     long revision;
     int i, j, n = 0;
-    if (!s_native_bound || (revision = resot_native_revision()) == seen)
+    if (!s_native_bound || (revision = popsot_native_revision()) == seen)
         return;
     seen = revision;
     for (i = 0; i < P_PAGES; i++)
@@ -944,25 +944,25 @@ static void native_refresh(void)
             n++;
         }
     if (menu_trace())
-        fprintf(stderr, "[MENU] reSOT labels refreshed (%d, revision %ld)\n", n, revision);
+        fprintf(stderr, "[MENU] POPSoT labels refreshed (%d, revision %ld)\n", n, revision);
 }
 
 /* Message action execute: this = ecx, the descriptor copied at +0x24. */
 void sub_00061470(void)
 {
     uint32_t self = g_ecx, id;
-    if (GMEM32(self + 0x24 + 0x28) != RESOT_MSG_KIND) { sub_00061470_gen(); return; }
+    if (GMEM32(self + 0x24 + 0x28) != POPSOT_MSG_KIND) { sub_00061470_gen(); return; }
     id = GMEM32(self + 0x24 + 0x30);
     if (menu_trace())
-        fprintf(stderr, "[MENU] reSOT choice %04X\n", id);
+        fprintf(stderr, "[MENU] POPSoT choice %04X\n", id);
     if (id == MSG_RESET)
-        resot_native_reset_bindings();
+        popsot_native_reset_bindings();
     else if ((id >> 8) == P_GFX)
-        resot_native_activate(RESOT_NATIVE_GRAPHICS, (int)(id & 0xFF));
+        popsot_native_activate(POPSOT_NATIVE_GRAPHICS, (int)(id & 0xFF));
     else if ((id >> 8) == P_CTRL)
-        resot_native_activate(RESOT_NATIVE_CONTROLS, (int)(id & 0xFF));
+        popsot_native_activate(POPSOT_NATIVE_CONTROLS, (int)(id & 0xFF));
     else if ((id >> 8) >= P_K0 && (id >> 8) <= P_J2)
-        resot_native_activate((id >> 8) >= P_J0 ? RESOT_NATIVE_JOY : RESOT_NATIVE_KEYS,
+        popsot_native_activate((id >> 8) >= P_J0 ? POPSOT_NATIVE_JOY : POPSOT_NATIVE_KEYS,
                               (int)(id & 0xFF));
     g_esp += 8;                           /* ret 4 */
 }

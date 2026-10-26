@@ -18,8 +18,8 @@ start = bridge.index('static void deliver_one_apc(')
 end = bridge.index('\n/* Per-thread pending-APC ring.', start)
 production = bridge[start:end]
 prefix = r'''
-#define RESOT_RUNTIME_RETAIL 1 /* the shared runtime's retail build */
-#define RESOT_RUNTIME_DEMO 0
+#define POPSOT_RUNTIME_RETAIL 1 /* the shared runtime's retail build */
+#define POPSOT_RUNTIME_DEMO 0
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

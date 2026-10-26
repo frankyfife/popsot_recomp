@@ -1,4 +1,4 @@
-"""RE-SoT: --folders writes each function into its folder, with its reason."""
+"""POPSoT: --folders writes each function into its folder, with its reason."""
 import json
 import os
 import tempfile

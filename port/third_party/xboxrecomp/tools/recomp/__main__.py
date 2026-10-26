@@ -215,7 +215,7 @@ def main():
                         help="Generate C header file")
     parser.add_argument("--split", type=int, metavar="N",
                         help="Split output into files of N functions each")
-    # RE-SoT: sort the split output into folders by what the code does.
+    # POPSoT: sort the split output into folders by what the code does.
     parser.add_argument("--folders", metavar="JSON",
                         help="With --split: write each function into the "
                              "folder this file assigns it (gen/<folder>/"

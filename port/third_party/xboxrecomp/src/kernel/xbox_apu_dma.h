@@ -1,4 +1,4 @@
-/* RE-SoT: host DMA tokens for retail DirectSound buffers in extended guest VA.
+/* POPSoT: host DMA tokens for retail DirectSound buffers in extended guest VA.
  * This is an address translation namespace, not physical console RAM. It does
  * not change allocation/accounting. The 28-bit gap below the existing heap
  * alias is disjoint from 64 MB console RAM and XBOX_APU_HEAP_ALIAS (0xB000000).

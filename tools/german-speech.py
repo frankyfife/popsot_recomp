@@ -18,7 +18,7 @@ SOUND/original-english/ first; --restore moves them back.
 --films copies the German bonus films (CINE_9014, 9034, 9044, 9054, 9064:
 the extras with German subtitles) from the European disc into VIDEO/. The
 USA disc has only the English, French and Spanish ones (CINE_90n0..90n2);
-the retail hook asks for 90n4 when RESOT_MOVIE_LANGUAGE is German and the
+the retail hook asks for 90n4 when POPSOT_MOVIE_LANGUAGE is German and the
 files are there (source/xbox-retail/target_hooks.c). The cinematics need
 nothing: their German sound track is already in the USA files.
 

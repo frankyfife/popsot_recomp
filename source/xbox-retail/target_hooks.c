@@ -19,11 +19,11 @@
 #include "../../port/game/guest_probe.h"
 #include "target.h"
 #if defined(_MSC_VER)
-#define RESOT_TLS __declspec(thread)
+#define POPSOT_TLS __declspec(thread)
 #else
-#define RESOT_TLS __thread
+#define POPSOT_TLS __thread
 #endif
-extern RESOT_TLS uint32_t g_eax, g_ecx, g_edx, g_esp, g_esi;
+extern POPSOT_TLS uint32_t g_eax, g_ecx, g_edx, g_esp, g_esi;
 extern ptrdiff_t g_xbox_mem_offset;
 #define GMEM32(va) (*(volatile uint32_t *)((uintptr_t)g_xbox_mem_offset + (uint32_t)(va)))
 #define GMEMF(va)  (*(volatile float *)((uintptr_t)g_xbox_mem_offset + (uint32_t)(va)))
@@ -41,21 +41,21 @@ extern ptrdiff_t g_xbox_mem_offset;
  * interval the game has already captured. Keep _ftol, the original minimum,
  * 160-ms float cap, speed factors and pause handling. Valid refresh values
  * retain the original path; no host-clock scale or frame limit is changed.
- * RESOT_RAW_RETAIL_TIMESTEP=1 restores the unmodified path for comparison. */
-extern RESOT_TLS double g_fp_stack[8];
-extern RESOT_TLS int g_fp_top;
+ * POPSOT_RAW_RETAIL_TIMESTEP=1 restores the unmodified path for comparison. */
+extern POPSOT_TLS double g_fp_stack[8];
+extern POPSOT_TLS int g_fp_top;
 
-/* RESOT_DUMP_RAM=<file>[,seconds]: writes guest RAM 0..64 MB once, after
+/* POPSOT_DUMP_RAM=<file>[,seconds]: writes guest RAM 0..64 MB once, after
  * the given seconds (default 30) from the first frame. For finding tables
  * such as a font's glyph rectangles offline. */
-static void resot_dump_ram_check(void)
+static void popsot_dump_ram_check(void)
 {
     static int state = -1;
     static clock_t start;
     static double after = 30.0;
     static char path[260];
     if (state < 0) {
-        const char *e = getenv("RESOT_DUMP_RAM"), *comma;
+        const char *e = getenv("POPSOT_DUMP_RAM"), *comma;
         state = e && *e ? 0 : 2;
         if (!state) {
             snprintf(path, sizeof path, "%s", e);
@@ -77,7 +77,7 @@ static void resot_dump_ram_check(void)
 
 void sub_00348128_enter(void)
 {
-    resot_dump_ram_check();
+    popsot_dump_ram_check();
     static int configured, raw;
     static unsigned reports;
     float refresh;
@@ -89,7 +89,7 @@ void sub_00348128_enter(void)
     if (isfinite(refresh) && refresh >= 2.0f)
         return;
     if (!configured) {
-        const char *e = getenv("RESOT_RAW_RETAIL_TIMESTEP");
+        const char *e = getenv("POPSOT_RAW_RETAIL_TIMESTEP");
         raw = e && *e && *e != '0';
         configured = 1;
     }
@@ -97,7 +97,7 @@ void sub_00348128_enter(void)
     previous = ((uint64_t)GMEM32(0x007654D4u) << 32) | GMEM32(0x007654D0u);
     elapsed = now >= previous ? now - previous : 0;
     input = g_fp_stack[(unsigned)g_fp_top & 7u];
-    if (!reports++ || (getenv("RESOT_TIMER_DIAG") && reports % 120 == 0))
+    if (!reports++ || (getenv("POPSOT_TIMER_DIAG") && reports % 120 == 0))
         fprintf(stderr, "[TIME] retail invalid refresh %.3f, fixed-step input %.3f;"
                         " measured interval %llu us (%s)\n", refresh, input,
                 (unsigned long long)elapsed, raw ? "original conversion" : "calibrated clock");
@@ -113,13 +113,13 @@ void sub_00348128_enter(void)
  * flat. Step once per 1/30 s of game time instead: the frame is identified by
  * the new timestamp 0x007654C8, since a scene may hold several water objects.
  * On a skipped frame only the guard and the done flag (+0xA0) are kept, as
- * the original sets it. RESOT_RAW_WATER=1 restores the per-frame step.
- * RESOT_WATER_DIAG=1 reports, every 2 s per object, the largest field
+ * the original sets it. POPSOT_RAW_WATER=1 restores the per-frame step.
+ * POPSOT_WATER_DIAG=1 reports, every 2 s per object, the largest field
  * amplitude (+0x128) and how many fields are frozen (+0x13C bit 1); a field
  * whose amplitude falls under 1e-5 (0x00429428) is cleared and frozen. */
 extern void sub_000525A0_gen(void);
 
-static void resot_water_diag(uint32_t object, int stepped)
+static void popsot_water_diag(uint32_t object, int stepped)
 {
     static struct { uint32_t object, calls, steps; uint64_t since; } seen[8];
     uint32_t grid, cols, rows, fields = 0, frozen = 0, i, slot;
@@ -162,15 +162,15 @@ void sub_000525A0(void)
     static uint64_t pending;
     uint32_t object = GMEM32(g_esp + 4), saved_lo, saved_hi;
     if (!configured) {
-        const char *e = getenv("RESOT_RAW_WATER");
+        const char *e = getenv("POPSOT_RAW_WATER");
         raw = e && *e && *e != '0';
-        e = getenv("RESOT_WATER_DIAG");
+        e = getenv("POPSOT_WATER_DIAG");
         diag = e && *e && *e != '0';
         configured = 1;
     }
     if (raw) {
         if (diag)
-            resot_water_diag(object, 1);
+            popsot_water_diag(object, 1);
         sub_000525A0_gen();
         return;
     }
@@ -183,7 +183,7 @@ void sub_000525A0(void)
             pending = pending - 33333u > 33333u ? 0 : pending - 33333u;
     }
     if (diag)
-        resot_water_diag(object, step);
+        popsot_water_diag(object, step);
     if (!step) {
         if (object && !GMEM32(object + 0xA0u) && !GMEM32(object + 0xA4u))
             GMEM32(object + 0xA0u) = 1;
@@ -215,8 +215,8 @@ void sub_000525A0(void)
  *   too (sub_000F8790), e.g. for the bonus film number (Cine_%04d).
  * 0x00758F24 stays as it is, so the speech set (tools/german-speech.py)
  * and the font are unchanged. Instead:
- * - RESOT_TEXT_LANGUAGE=german sets 0x0044A9D8 to 4 before each text bank.
- * - RESOT_MOVIE_LANGUAGE=german moves the movie calls to index 4:
+ * - POPSOT_TEXT_LANGUAGE=german sets 0x0044A9D8 to 4 before each text bank.
+ * - POPSOT_MOVIE_LANGUAGE=german moves the movie calls to index 4:
  *   - the four-track group passed to BinkSetSoundTrack (sub_003A6570,
  *     called at 0x0001E736) and to BinkSetMixBins (sub_003A8340, called at
  *     0x0001E812, 0x0001E830, 0x0001E84E, 0x0001E87A). Only films with
@@ -226,11 +226,11 @@ void sub_000525A0(void)
  *     0x000CA6C5). The USA disc already has all five sets.
  *   - the bonus films: Cine_%04d in sub_0002F450 (_sprintf called at
  *     0x0002F4AD) gets 90n0 + 0x0044A9D8. With English text, 90n0 becomes
- *     90n4 (German subtitles), when RESOT_GERMAN_BONUS says the European
+ *     90n4 (German subtitles), when POPSOT_GERMAN_BONUS says the European
  *     files are installed (port/windows/src/main.c). The overlay rectangle
  *     of sub_0001EA40 knows only 90n0..90n2, in the European XBE as well.
  * Other values (english, or unset) keep the original behaviour. */
-static int resot_language_index(const char *name)
+static int popsot_language_index(const char *name)
 {
     const char *e = getenv(name);
     if (e && e[0] >= '0' && e[0] <= '4' && !e[1])
@@ -244,11 +244,11 @@ static int resot_language_index(const char *name)
  * and TEXT_ChangeLang build the stream key from 0x0044A9D8 at 0x00069B25 /
  * 0x00069D80, open it (sub_000D8590) and read the text groups from it, so
  * the language must be set before that read, not in the bank loader. */
-static int resot_text_language(void)
+static int popsot_text_language(void)
 {
     static int lang = -2;
     if (lang == -2) {
-        lang = resot_language_index("RESOT_TEXT_LANGUAGE");
+        lang = popsot_language_index("POPSOT_TEXT_LANGUAGE");
         if (lang >= 0)
             fprintf(stderr, "[LANG] text language %d\n", lang);
     }
@@ -257,7 +257,7 @@ static int resot_text_language(void)
 
 void sub_00069B10_enter(void)
 {
-    int lang = resot_text_language();
+    int lang = popsot_text_language();
     if (lang >= 0)
         GMEM32(0x0044A9D8u) = (uint32_t)lang;
 }
@@ -266,19 +266,19 @@ void sub_00069660_enter(void)
 {
     static int diag = -1;
     if (diag < 0) {
-        const char *e = getenv("RESOT_TEXT_DIAG");
+        const char *e = getenv("POPSOT_TEXT_DIAG");
         diag = e && *e && *e != '0';
     }
-    if (diag)   /* RESOT_TEXT_DIAG=1: the text group's key */
+    if (diag)   /* POPSOT_TEXT_DIAG=1: the text group's key */
         fprintf(stderr, "[LANG] text group %08X, language %u\n",
                 GMEM32(g_esp + 4), GMEM32(0x0044A9D8u));
 }
 
-static int resot_movie_language(void)
+static int popsot_movie_language(void)
 {
     static int lang = -2;
     if (lang == -2) {
-        lang = resot_language_index("RESOT_MOVIE_LANGUAGE");
+        lang = popsot_language_index("POPSOT_MOVIE_LANGUAGE");
         if (lang >= 0)
             fprintf(stderr, "[LANG] movie language %d (German)\n", lang);
     }
@@ -288,9 +288,9 @@ static int resot_movie_language(void)
 /* The movie's track ids from the original index to the requested one, when
  * the open Bink file (handle at 0x0044AA1C, track count at +0xF0) has the
  * requested group. */
-static uint32_t resot_movie_track(uint32_t id)
+static uint32_t popsot_movie_track(uint32_t id)
 {
-    int lang = resot_movie_language();
+    int lang = popsot_movie_language();
     uint32_t bink = GMEM32(0x0044AA1Cu), from = GMEM32(0x00758F24u);
     if (lang < 0 || !bink || (int32_t)GMEM32(bink + 0xF0u) < 4 * (lang + 1)
         || id < 4 * from || id >= 4 * from + 4)
@@ -305,7 +305,7 @@ void sub_003A6570_enter(void)
         return;
     list = GMEM32(g_esp + 8);
     for (i = 0; i < 4; i++)
-        GMEM32(list + 4 * i) = resot_movie_track(GMEM32(list + 4 * i));
+        GMEM32(list + 4 * i) = popsot_movie_track(GMEM32(list + 4 * i));
     if (GMEM32(list) >= 4)
         fprintf(stderr, "[LANG] movie tracks %u-%u\n", GMEM32(list), GMEM32(list) + 3);
 }
@@ -314,7 +314,7 @@ void sub_003A8340_enter(void)
 {
     uint32_t ret = GMEM32(g_esp);
     if (ret == 0x0001E817u || ret == 0x0001E835u || ret == 0x0001E853u || ret == 0x0001E87Fu)
-        GMEM32(g_esp + 8) = resot_movie_track(GMEM32(g_esp + 8));
+        GMEM32(g_esp + 8) = popsot_movie_track(GMEM32(g_esp + 8));
 }
 
 void sub_00347456_enter(void)
@@ -323,15 +323,15 @@ void sub_00347456_enter(void)
     int lang;
     if (ret == 0x0002F4B2u) {
         uint32_t n = GMEM32(g_esp + 12);
-        const char *bonus = getenv("RESOT_GERMAN_BONUS");
-        if (resot_movie_language() == 4 && bonus && *bonus == '1'
+        const char *bonus = getenv("POPSOT_GERMAN_BONUS");
+        if (popsot_movie_language() == 4 && bonus && *bonus == '1'
             && n >= 9010u && n <= 9069u && n % 10u == 0)
             GMEM32(g_esp + 12) = n + 4u;
         return;
     }
     if (ret != 0x000CA4DEu && ret != 0x000CA6AAu && ret != 0x000CA6BAu && ret != 0x000CA6CAu)
         return;
-    lang = resot_movie_language();
+    lang = popsot_movie_language();
     if (lang >= 0)
         GMEM32(g_esp + 12) = (uint32_t)lang;
 }
@@ -353,11 +353,11 @@ void sub_0025CF40_enter(void)
 /* Retail primary WOW merge at 0x00031A73: source in EAX, aggregate
  * destination at stack +4. This caller follows the primary key load at
  * 0x00031A58; dependency merges use other callers. */
-extern void resot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller);
+extern void popsot_scene_loaded(uint32_t destination, uint32_t source, int primary, uint32_t caller);
 void sub_00030FB0_enter(void)
 {
     uint32_t caller = GMEM32(g_esp);
-    resot_scene_loaded(GMEM32(g_esp + 4), g_eax, caller == 0x00031A78u, caller);
+    popsot_scene_loaded(GMEM32(g_esp + 4), g_eax, caller == 0x00031A78u, caller);
 }
 
 /* Retail independently verified in its XBE: sub_0001E970 returns 0 at EOF;
@@ -366,13 +366,13 @@ void sub_00030FB0_enter(void)
  * EOF for Space / pad A even when the movie's original skip permission or
  * minimum viewing time forbids skipping. The game's normal completion path
  * retains timeline bookkeeping and subsequent scene/movie transitions. */
-extern int resot_movie_skip_down(void);
+extern int popsot_movie_skip_down(void);
 extern void sub_0001E970_gen(void);
 
 void sub_0001E970(void)
 {
     static int was_down;
-    int down = resot_movie_skip_down();
+    int down = popsot_movie_skip_down();
     int pressed = down && !was_down;
     was_down = down;
     if (pressed && GMEM32(0x0044AA1Cu)) { /* Bink handle, read at 0x0001E970 */
@@ -416,8 +416,8 @@ static float widen_factor(void)
                 aspect /= (float)atof(colon + 1);
         }
         s_widen = (aspect >= 4.0f / 3.0f && aspect <= 4.0f) ? aspect / (4.0f / 3.0f) : 1.0f;
-        /* RESOT_NO_FOV_HOOK=1: leave the projection alone (comparison runs). */
-        if (getenv("RESOT_NO_FOV_HOOK"))
+        /* POPSOT_NO_FOV_HOOK=1: leave the projection alone (comparison runs). */
+        if (getenv("POPSOT_NO_FOV_HOOK"))
             s_widen = 1.0f;
         if (s_widen > 1.0f)
             fprintf(stderr, "[BOOT] widescreen: projection widened %.4fx horizontally\n",
@@ -655,7 +655,7 @@ void sub_00417DAD(void)
 }
 
 /* XInputGetState, polled once a frame on the title thread: also where the
- * reSOT Options labels catch up with a changed setting. */
+ * POPSoT Options labels catch up with a changed setting. */
 static void native_refresh(void);
 static void level_pending(void);
 static void cheats_tick(void);
@@ -700,7 +700,7 @@ void sub_00417FF8(void)
     stdcall_return(997, 2);                /* ERROR_IO_PENDING, already done */
 }
 
-/* ── Menu construction trace (RESOT_MENU_TRACE=1) ──
+/* ── Menu construction trace (POPSOT_MENU_TRACE=1) ──
  *
  * The retail XBE's Jade menu library, matched to the demo's routine by
  * routine and checked in this XBE's code: 0x002A2B20 opens a page (eax =
@@ -711,7 +711,7 @@ void sub_00417FF8(void)
  * (edi = &{group key, index}) to a string. 0x00018310 builds a message
  * action, 0x00116660 binds an action to a choice. Logged with their return
  * addresses and resolved labels to map the retail menus. */
-extern RESOT_TLS uint32_t g_ebx, g_edi, g_ebp, g_seh_ebp;
+extern POPSOT_TLS uint32_t g_ebx, g_edi, g_ebp, g_seh_ebp;
 extern void sub_000F84A0(void);
 
 typedef struct { uint32_t eax, ebx, ecx, edx, esi, edi, ebp, seh, esp; } GuestRegs;
@@ -729,7 +729,7 @@ static void regs_load(const GuestRegs *r)
 static int menu_trace(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_MENU_TRACE"); on = e && *e && *e != '0'; }
+    if (on < 0) { const char *e = getenv("POPSOT_MENU_TRACE"); on = e && *e && *e != '0'; }
     return on;
 }
 
@@ -778,12 +778,12 @@ void sub_00018310_enter(void)
     }
 }
 
-/* RESOT_TEXT_DUMP=<group>[,<group>...]: print every string of those text
+/* POPSOT_TEXT_DUMP=<group>[,<group>...]: print every string of those text
  * groups once, at the first page the menu library opens (with the trace). */
 static void text_dump(void)
 {
     static int done;
-    const char *e = getenv("RESOT_TEXT_DUMP");
+    const char *e = getenv("POPSOT_TEXT_DUMP");
     if (done || !e || !*e) return;
     done = 1;
     while (*e) {
@@ -808,7 +808,7 @@ static void text_dump(void)
     }
 }
 
-/* ── reSOT Options: native pages for the host settings (retail) ──
+/* ── POPSoT Options: native pages for the host settings (retail) ──
  *
  * The demo's design (source/xbox-demo/target_hooks.c), with this XBE's own
  * routines and conventions, each checked here:
@@ -839,7 +839,7 @@ static void text_dump(void)
  * [0x00767530], and closes it at 0x00234D86. "Port Options" is added there
  * before the close; the pages are built when the next page opens
  * (0x00234DC8, return 0x00234DCD), and again for each new main menu.
- * RESOT_HIDDEN_MENUS=0 disables them. */
+ * POPSOT_HIDDEN_MENUS=0 disables them. */
 #include "../../port/windows/src/options.h"
 extern void sub_000DBDE0_gen(void);
 /* Retail XBE: 0x000DBDE0 normalizes ECX's int16 stick pair into EAX's
@@ -851,7 +851,7 @@ void sub_000DBDE0(void)
     uint32_t output=g_eax, ret=GMEM32(g_esp);
     sub_000DBDE0_gen();
     if(ret==0x000DC0C2u)
-        resot_scale_look((float *)((uintptr_t)g_xbox_mem_offset+output));
+        popsot_scale_look((float *)((uintptr_t)g_xbox_mem_offset+output));
 }
 extern uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment);
 extern void sub_000F84A0_gen(void);
@@ -865,7 +865,7 @@ extern void sub_00116660(void);
 extern void sub_00038DD0(void);
 
 typedef union { float f[4]; double d[2]; uint32_t u[4]; int32_t i[4]; uint64_t q[2]; } GuestXmm;
-extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
+extern POPSOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 
 #define MAIN_OPEN_RET      0x00234B42u
 #define MAIN_CLOSE_RET     0x00234D8Bu
@@ -874,15 +874,15 @@ extern RESOT_TLS GuestXmm g_xmm1;          /* the runtime's RecompXmm */
 #define TEXT_ACTION_VTABLE 0x0041F838u
 #define TEXT_NONE          0x0041F4A8u
 #define MENU_PAGE_X        0.4f
-#define RESOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
-#define RESOT_MSG_KIND     0x52E5u
-#define RESOT_TEXT_SLOT    96u
-#define RESOT_TEXTS        170u
+#define POPSOT_TEXT_GROUP   0x0B00FE00u   /* no key of the retail BF: injected */
+#define POPSOT_MSG_KIND     0x52E5u
+#define POPSOT_TEXT_SLOT    96u
+#define POPSOT_TEXTS        170u
 
 static int hidden_menus(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_HIDDEN_MENUS"); on = !e || *e != '0'; }
+    if (on < 0) { const char *e = getenv("POPSOT_HIDDEN_MENUS"); on = !e || *e != '0'; }
     return on;
 }
 
@@ -909,8 +909,8 @@ static const char *const s_static_texts[] = {
     "Joystick: move and fight", "Joystick: actions", "Joystick: menus and camera",
     "Reset all bindings",
 };
-/* RE-SoT: the same pages in German when the game's text is German
- * (RESOT_TEXT_LANGUAGE), in the font's Latin-1. */
+/* POPSoT: the same pages in German when the game's text is German
+ * (POPSOT_TEXT_LANGUAGE), in the font's Latin-1. */
 static const char *const s_static_texts_de[] = {
     "Port-Optionen", "Grafik", "Steuerung",
     "Tastatur: Bewegen und K" "\xE4" "mpfen", "Tastatur: Aktionen", "Tastatur: Men" "\xFC" "s und Kamera",
@@ -919,7 +919,7 @@ static const char *const s_static_texts_de[] = {
 };
 static uint32_t s_text_va;
 
-/* RE-SoT: level select ("Special Load Map"), after popsot-fixes' Special
+/* POPSoT: level select ("Special Load Map"), after popsot-fixes' Special
  * Load entry (P_SpecialLoad, docs/TECHNICAL.md:188), which the PC main menu
  * still carries hidden; the retail XBE keeps only the caption (text group
  * 0x0B0041D2, index 8) and no page. Here it is a native page set: one world
@@ -965,7 +965,7 @@ static const char *const s_part_names_de[LEVEL_PARTS] = {
     "Abschnitte 01-22", "Abschnitte 24-51", "Abschnitte 61-91", "Extras" };
 static uint32_t s_level_pending;
 
-/* RE-SoT: cheats (below), shown on their own reSOT page; after the
+/* POPSoT: cheats (below), shown on their own POPSoT page; after the
  * switches the page has the sword change (item CHEATS). */
 enum { CHEAT_INVULNERABLE, CHEAT_SAND, CHEAT_ONE_HIT, CHEAT_NO_SPAWN, CHEAT_ENDLESS, CHEATS };
 static int s_cheat[CHEATS];
@@ -982,7 +982,7 @@ static const char *const s_cheat_names_de[CHEATS] = {
     "Endlose Portal-Gegner" };
 static void cheat_sword_label(char *out, unsigned size);
 
-/* RE-SoT: the reSOT Prototype page (below, after the cheats). */
+/* POPSoT: the POPSoT Prototype page (below, after the cheats). */
 enum { PRO_REGEN, PRO_NOHUD, PROS };
 static int s_proto[PROS];
 static const char *const s_proto_names[PROS] = {
@@ -990,18 +990,18 @@ static const char *const s_proto_names[PROS] = {
 static const char *const s_proto_names_de[PROS] = {
     "Lebensregeneration (Prototyp)", "Interface ausblenden" };
 
-/* RE-SoT: the reSOT Debug page (below, after the free camera). */
-enum { DBG_PANEL, DBG_FREECAM, DBG_FREEZE, DBG_SPEED, DBG_MENUCAM, DBGS };
+/* POPSoT: the POPSoT Debug page (below, after the free camera). */
+enum { DBG_FREECAM, DBG_FREEZE, DBG_SPEED, DBG_MENUCAM, DBGS };
 static void debug_label(int item, char *out, unsigned size);
 static void debug_activate(int item);
 static long debug_revision(void);
 
-static void resot_text(uint32_t index, char *out, unsigned size)
+static void popsot_text(uint32_t index, char *out, unsigned size)
 {
-    /* RESOT_FONT_PROBE=<first>,<count>: the main menu's reSOT entry shows the
+    /* POPSOT_FONT_PROBE=<first>,<count>: the main menu's POPSoT entry shows the
     * character codes first..first+count-1 instead, so a frame trace with
     * RECOMP_TRACE_ALLVTX gives every glyph's rectangle (tools/hd-ui.py). */
-    const char *probe = getenv("RESOT_FONT_PROBE");
+    const char *probe = getenv("POPSOT_FONT_PROBE");
     if (index == T_ROOT && probe && *probe) {
         unsigned first = (unsigned)strtoul(probe, NULL, 0), count = 0, i;
         const char *comma = strchr(probe, ',');
@@ -1019,26 +1019,26 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         return;
     }
     if (index < sizeof s_static_texts / sizeof s_static_texts[0])
-        snprintf(out, size, "%s", resot_text_language() == 4 ? s_static_texts_de[index]
+        snprintf(out, size, "%s", popsot_text_language() == 4 ? s_static_texts_de[index]
                                                              : s_static_texts[index]);
-    else if (index >= T_GFX && index < T_GFX + RESOT_NATIVE_GRAPHICS_ITEMS)
-        resot_native_label(RESOT_NATIVE_GRAPHICS, (int)(index - T_GFX), out, size);
+    else if (index >= T_GFX && index < T_GFX + POPSOT_NATIVE_GRAPHICS_ITEMS)
+        popsot_native_label(POPSOT_NATIVE_GRAPHICS, (int)(index - T_GFX), out, size);
     else if (index == T_LOOK)
-        resot_native_label(RESOT_NATIVE_CONTROLS, 0, out, size);
-    else if (index >= T_KEYS && index < T_KEYS + RESOT_NATIVE_ACTIONS)
-        resot_native_label(RESOT_NATIVE_KEYS, (int)(index - T_KEYS), out, size);
-    else if (index >= T_JOYS && index < T_JOYS + RESOT_NATIVE_ACTIONS)
-        resot_native_label(RESOT_NATIVE_JOY, (int)(index - T_JOYS), out, size);
+        popsot_native_label(POPSOT_NATIVE_CONTROLS, 0, out, size);
+    else if (index >= T_KEYS && index < T_KEYS + POPSOT_NATIVE_ACTIONS)
+        popsot_native_label(POPSOT_NATIVE_KEYS, (int)(index - T_KEYS), out, size);
+    else if (index >= T_JOYS && index < T_JOYS + POPSOT_NATIVE_ACTIONS)
+        popsot_native_label(POPSOT_NATIVE_JOY, (int)(index - T_JOYS), out, size);
     else if (index == T_LEVELS)
-        snprintf(out, size, "%s", resot_text_language() == 4 ? "Spezielle Karte laden"
+        snprintf(out, size, "%s", popsot_text_language() == 4 ? "Spezielle Karte laden"
                                                              : "Special Load Map");
     else if (index >= T_PART && index < T_PART + LEVEL_PARTS)
-        snprintf(out, size, "%s", resot_text_language() == 4 ? s_part_names_de[index - T_PART]
+        snprintf(out, size, "%s", popsot_text_language() == 4 ? s_part_names_de[index - T_PART]
                                                              : s_part_names[index - T_PART]);
     else if (index == T_CHEATS)
         snprintf(out, size, "Cheats");
     else if (index >= T_CHEAT && index < T_CHEAT + CHEATS) {
-        int de = resot_text_language() == 4, c = (int)(index - T_CHEAT);
+        int de = popsot_text_language() == 4, c = (int)(index - T_CHEAT);
         snprintf(out, size, "%s: %s", de ? s_cheat_names_de[c] : s_cheat_names[c],
                  s_cheat[c] ? (de ? "An" : "On") : (de ? "Aus" : "Off"));
     } else if (index == T_CHEAT + CHEATS)
@@ -1046,15 +1046,15 @@ static void resot_text(uint32_t index, char *out, unsigned size)
     else if (index == T_DEBUG)
         snprintf(out, size, "Debug");
     else if (index == T_SOUND)
-        snprintf(out, size, resot_text_language() == 4 ? "Ton" : "Sound");
+        snprintf(out, size, popsot_text_language() == 4 ? "Ton" : "Sound");
 #ifdef _WIN32
     else if (index >= T_SND && index < T_SND + 2)
-        resot_options_audio_label((int)(index - T_SND), out, size);
+        popsot_options_audio_label((int)(index - T_SND), out, size);
 #endif
     else if (index == T_PROTO)
-        snprintf(out, size, resot_text_language() == 4 ? "Prototyp" : "Prototype");
+        snprintf(out, size, popsot_text_language() == 4 ? "Prototyp" : "Prototype");
     else if (index >= T_PRO && index < T_PRO + PROS) {
-        int de = resot_text_language() == 4, c = (int)(index - T_PRO);
+        int de = popsot_text_language() == 4, c = (int)(index - T_PRO);
         snprintf(out, size, "%s: %s", de ? s_proto_names_de[c] : s_proto_names[c],
                  s_proto[c] ? (de ? "An" : "On") : (de ? "Aus" : "Off"));
     }
@@ -1069,9 +1069,9 @@ static void resot_text(uint32_t index, char *out, unsigned size)
         snprintf(out, size, "?");
 }
 
-/* References to RESOT_TEXT_GROUP are answered from a guest buffer that is
+/* References to POPSOT_TEXT_GROUP are answered from a guest buffer that is
  * rewritten at every lookup, so a label shows the setting's current value. */
-/* RE-SoT: fixes of the German hint text (RESOT_TEXT_FIXES=0 keeps it).
+/* POPSoT: fixes of the German hint text (POPSOT_TEXT_FIXES=0 keeps it).
  * The German text bank's verb entries for \d4\ \d5\ \d6\ are "Tippt",
  * "Ziehen", "ziehen" (FD5003DA and every other world's FD5 stream), while
  * the sentences around them want the Ihr form of "press": "Lauft auf die
@@ -1085,7 +1085,7 @@ static void resot_text(uint32_t index, char *out, unsigned size)
 static int text_fixes(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_TEXT_FIXES"); on = !(e && *e == '0'); }
+    if (on < 0) { const char *e = getenv("POPSOT_TEXT_FIXES"); on = !(e && *e == '0'); }
     return on;
 }
 
@@ -1127,7 +1127,7 @@ static void text_fix_ram(void)
 {
     unsigned verbs = 0, buttons = 0;
     uint32_t va, run = 0;
-    if (resot_text_language() != 4 || !text_fixes()) return;
+    if (popsot_text_language() != 4 || !text_fixes()) return;
     text_fix_range(0x10000u, 64u << 20, &verbs, &buttons);
     for (va = 64u << 20; va && va < ~0xFFFFu; va += 0x1000u) {
         int ok = guest_vmem_accessible(va, 0x1000u);
@@ -1154,21 +1154,21 @@ void sub_00069D50(void)
 void sub_000F84A0(void)
 {
     uint32_t index;
-    char text[RESOT_TEXT_SLOT];
-    if (GMEM32(g_edi) != RESOT_TEXT_GROUP) {
+    char text[POPSOT_TEXT_SLOT];
+    if (GMEM32(g_edi) != POPSOT_TEXT_GROUP) {
         sub_000F84A0_gen();
         return;
     }
     index = GMEM32(g_edi + 4);
     if (!s_text_va)
-        s_text_va = xbox_ContiguousAlloc(RESOT_TEXT_SLOT * RESOT_TEXTS, 16);
-    if (!s_text_va || index >= RESOT_TEXTS) {
+        s_text_va = xbox_ContiguousAlloc(POPSOT_TEXT_SLOT * POPSOT_TEXTS, 16);
+    if (!s_text_va || index >= POPSOT_TEXTS) {
         g_eax = TEXT_NONE;
     } else {
-        resot_text(index, text, sizeof text);
-        memcpy((void *)((uintptr_t)g_xbox_mem_offset + s_text_va + index * RESOT_TEXT_SLOT),
+        popsot_text(index, text, sizeof text);
+        memcpy((void *)((uintptr_t)g_xbox_mem_offset + s_text_va + index * POPSOT_TEXT_SLOT),
                text, strlen(text) + 1);
-        g_eax = s_text_va + index * RESOT_TEXT_SLOT;
+        g_eax = s_text_va + index * POPSOT_TEXT_SLOT;
     }
     g_esp += 4;                           /* ret */
 }
@@ -1220,7 +1220,7 @@ static void native_layout(void)
     for (i = 0; i < p->n; i++)
         native_choice(p, i, T_DBG + (uint32_t)i, DO_MSG, (int)MSG_ID(P_DEBUG, i));
     p = &s_pages[P_GFX]; p->title = T_GRAPHICS; p->top = 0.3833f; p->step = 0.0667f;
-    p->n = RESOT_NATIVE_GRAPHICS_ITEMS;
+    p->n = POPSOT_NATIVE_GRAPHICS_ITEMS;
     for (i = 0; i < p->n; i++)
         native_choice(p, i, T_GFX + (uint32_t)i, DO_MSG, (int)MSG_ID(P_GFX, i));
     p = &s_pages[P_CTRL]; p->title = T_CONTROLS; p->top = 0.3f; p->step = 0.05f; p->n = 8;
@@ -1279,7 +1279,7 @@ static uint32_t native_build_page(uint32_t cur, uint32_t menu, NativePage *p)
     regs_save(&saved);
     g_esp -= 0x40;
     scratch = g_esp;
-    GMEM32(scratch + 0x20) = RESOT_TEXT_GROUP;
+    GMEM32(scratch + 0x20) = POPSOT_TEXT_GROUP;
     GMEM32(scratch + 0x24) = p->title;
     GMEM32(scratch + 0x30) = 0;
     args[0] = scratch + 0x30; args[1] = 0; args[2] = f2u(p->top); args[3] = f2u(p->step);
@@ -1291,7 +1291,7 @@ static uint32_t native_build_page(uint32_t cur, uint32_t menu, NativePage *p)
     regs_load(&saved);
     g_xmm1 = xmm1;
     for (i = 0; i < p->n; i++)
-        p->c[i].choice = menu_add_choice(cur, menu, RESOT_TEXT_GROUP, p->c[i].text);
+        p->c[i].choice = menu_add_choice(cur, menu, POPSOT_TEXT_GROUP, p->c[i].text);
     regs_save(&saved);
     args[0] = menu;
     g_eax = cur;
@@ -1341,7 +1341,7 @@ static int menu_bind_message(uint32_t choice, uint32_t id)
     scratch = g_esp;
     for (i = 0; i < 0x34; i += 4)
         GMEM32(scratch + 0x40 + i) = 0;
-    GMEM32(scratch + 0x40 + 0x28) = RESOT_MSG_KIND;
+    GMEM32(scratch + 0x40 + 0x28) = POPSOT_MSG_KIND;
     GMEM32(scratch + 0x40 + 0x30) = id;
     args[0] = s_main_cur; args[1] = scratch + 0x40;
     g_eax = s_main_cur;
@@ -1367,11 +1367,11 @@ static void native_build_and_bind(void)
     root += menu_bind_open_page(s_level_choice, s_pages[P_LEVELS].page);
     s_native_built = 1;
     s_native_bound = 1;
-    fprintf(stderr, "[MENU] reSOT Options: %d pages, %d of %d choices bound, main entries %08X %08X,"
+    fprintf(stderr, "[MENU] POPSoT Options: %d pages, %d of %d choices bound, main entries %08X %08X,"
                     " %d bound\n", P_PAGES, ok, all, s_level_choice, s_root_choice, root);
 }
 
-/* RE-SoT: the pause menu builds its pages the same way; its first page
+/* POPSoT: the pause menu builds its pages the same way; its first page
  * "Pause" (text 0B00411F) opens at return 0x001A323E and closes at
  * 0x001A3441, and "Optionen" opens next (0x001A3470). "Port Options" goes
  * to the end of the pause page and its pages are built into the pause menu,
@@ -1414,7 +1414,7 @@ void sub_002A2B20_enter(void)
  * The skipped add writes handle 0 to its out argument. The skipped bind
  * writes binding 0 and returns as 0x00116660 does (0x00116765-0x00116799):
  * eax/ecx/edx = the [0x758D64]/[0x758D68]/[0x758D6C] values it restores.
- * RESOT_XBOX_LIVE_MENU=1 keeps the choice. The pause menu's Xbox Live
+ * POPSOT_XBOX_LIVE_MENU=1 keeps the choice. The pause menu's Xbox Live
  * choice (return 0x001A33F6) is not changed. */
 #define LIVE_ADD_RET  0x00234D3Au
 #define LIVE_BIND_RET 0x0023540Bu
@@ -1423,7 +1423,7 @@ extern void sub_00116660_gen(void);
 static int hide_live(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_XBOX_LIVE_MENU"); on = !(e && *e && *e != '0'); }
+    if (on < 0) { const char *e = getenv("POPSOT_XBOX_LIVE_MENU"); on = !(e && *e && *e != '0'); }
     return on;
 }
 void sub_002A3910(void)
@@ -1464,9 +1464,9 @@ void sub_002A2670_enter(void)
             && !s_root_choice) {
         int pause = GMEM32(g_esp) == PAUSE_CLOSE_RET;
         if (!pause)
-            s_level_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_LEVELS);
-        s_root_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), RESOT_TEXT_GROUP, T_ROOT);
-        fprintf(stderr, "[MENU] hidden: \"reSOT Options\" choice %08X added to the %s page\n",
+            s_level_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), POPSOT_TEXT_GROUP, T_LEVELS);
+        s_root_choice = menu_add_choice(g_eax, GMEM32(g_esp + 4), POPSOT_TEXT_GROUP, T_ROOT);
+        fprintf(stderr, "[MENU] hidden: \"POPSoT Options\" choice %08X added to the %s page\n",
                 s_root_choice, pause ? "pause" : "main");
     }
 }
@@ -1476,12 +1476,12 @@ void sub_002A2670_enter(void)
  * still carries our reference. */
 static int native_label_word(uint64_t va, uint32_t *value)
 {
-    /* RE-SoT: retail TEXT_MANAGER 0x007584F0 +0x44 indexes main-menu
+    /* POPSoT: retail TEXT_MANAGER 0x007584F0 +0x44 indexes main-menu
      * choices; those handles can outlive the menu after a world transition.
      * The native D3D12 pause run faulted reading 0xA7F52955 via an old
      * object's +0x9C. Probe only optional host-label metadata, never catch
      * faults from lifted game execution. Wide arithmetic rejects wraparound. */
-    if (!resot_guest_read_word(g_xbox_mem_offset,va,value)) {
+    if (!popsot_guest_read_word(g_xbox_mem_offset,va,value)) {
         static unsigned logged;
         if (logged++ < 4)
             fprintf(stderr,"[MENU] label refresh skipped unreadable guest word %08X\n",(uint32_t)va);
@@ -1506,7 +1506,7 @@ static int native_text_object(uint32_t choice, uint32_t *out)
         uint32_t action, vtable, group;
         if (!native_label_word(it,&action)) return 0;
         if (action && native_label_word(action,&vtable) && vtable == TEXT_ACTION_VTABLE &&
-            native_label_word((uint64_t)action+0x34,&group) && group == RESOT_TEXT_GROUP) {
+            native_label_word((uint64_t)action+0x34,&group) && group == POPSOT_TEXT_GROUP) {
             *out = text;
             return 1;
         }
@@ -1519,7 +1519,7 @@ static void native_refresh(void)
     static long seen;
     long revision;
     int i, j, n = 0;
-    if (!s_native_bound || (revision = resot_native_revision() + debug_revision()) == seen)
+    if (!s_native_bound || (revision = popsot_native_revision() + debug_revision()) == seen)
         return;
     seen = revision;
     for (i = 0; i < P_PAGES; i++)
@@ -1536,25 +1536,25 @@ static void native_refresh(void)
             n++;
         }
     if (menu_trace())
-        fprintf(stderr, "[MENU] reSOT labels refreshed (%d, revision %ld)\n", n, revision);
+        fprintf(stderr, "[MENU] POPSoT labels refreshed (%d, revision %ld)\n", n, revision);
 }
 
 /* Message action execute: this = ecx, the descriptor copied at +0x24. */
 void sub_00039B20(void)
 {
     uint32_t self = g_ecx, id;
-    if (GMEM32(self + 0x24 + 0x28) != RESOT_MSG_KIND) { sub_00039B20_gen(); return; }
+    if (GMEM32(self + 0x24 + 0x28) != POPSOT_MSG_KIND) { sub_00039B20_gen(); return; }
     id = GMEM32(self + 0x24 + 0x30);
     if (menu_trace())
-        fprintf(stderr, "[MENU] reSOT choice %04X\n", id);
+        fprintf(stderr, "[MENU] POPSoT choice %04X\n", id);
     if (id == MSG_RESET)
-        resot_native_reset_bindings();
+        popsot_native_reset_bindings();
     else if ((id >> 8) == P_GFX)
-        resot_native_activate(RESOT_NATIVE_GRAPHICS, (int)(id & 0xFF));
+        popsot_native_activate(POPSOT_NATIVE_GRAPHICS, (int)(id & 0xFF));
     else if ((id >> 8) == P_CTRL)
-        resot_native_activate(RESOT_NATIVE_CONTROLS, (int)(id & 0xFF));
+        popsot_native_activate(POPSOT_NATIVE_CONTROLS, (int)(id & 0xFF));
     else if ((id >> 8) >= P_K0 && (id >> 8) <= P_J2)
-        resot_native_activate((id >> 8) >= P_J0 ? RESOT_NATIVE_JOY : RESOT_NATIVE_KEYS,
+        popsot_native_activate((id >> 8) >= P_J0 ? POPSOT_NATIVE_JOY : POPSOT_NATIVE_KEYS,
                               (int)(id & 0xFF));
     else if ((id >> 8) == P_CHEATS && (id & 0xFF) < CHEATS) {
         s_cheat[id & 0xFF] = !s_cheat[id & 0xFF];
@@ -1566,7 +1566,7 @@ void sub_00039B20(void)
         debug_activate((int)(id & 0xFF));
 #ifdef _WIN32
     else if ((id >> 8) == P_SOUND && (id & 0xFF) < 2)
-        resot_options_audio_activate((int)(id & 0xFF));
+        popsot_options_audio_activate((int)(id & 0xFF));
 #endif
     else if ((id >> 8) == P_PROTO && (id & 0xFF) < PROS) {
         s_proto[id & 0xFF] = !s_proto[id & 0xFF];
@@ -1626,11 +1626,11 @@ static void level_pending(void)
     GuestRegs saved;
     uint32_t args[3], flag, mgr, n, page;
     const Level *lv;
-    /* RESOT_START_LEVEL=<room, e.g. 6101_couloir, or world-list stream>:
+    /* POPSOT_START_LEVEL=<room, e.g. 6101_couloir, or world-list stream>:
      * chosen by itself about three seconds after the main menu is built. */
     static int start_polls = -1;
     if (start_polls < 0) {
-        const char *e = getenv("RESOT_START_LEVEL");
+        const char *e = getenv("POPSOT_START_LEVEL");
         int i;
         start_polls = 0;
         for (i = 0; e && *e && i < LEVELS; i++)
@@ -1702,7 +1702,7 @@ static void level_pending(void)
  * a spawner that has sent all its enemies starts its count again, through
  * 0x00266E20). Nothing in retail sets them; "No enemies" sets bit 0x01,
  * "Endless enemies" bit 0x08, and only the bits set here are cleared again.
- * Switched on the reSOT Cheats page (main or pause menu) or in play with
+ * Switched on the POPSoT Cheats page (main or pause menu) or in play with
  * Ctrl+F1 (invulnerable), Ctrl+F2 (sand), Ctrl+F3 (one-hit kills); Ctrl+F4
  * or the page's sword entry gives the next sword (from the page: once the
  * menu is closed). Not saved: every start begins with them off. */
@@ -1731,7 +1731,7 @@ extern int xbox_FramebufferKeyDown(int vk);
 static uint32_t cheat_word(uint32_t va, int *ok)
 {
     uint32_t v = 0;
-    if (!va || !resot_guest_read_word(g_xbox_mem_offset, va, &v)) *ok = 0;
+    if (!va || !popsot_guest_read_word(g_xbox_mem_offset, va, &v)) *ok = 0;
     return v;
 }
 
@@ -1755,7 +1755,7 @@ static int cheat_in_play(void)
 
 static void cheat_sword_label(char *out, unsigned size)
 {
-    int de = resot_text_language() == 4;
+    int de = popsot_text_language() == 4;
     uint32_t v = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4);
     if (v && GMEM32(v + V_SWORD_INDEX) < 4)
         snprintf(out, size, de ? "Schwert wechseln: %u von 4" : "Next sword: %u of 4",
@@ -1817,8 +1817,8 @@ static void cheats_tick(void)
     int ctrl = xbox_FramebufferKeyDown(0xA2) || xbox_FramebufferKeyDown(0xA3), i;
     uint32_t v;
     static int configured;
-    if (!configured) {                           /* RESOT_CHEATS=invulnerable,sand,onehit */
-        const char *e = getenv("RESOT_CHEATS");
+    if (!configured) {                           /* POPSOT_CHEATS=invulnerable,sand,onehit */
+        const char *e = getenv("POPSOT_CHEATS");
         configured = 1;
         if (e && *e) {
             s_cheat[CHEAT_INVULNERABLE] = strstr(e, "invulnerable") != NULL;
@@ -1842,9 +1842,9 @@ static void cheats_tick(void)
         }
         was[i] = down;
     }
-    {   /* RESOT_SWORD_TEST=<seconds>: the sword entry, by itself, once */
+    {   /* POPSOT_SWORD_TEST=<seconds>: the sword entry, by itself, once */
         static double at = -1.0;
-        if (at < 0.0) { const char *e = getenv("RESOT_SWORD_TEST"); at = e ? (double)clock() / CLOCKS_PER_SEC + atof(e) : 0.0; }
+        if (at < 0.0) { const char *e = getenv("POPSOT_SWORD_TEST"); at = e ? (double)clock() / CLOCKS_PER_SEC + atof(e) : 0.0; }
         if (at > 0.0 && (double)clock() / CLOCKS_PER_SEC >= at) {
             at = 0.0;
             s_sword_pending = 1;
@@ -1937,7 +1937,7 @@ static void sound_tick(void)
     uint32_t i, w;
     if (!s_ds_settings) return;
     for (i = 0; i < 48; i += 4) {
-        if (!resot_guest_read_word(g_xbox_mem_offset, s_ds_settings + DS_SETTINGS_LISTENER + i, &w))
+        if (!popsot_guest_read_word(g_xbox_mem_offset, s_ds_settings + DS_SETTINGS_LISTENER + i, &w))
             return;
         memcpy(l + i, &w, 4);
     }
@@ -1989,8 +1989,8 @@ static void proto_tick(void)
     static int configured;
     uint32_t v = universe_vars(), want;
     int i;
-    if (!configured) {                           /* RESOT_PROTO=regen,nohud */
-        const char *e = getenv("RESOT_PROTO");
+    if (!configured) {                           /* POPSOT_PROTO=regen,nohud */
+        const char *e = getenv("POPSOT_PROTO");
         configured = 1;
         if (e && *e) {
             s_proto[PRO_REGEN] = strstr(e, "regen") != NULL;
@@ -2023,12 +2023,12 @@ void sub_0026AE40_enter(void)
     if (!s_proto[PRO_REGEN] || !(v = universe_vars()))
         return;
     GMEM32(v + U_REGEN) = 1;
-    if (getenv("RESOT_PROTO_TRACE")) {           /* the prince's life, when it changes */
+    if (getenv("POPSOT_PROTO_TRACE")) {           /* the prince's life, when it changes */
         static int32_t last = -1;
         uint32_t pv = cheat_vars(GMEM32(MAIN_ACTOR1), V_SAND_FULL + 4);
         static uint32_t last_sword;
         static int hurt;
-        if (pv && !hurt && GMEM32(pv + 0x704) == 1 && !strcmp(getenv("RESOT_PROTO_TRACE"), "hurt")) {
+        if (pv && !hurt && GMEM32(pv + 0x704) == 1 && !strcmp(getenv("POPSOT_PROTO_TRACE"), "hurt")) {
             hurt = 1;                            /* =hurt: half the life once, in play */
             GMEM32(pv + V_LIFE) = GMEM32(pv + V_LIFE_MAX) / 2;
         }
@@ -2060,9 +2060,9 @@ void sub_0026AE40_enter(void)
  * keyboard's bindings work too: left stick move, right stick look, LT / RT
  * (or Q / E) down / up, Black or Shift faster, White or Ctrl slower, Y or P
  * freezes the world. Back or F8 switches the camera on and off, as does the
- * reSOT Debug page; while it is on the game gets no input but Start, except
+ * POPSoT Debug page; while it is on the game gets no input but Start, except
  * while a menu page is open in a level (in the main menu the camera takes
- * it, see the menu camera below). RESOT_FREECAM=0 disables it. */
+ * it, see the menu camera below). POPSOT_FREECAM=0 disables it. */
 #define CUR_DISPLAY        0x00758E34u
 #define DISPLAY_CAMERA     0xD0u
 #define CAM_ROW_I          0x90u
@@ -2071,7 +2071,7 @@ void sub_0026AE40_enter(void)
 #define CAM_POS            0xC0u
 #define SETCAM_INVERSE_RET 0x0002F7EBu
 #define FORCE_PAUSE_ENGINE 0x007584A0u
-extern void resot_current_wow(char *out, size_t size);
+extern void popsot_current_wow(char *out, size_t size);
 static struct {
     int on, started, frozen;
     float lx, ly, rx, ry, vert, speed;
@@ -2082,7 +2082,7 @@ static struct {
 static int freecam_enabled(void)
 {
     static int on = -1;
-    if (on < 0) { const char *e = getenv("RESOT_FREECAM"); on = !(e && *e == '0'); }
+    if (on < 0) { const char *e = getenv("POPSOT_FREECAM"); on = !(e && *e == '0'); }
     return on;
 }
 
@@ -2166,12 +2166,12 @@ void sub_002FDD00_enter(void)
     float k[3], r[3], u[3], cy, sy, cp, sp, len, dt;
     double now;
     int i;
-    if (getenv("RESOT_CAM_TRACE") && GMEM32(g_esp) == SETCAM_INVERSE_RET && (dd = GMEM32(CUR_DISPLAY))
+    if (getenv("POPSOT_CAM_TRACE") && GMEM32(g_esp) == SETCAM_INVERSE_RET && (dd = GMEM32(CUR_DISPLAY))
             && g_eax == dd + DISPLAY_CAMERA) {
         static unsigned n;
         if (n++ % 30 == 0) {
             char wow[64];
-            resot_current_wow(wow, sizeof wow);
+            popsot_current_wow(wow, sizeof wow);
             fprintf(stderr, "[CAM] %s pos %.3f %.3f %.3f K %.3f %.3f %.3f\n", wow,
                     GMEMF(g_eax + CAM_POS), GMEMF(g_eax + CAM_POS + 4), GMEMF(g_eax + CAM_POS + 8),
                     GMEMF(g_eax + CAM_ROW_K), GMEMF(g_eax + CAM_ROW_K + 4), GMEMF(g_eax + CAM_ROW_K + 8));
@@ -2182,7 +2182,7 @@ void sub_002FDD00_enter(void)
         return;
     if (!s_fc.on) {
         menucam_apply(g_eax);
-        if (getenv("RESOT_CAM_TRACE")) {
+        if (getenv("POPSOT_CAM_TRACE")) {
             static unsigned n;
             if (n++ % 30 == 0)
                 fprintf(stderr, "[CAM] shown pos %.3f %.3f %.3f K %.3f %.3f %.3f\n",
@@ -2242,17 +2242,17 @@ void sub_002FDD00_enter(void)
 
 /* Main-menu camera for wide screens, after popsot-fixes (src/menucam.cpp,
  * docs/TECHNICAL.md "Cameras"). The front end's 3D scene (world "Menu" in
- * the current-WOW name, resot_current_wow) was built for 4:3; at 16:9 the
+ * the current-WOW name, popsot_current_wow) was built for 4:3; at 16:9 the
  * set runs out at the left and right. Its camera rests at the PC version's
  * Camera02 position (-83.589 1.389 -2.662, K -0.991 -0.101 0.085, traced
- * with RESOT_CAM_TRACE=1) and New Game flies it to the same end
+ * with POPSOT_CAM_TRACE=1) and New Game flies it to the same end
  * (-92.802 -0.965 3.932, K -0.906 -0.394 0.157), so popsot-fixes' rules
  * apply unchanged: in the menu the camera is shown from the start pose or
  * moved by [Menu] CameraForward / CameraUp / CameraSide (along K, up, to the
  * right; defaults 3.5 / 6.25 / 0 as on PC). [Menu] CameraMode: "pc" (the
  * default) uses the user's poses of the PC port, "own" the ones stored with
  * the free camera in the main menu (X: CameraStart, B: CameraEnd), and
- * "original" leaves the camera alone (also RESOT_MENU_CAMERA=0).
+ * "original" leaves the camera alone (also POPSOT_MENU_CAMERA=0).
  * During the flight the moved camera follows the flight's progress (its
  * position projected on the line menu -> end) from our start to the end
  * pose (B, [Menu] CameraEnd) or the game's end; the view turns from the
@@ -2336,7 +2336,7 @@ static int menu_world(void)
     double now = fc_now();
     if (now >= next) {
         char wow[64];
-        resot_current_wow(wow, sizeof wow);
+        popsot_current_wow(wow, sizeof wow);
         in = !strcmp(wow, "Menu");
         next = now + 0.25;
     }
@@ -2346,7 +2346,7 @@ static int menu_world(void)
 static int menucam_get(const char *key, char *out, unsigned size)
 {
 #ifdef _WIN32
-    return resot_options_get_string("Menu", key, out, size);
+    return popsot_options_get_string("Menu", key, out, size);
 #else
     (void)key; if (size) out[0] = 0; return 0;
 #endif
@@ -2391,8 +2391,8 @@ static void menucam_load(void)
     if (menucam_get("CameraSide", v, sizeof v)) s_mc.offset[2] = (float)atof(v);
     for (i = 0; i < 2; i++) {
         MenuPose *p = &s_mc.own[i];
-        /* RESOT_MENU_CAMERA_START / _END=<x y z yaw pitch> for test runs */
-        e = getenv(i ? "RESOT_MENU_CAMERA_END" : "RESOT_MENU_CAMERA_START");
+        /* POPSOT_MENU_CAMERA_START / _END=<x y z yaw pitch> for test runs */
+        e = getenv(i ? "POPSOT_MENU_CAMERA_END" : "POPSOT_MENU_CAMERA_START");
         if (e && *e) snprintf(v, sizeof v, "%s", e);
         else if (!menucam_get(s_pose_keys[i], v, sizeof v)) continue;
         p->set = sscanf(v, "%f %f %f %f %f", &p->pos[0], &p->pos[1], &p->pos[2], &p->yaw, &p->pitch) == 5;
@@ -2401,7 +2401,7 @@ static void menucam_load(void)
     if (menucam_get("CameraMode", v, sizeof v))
         for (i = 0; i < 3; i++)
             if (!_stricmp(v, s_mc_modes[i])) s_mc.mode = i;
-    if ((e = getenv("RESOT_MENU_CAMERA")) && *e) {          /* pc, own, original or 0 */
+    if ((e = getenv("POPSOT_MENU_CAMERA")) && *e) {          /* pc, own, original or 0 */
         s_mc.mode = *e == '0' ? MC_ORIGINAL : s_mc.mode;
         for (i = 0; i < 3; i++)
             if (!_stricmp(e, s_mc_modes[i])) s_mc.mode = i;
@@ -2417,7 +2417,7 @@ static void menucam_load(void)
 static void menucam_set(const char *key, const char *value)
 {
 #ifdef _WIN32
-    if (!resot_options_set_string("Menu", key, value))
+    if (!popsot_options_set_string("Menu", key, value))
         fprintf(stderr, "[MENUCAM] %s not saved (scripted run or no INI)\n", key);
 #else
     (void)key; (void)value;
@@ -2466,7 +2466,7 @@ static void menucam_label(char *out, unsigned size)
 {
     static const char *const de_names[3] = { "PC-Port", "eigene", "Original" };
     static const char *const en_names[3] = { "PC port", "own", "original" };
-    int de = resot_text_language() == 4;
+    int de = popsot_text_language() == 4;
     menucam_load();
     if (de)
         snprintf(out, size, "Men" "\xFC" "kamera: %s", de_names[s_mc.mode]);
@@ -2619,7 +2619,7 @@ static void menucam_apply(uint32_t cam)
     }
 }
 
-/* The reSOT Debug page: the F5 panel, the free camera and the world freeze
+/* The POPSoT Debug page: the F5 panel, the free camera and the world freeze
  * (above), and the game speed. Retail's frame clock (sub_000DB740) scales
  * the frame time by two factors before it is stored (0x000DB850, 0x000DB861:
  * the 64-bit microseconds at 0x7654E0 and TIM_gf_dt at 0x470D74):
@@ -2629,20 +2629,14 @@ static void menucam_apply(uint32_t cam)
  * speed is written there, so the scripts' own slow motion still works on
  * top of it. Not saved. */
 #define CLOCK_FACTOR 0x0043B100u
-extern int xbox_FramebufferFpsVisible(void);
-extern void xbox_FramebufferToggleDebugPanel(void);
 static const int s_speeds[] = { 100, 50, 25 };
 static int s_speed;
 
 static void debug_label(int item, char *out, unsigned size)
 {
-    int de = resot_text_language() == 4;
+    int de = popsot_text_language() == 4;
     const char *on = de ? "An" : "On", *off = de ? "Aus" : "Off";
     switch (item) {
-    case DBG_PANEL:
-        snprintf(out, size, "%s: %s", de ? "Info-Anzeige (F5)" : "Info panel (F5)",
-                 xbox_FramebufferFpsVisible() ? on : off);
-        break;
     case DBG_FREECAM:
         snprintf(out, size, "%s: %s", de ? "Freie Kamera (Back, F8)" : "Free camera (Back, F8)",
                  s_fc.on ? on : off);
@@ -2665,9 +2659,6 @@ static void debug_label(int item, char *out, unsigned size)
 static void debug_activate(int item)
 {
     switch (item) {
-    case DBG_PANEL:
-        xbox_FramebufferToggleDebugPanel();
-        break;
     case DBG_FREECAM:
         if (!freecam_enabled())
             break;
@@ -2703,8 +2694,8 @@ static void debug_tick(void)
     static float applied = 1.0f;
     float want = (float)s_speeds[s_speed] / 100.0f;
     static int configured;
-    if (!configured) {                           /* RESOT_GAME_SPEED=50 or 25 */
-        const char *e = getenv("RESOT_GAME_SPEED");
+    if (!configured) {                           /* POPSOT_GAME_SPEED=50 or 25 */
+        const char *e = getenv("POPSOT_GAME_SPEED");
         int i;
         configured = 1;
         for (i = 0; e && *e && i < (int)(sizeof s_speeds / sizeof s_speeds[0]); i++)
@@ -2716,7 +2707,7 @@ static void debug_tick(void)
         applied = want;
         fprintf(stderr, "[DEBUG] clock factor %.2f\n", want);
     }
-    if (getenv("RESOT_TIMER_DIAG")) {            /* game clock (0x758C80) against the wall */
+    if (getenv("POPSOT_TIMER_DIAG")) {            /* game clock (0x758C80) against the wall */
         static int polls;
         static double start;
         if (!start) start = fc_now();

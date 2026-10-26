@@ -5,7 +5,7 @@
 # checked against the generated code, the others still wait for the XBE.
 
 # The executable
-entry 0x0027FC6C                    # RESOT_ENTRY_POINT (XAPI start-up)
+entry 0x0027FC6C                    # POPSOT_ENTRY_POINT (XAPI start-up)
 func 0x000110B0                     # the game's own main
 value 0x00010000                    # write-combine flush bit
 value 0x00100410                    # NV_PFB_WC_FLUSH register offset
@@ -116,7 +116,7 @@ func 0x000C05D0
 code 0x000C08A3                     # the left pair
 ret 0x000C08B2 sub_000C05D0         # the right pair
 
-# Menu library, Load Map and reSOT Options (target_hooks.c)
+# Menu library, Load Map and POPSoT Options (target_hooks.c)
 func 0x001C5790                     # main menu AI
 func 0x0023F110                     # page open
 func 0x0023F040                     # add choice

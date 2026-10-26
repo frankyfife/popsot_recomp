@@ -50,7 +50,7 @@ extern void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
 extern void nv2a_pb_exec_report(void);
 static int s_exec_enabled = -1;
 
-/* RE-SoT: the inventory is a linear search per method word -- tens of
+/* POPSoT: the inventory is a linear search per method word -- tens of
  * millions of compares a frame once a title draws. Only kept when the
  * survey itself was asked for. */
 static int s_survey = -1;
@@ -172,7 +172,7 @@ void nv2a_pb_scan_report(void)
  * The NV2A has one level of subroutine, so a CALL inside a call is not
  * followed. Addresses are physical, like PUT's, and reach guest memory the
  * same way: through the contiguous window. */
-/* RE-SoT: where a walk left physical memory, and the command word that sent
+/* POPSoT: where a walk left physical memory, and the command word that sent
  * it there, the first few times: a stream that leads off the end of RAM has
  * been misread or overwritten, and this is where to start looking. */
 static uint32_t s_last_word, s_last_word_va;
@@ -194,7 +194,7 @@ static uint32_t pb_walk(uint32_t va, uint32_t end_va, int in_call,
 
     while (va < end_va && words < 0x100000u) {
         uint32_t w;
-        /* RE-SoT: the same bound as pb_scan_to. A CALL or a JUMP inside one
+        /* POPSoT: the same bound as pb_scan_to. A CALL or a JUMP inside one
          * can name a physical address past the 64 MB the contiguous window
          * maps; reading it faulted the ack thread (xbox-demo, hourglass room
          * 0103_Hourglass, at 0x8DA53F24 and 0x8E7EF754, also in the
@@ -258,7 +258,7 @@ static uint32_t pb_walk(uint32_t va, uint32_t end_va, int in_call,
     return words;
 }
 
-/* RE-SoT: walk from one PUT to the next, following JUMPs like the GPU.
+/* POPSoT: walk from one PUT to the next, following JUMPs like the GPU.
  *
  * A PUT is always on a command boundary, so the stream from the previous PUT
  * reaches the new one exactly; a JUMP on the way (the ring's wrap, or a hop
@@ -267,18 +267,18 @@ static uint32_t pb_walk(uint32_t va, uint32_t end_va, int in_call,
 #if defined(_WIN32)
 #include <windows.h>
 #elif defined(__ANDROID__)
-/* RE-SoT: use the host clock for Android's executor diagnostics too. */
+/* POPSoT: use the host clock for Android's executor diagnostics too. */
 #include "../platform/win32_compat.h"
 #endif
-uint64_t g_nv2a_exec_ticks;     /* RE-SoT: QPC ticks spent in nv2a_pb_scan_to */
-uint32_t g_nv2a_scan_serial;    /* RE-SoT: one per executed segment (hw_span_hash) */
+uint64_t g_nv2a_exec_ticks;     /* POPSoT: QPC ticks spent in nv2a_pb_scan_to */
+uint32_t g_nv2a_scan_serial;    /* POPSoT: one per executed segment (hw_span_hash) */
 
 static void pb_scan_to(uint32_t start_va, uint32_t put_va);
 
 void nv2a_pb_scan_to(uint32_t start_va, uint32_t put_va)
 {
 #if defined(_WIN32) || defined(__ANDROID__)
-    /* RE-SoT: Android previously reported zero executor time, producing
+    /* POPSoT: Android previously reported zero executor time, producing
      * negative exclusive timings and misleading performance attribution. */
     LARGE_INTEGER t0, t1;
     g_nv2a_scan_serial++;

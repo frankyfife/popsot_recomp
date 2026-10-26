@@ -1,6 +1,6 @@
-/* reSOT - Android host options: the API of port/windows/options.h for the
- * game's own reSOT Options pages (source/<target>/target_hooks.c), kept in
- * <app files>/resot-options.ini.
+/* POPSoT - Android host options: the API of port/windows/options.h for the
+ * game's own POPSoT Options pages (source/<target>/target_hooks.c), kept in
+ * <app files>/popsot-options.ini.
  *
  * The same settings and bindings as the Windows host (options.c), with the
  * same bindings and the same pad remapping, so a layout behaves alike on
@@ -75,12 +75,12 @@ extern void xbox_SetSoftFocus(int);
 static const char *const s_quality_names[]={"Off","Low","Mid","High","Ultra"};
 extern void xbox_SetRenderScalePercent(int);
 extern void xbox_InputSetHostFilter(void (*)(void *, unsigned));
-extern const char *resot_android_data_dir(void);
+extern const char *popsot_android_data_dir(void);
 
 static void mark_dirty(void) { InterlockedIncrement(&s_revision); }
-long resot_native_revision(void) { return InterlockedCompareExchange(&s_revision, 0, 0); }
+long popsot_native_revision(void) { return InterlockedCompareExchange(&s_revision, 0, 0); }
 
-void resot_options_summary(char *out, unsigned size)
+void popsot_options_summary(char *out, unsigned size)
 {
     AcquireSRWLockShared(&s_lock);
     snprintf(out, size, "FPS limit %s, VSync %s, texture glow %s, internal resolution %s",
@@ -95,12 +95,12 @@ extern void xbox_FramebufferSetOptionsCallbacks(
     int (*)(void *,unsigned,uintptr_t,intptr_t));
 
 /* No host panel on Android. */
-int resot_diag_panel(const uint32_t **pixels, uint32_t *width, uint32_t *height)
+int popsot_diag_panel(const uint32_t **pixels, uint32_t *width, uint32_t *height)
 { (void)pixels; (void)width; (void)height; return 0; }
-int resot_diag_event(void *window, unsigned message, uintptr_t wp, intptr_t lp)
+int popsot_diag_event(void *window, unsigned message, uintptr_t wp, intptr_t lp)
 { (void)window; (void)message; (void)wp; (void)lp; return 0; }
 
-/* ── resot-options.ini ─────────────────────────────────────── */
+/* ── popsot-options.ini ─────────────────────────────────────── */
 
 static int ini_get(const char *section, const char *key, int fallback)
 {
@@ -295,19 +295,19 @@ static void input(void *state, unsigned port)
 
 /* ── the game's native pages ───────────────────────────────── */
 
-void resot_scale_look(float *axes)
+void popsot_scale_look(float *axes)
 {
     AcquireSRWLockShared(&s_lock);
-    axes[0] = resot_look_value(axes[0],s_look_sensitivity);
-    axes[1] = resot_look_value(axes[1],s_look_sensitivity);
+    axes[0] = popsot_look_value(axes[0],s_look_sensitivity);
+    axes[1] = popsot_look_value(axes[1],s_look_sensitivity);
     ReleaseSRWLockShared(&s_lock);
 }
 
-void resot_native_label(int page, int item, char *out, unsigned size)
+void popsot_native_label(int page, int item, char *out, unsigned size)
 {
     char value[100];
     AcquireSRWLockExclusive(&s_lock);
-    if (page == RESOT_NATIVE_GRAPHICS) {
+    if (page == POPSOT_NATIVE_GRAPHICS) {
         switch (item) {
         case 0: snprintf(out, size, "FPS limit: %s", s_cap_names[s_fps == 30 ? 0 : s_fps == 60 ? 1 : s_fps == 120 ? 2 : 3]); break;
         case 1: snprintf(out, size, "VSync: %s", s_vsync ? "On" : "Off"); break;
@@ -315,10 +315,10 @@ void resot_native_label(int page, int item, char *out, unsigned size)
         case 4: snprintf(out,size,"Post processing: %s",s_post_quality?s_quality_names[s_post_quality]:"Custom"); break;
         default: snprintf(out, size, "Internal resolution: %s",s_render_names[s_resolution]); break;
         }
-    } else if (page == RESOT_NATIVE_CONTROLS && item == 0) {
+    } else if (page == POPSOT_NATIVE_CONTROLS && item == 0) {
         snprintf(out,size,"Look sensitivity: %d%%",s_look_sensitivity);
     } else if (item >= 0 && item < ACTIONS) {
-        int joy = page == RESOT_NATIVE_JOY;
+        int joy = page == POPSOT_NATIVE_JOY;
         if (s_capture == item && s_capture_tab == joy && s_native_capture)
             snprintf(value, sizeof value, joy ? "press a button" : "press a key");
         else if (joy)
@@ -332,10 +332,10 @@ void resot_native_label(int page, int item, char *out, unsigned size)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-void resot_native_activate(int page, int item)
+void popsot_native_activate(int page, int item)
 {
     AcquireSRWLockExclusive(&s_lock);
-    if (page == RESOT_NATIVE_GRAPHICS) {
+    if (page == POPSOT_NATIVE_GRAPHICS) {
         switch (item) {
         case 0: s_fps = s_fps == 30 ? 60 : s_fps == 60 ? 120 : s_fps == 120 ? 0 : 30; xbox_SetFrameLimit(s_fps); break;
         case 1: s_vsync = !s_vsync; xbox_SetVSync(s_vsync); break;
@@ -345,18 +345,18 @@ void resot_native_activate(int page, int item)
         default: break;
         }
         save_config();
-    } else if (page == RESOT_NATIVE_CONTROLS && item == 0) {
+    } else if (page == POPSOT_NATIVE_CONTROLS && item == 0) {
         s_look_sensitivity = s_look_sensitivity >= 200 ? 25 : s_look_sensitivity + 25;
         save_config();
     } else if (item >= 0 && item < ACTIONS) {
-        s_capture = item; s_capture_tab = page == RESOT_NATIVE_JOY; s_native_capture = 1; s_capture_armed = 0;
+        s_capture = item; s_capture_tab = page == POPSOT_NATIVE_JOY; s_native_capture = 1; s_capture_armed = 0;
         s_native_since = GetTickCount();
     }
     mark_dirty();
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-void resot_native_reset_bindings(void)
+void popsot_native_reset_bindings(void)
 {
     AcquireSRWLockExclusive(&s_lock);
     memcpy(s_keys, s_default_keys, sizeof s_keys);
@@ -367,7 +367,7 @@ void resot_native_reset_bindings(void)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
-void resot_options_init(void)
+void popsot_options_init(void)
 {
     char name[32];
     const char *env;
@@ -379,8 +379,8 @@ void resot_options_init(void)
     env = getenv("RECOMP_WALK_DEFLECTION"); s_walk_deflection = env && *env ? atoi(env) : 12000;
     if (s_walk_deflection < 1000) s_walk_deflection = 1000;
     if (s_walk_deflection > 32767) s_walk_deflection = 32767;
-    snprintf(s_path, sizeof s_path, "%s/resot-options.ini", resot_android_data_dir());
-    s_look_sensitivity = resot_look_percent(ini_get("Controls","LookSensitivityPercent",200));
+    snprintf(s_path, sizeof s_path, "%s/popsot-options.ini", popsot_android_data_dir());
+    s_look_sensitivity = popsot_look_percent(ini_get("Controls","LookSensitivityPercent",200));
     s_fps = ini_get("Graphics", "FPSLimit", 0);
     if (s_fps != 0 && s_fps != 30 && s_fps != 60 && s_fps != 120) s_fps = 0;
     env = getenv("RECOMP_HW_VSYNC");
@@ -389,7 +389,7 @@ void resot_options_init(void)
     if(s_post_quality<0 || s_post_quality>4)s_post_quality=1;
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow = ini_get("Graphics", "TextureGlowEffect", 0) != 0;
-    /* RE-SoT: SoftFocus=1 steps the soft-focus blur in host texels; 0 keeps
+    /* POPSoT: SoftFocus=1 steps the soft-focus blur in host texels; 0 keeps
      * the Xbox width (nv2a_hw_d3d11.inc, hw_soft_focus_step). */
     s_soft_focus = ini_get("Graphics", "SoftFocus", 1) != 0;
     xbox_SetSoftFocus(s_soft_focus);
@@ -410,7 +410,7 @@ void resot_options_init(void)
     xbox_SetVSync(s_vsync);
     xbox_SetPostProcessing(s_texture_glow);
     s_console_logs=ini_get("Diagnostics","ConsoleLogs",0)!=0;
-    if(s_console_logs)fprintf(stderr,"[CONSOLE] On-screen logs enabled (logs/%s-err.txt and -out.txt)\n",RESOT_TARGET_ID);
-    xbox_FramebufferSetOptionsCallbacks(resot_console_panel,NULL);
+    if(s_console_logs)fprintf(stderr,"[CONSOLE] On-screen logs enabled (logs/%s-err.txt and -out.txt)\n",POPSOT_TARGET_ID);
+    xbox_FramebufferSetOptionsCallbacks(popsot_console_panel,NULL);
     xbox_InputSetHostFilter(input);
 }

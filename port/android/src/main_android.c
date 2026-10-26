@@ -1,14 +1,14 @@
 /**
- * reSOT - Android host entry point shared by both recompiled Xbox targets.
+ * POPSoT - Android host entry point shared by both recompiled Xbox targets.
  *
  * The counterpart of port/windows/src/main.c. One shared library per target
- * (libresot_xbox-demo.so, libresot_xbox-retail.so) is loaded by GameActivity
+ * (libpopsot_xbox-demo.so, libpopsot_xbox-retail.so) is loaded by GameActivity
  * in its own process; SDL calls SDL_main here on its SDLThread with:
  *
  *   --game <dir>   the installed game folder (the extracted disc), which
  *                  holds default.xbe, prince.bf, video, sound, ...
  *   --data <dir>   the app's external files folder (Android/data/
- *                  com.fulger.resot/files): logs, saves, options
+ *                  com.fulger.popsot/files): logs, saves, options
  *
  * Unlike Windows, default.xbe is not embedded: it is read from the game
  * folder and must have this target's SHA-256 (target.h) before any of it is
@@ -58,11 +58,11 @@ extern int  xbox_Ac97HandleFault(void *ucontext, uintptr_t fault);
 extern void xbox_path_init(const char *game_dir, const char *save_dir);
 extern void xbox_FramebufferAndroidSetWindow(void *sdl_window);
 extern void xbox_FramebufferSetWowProvider(void (*)(char *, size_t));
-extern void resot_current_wow(char *, size_t);
-extern void resot_android_input_start(SDL_Window *window);
-extern void resot_android_input_event(const SDL_Event *event);
+extern void popsot_current_wow(char *, size_t);
+extern void popsot_android_input_start(SDL_Window *window);
+extern void popsot_android_input_event(const SDL_Event *event);
 
-#define TAG "reSOT"
+#define TAG "POPSoT"
 #define APU_TRAP_BASE 0xFE800000u
 #define APU_TRAP_END  0xFE880000u
 
@@ -77,7 +77,7 @@ static int s_foreground = 1;
 
 /* Park GPU work when the activity is hidden. The SDL event thread remains
  * available to wake it, so no polling or guest timing changes are needed. */
-void resot_android_wait_foreground(void)
+void popsot_android_wait_foreground(void)
 {
     pthread_mutex_lock(&s_foreground_lock);
     while (!s_foreground) pthread_cond_wait(&s_foreground_changed, &s_foreground_lock);
@@ -94,7 +94,7 @@ static void set_foreground(int active)
 }
 
 /* Keep the display request in step with the shared live FPS option. */
-void resot_android_set_frame_limit(int fps)
+void popsot_android_set_frame_limit(int fps)
 {
     JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     jobject activity = (jobject)SDL_GetAndroidActivity();
@@ -156,7 +156,7 @@ static void *profile_main(void *unused)
     return NULL;
 }
 
-const char *resot_android_data_dir(void) { return s_data_dir; }
+const char *popsot_android_data_dir(void) { return s_data_dir; }
 
 /* ── logs ──────────────────────────────────────────────────── */
 
@@ -263,7 +263,7 @@ static void install_fault_handler(void)
 
 static int game_file(const char *name, int directory)
 {
-    return resot_path_kind(s_game_dir, name, NULL, 0) == (directory ? 2 : 1);
+    return popsot_path_kind(s_game_dir, name, NULL, 0) == (directory ? 2 : 1);
 }
 
 static const char *missing_game_file(void)
@@ -271,7 +271,7 @@ static const char *missing_game_file(void)
     static const struct { const char *name; int directory; } required[] = {
         {"prince.bf", 0}, {"video", 1}, {"sound", 1}, {"default.xbe", 0}, {"shaders.bin", 0}
     };
-    unsigned i, count = strcmp(RESOT_TARGET_ID, "xbox-retail") == 0 ? 5 : 4;
+    unsigned i, count = strcmp(POPSOT_TARGET_ID, "xbox-retail") == 0 ? 5 : 4;
     for (i = 0; i < count; ++i)
         if (!game_file(required[i].name, required[i].directory))
             return required[i].name;
@@ -281,11 +281,11 @@ static const char *missing_game_file(void)
 static int load_xbe(void **out_data, size_t *out_size, char *why, size_t why_size)
 {
     char path[1200], hex[65];
-    ResotSha256 sha;
+    PopsotSha256 sha;
     FILE *f;
     long size;
     void *data;
-    if (!resot_path_kind(s_game_dir, "default.xbe", path, sizeof path))
+    if (!popsot_path_kind(s_game_dir, "default.xbe", path, sizeof path))
         snprintf(path, sizeof path, "%s/default.xbe", s_game_dir);
     f = fopen(path, "rb");
     if (!f) { snprintf(why, why_size, "Cannot open %s.", path); return 0; }
@@ -300,13 +300,13 @@ static int load_xbe(void **out_data, size_t *out_size, char *why, size_t why_siz
     }
     fclose(f);
     /* Every address in the lifted code belongs to exactly this revision. */
-    resot_sha256_init(&sha);
-    resot_sha256_update(&sha, data, (size_t)size);
-    resot_sha256_hex(&sha, hex);
-    if (strcmp(hex, RESOT_XBE_SHA256) != 0) {
+    popsot_sha256_init(&sha);
+    popsot_sha256_update(&sha, data, (size_t)size);
+    popsot_sha256_hex(&sha, hex);
+    if (strcmp(hex, POPSOT_XBE_SHA256) != 0) {
         free(data);
-        snprintf(why, why_size, "This default.xbe is not the %s build reSOT supports.\n"
-                 "SHA-256 %s, expected %s.", RESOT_TARGET_ID, hex, RESOT_XBE_SHA256);
+        snprintf(why, why_size, "This default.xbe is not the %s build POPSoT supports.\n"
+                 "SHA-256 %s, expected %s.", POPSOT_TARGET_ID, hex, POPSOT_XBE_SHA256);
         return 0;
     }
     *out_data = data;
@@ -319,7 +319,7 @@ static void fail(const char *message)
     fprintf(stderr, "[BOOT] %s\n", message);
     fflush(stderr);
     __android_log_print(ANDROID_LOG_ERROR, TAG, "%s", message);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "reSOT", message, s_window);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "POPSoT", message, s_window);
 }
 
 static void set_default(const char *name, const char *value)
@@ -340,7 +340,7 @@ static void *game_main(void *unused)
 
     if ((missing = missing_game_file()) != NULL) {
         snprintf(why, sizeof why, "The folder %s does not contain the %s game files.\n\nMissing: %s",
-                 s_game_dir, RESOT_TARGET_ID, missing);
+                 s_game_dir, POPSOT_TARGET_ID, missing);
         fail(why);
         s_game_running = 0;
         return NULL;
@@ -351,9 +351,9 @@ static void *game_main(void *unused)
         return NULL;
     }
 
-    printf("=== " RESOT_TARGET_NAME " - static recompilation (Android) ===\n");
-    fprintf(stderr, "[SESSION] target=%s pid=%d ext-vma=%s xbe=%s\n", RESOT_TARGET_ID, (int)getpid(),
-            getenv("RECOMP_EXT_VMA") ? getenv("RECOMP_EXT_VMA") : "0", RESOT_XBE_SHA256);
+    printf("=== " POPSOT_TARGET_NAME " - static recompilation (Android) ===\n");
+    fprintf(stderr, "[SESSION] target=%s pid=%d ext-vma=%s xbe=%s\n", POPSOT_TARGET_ID, (int)getpid(),
+            getenv("RECOMP_EXT_VMA") ? getenv("RECOMP_EXT_VMA") : "0", POPSOT_XBE_SHA256);
     fprintf(stderr, "[BOOT] game folder: %s\n", s_game_dir);
 
     if (!xbox_MemoryLayoutInit(xbe_data, xbe_size)) {
@@ -371,14 +371,14 @@ static void *game_main(void *unused)
         fprintf(stderr, "[BOOT] emulated APU %s\n", g_apu_state ? "up" : "FAILED to initialise");
     }
     xbox_kernel_init();
-    snprintf(save_dir, sizeof save_dir, "%s/saves/%s", s_data_dir, RESOT_TARGET_ID);
+    snprintf(save_dir, sizeof save_dir, "%s/saves/%s", s_data_dir, POPSOT_TARGET_ID);
     xbox_path_init(s_game_dir, save_dir);
     xbox_kernel_bridge_init();
-#ifdef RESOT_D3D_DEVICE_GLOBAL
-    xbox_Nv2aMirrorFence(RESOT_D3D_DEVICE_GLOBAL, RESOT_D3D_FENCE_ISSUED, RESOT_D3D_FENCE_GPU_PTR);
+#ifdef POPSOT_D3D_DEVICE_GLOBAL
+    xbox_Nv2aMirrorFence(POPSOT_D3D_DEVICE_GLOBAL, POPSOT_D3D_FENCE_ISSUED, POPSOT_D3D_FENCE_GPU_PTR);
 #endif
-#ifdef RESOT_DSOUND_CODE_BEGIN
-    xbox_SetApuPhysicalCallers(RESOT_DSOUND_CODE_BEGIN, RESOT_DSOUND_CODE_END);
+#ifdef POPSOT_DSOUND_CODE_BEGIN
+    xbox_SetApuPhysicalCallers(POPSOT_DSOUND_CODE_BEGIN, POPSOT_DSOUND_CODE_END);
 #endif
     xbox_OhciInit();
     g_esp = XBOX_STACK_TOP;
@@ -413,15 +413,15 @@ int SDL_main(int argc, char **argv)
     if (chdir(s_data_dir) != 0)
         __android_log_print(ANDROID_LOG_WARN, TAG, "chdir %s: %s", s_data_dir, strerror(errno));
 
-    if (!getenv("RESOT_LOG_LOGCAT")) {
-        redirect_log(stderr, RESOT_TARGET_ID "-err.txt");
-        redirect_log(stdout, RESOT_TARGET_ID "-out.txt");
+    if (!getenv("POPSOT_LOG_LOGCAT")) {
+        redirect_log(stderr, POPSOT_TARGET_ID "-err.txt");
+        redirect_log(stdout, POPSOT_TARGET_ID "-out.txt");
     }
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IOFBF, 1 << 16);
     pthread_create(&flush, NULL, log_flush_main, NULL);
     pthread_detach(flush);
-    __android_log_print(ANDROID_LOG_INFO, TAG, "%s: game %s, data %s", RESOT_TARGET_ID,
+    __android_log_print(ANDROID_LOG_INFO, TAG, "%s: game %s, data %s", POPSOT_TARGET_ID,
                         s_game_dir, s_data_dir);
 
     /* The working defaults of a packaged Windows executable (main.c), with
@@ -433,15 +433,15 @@ int SDL_main(int argc, char **argv)
     set_default("RECOMP_AC97_READY", "1");
     set_default("RECOMP_APU_DSP_ACK", "gp+0x810");
     set_default("RECOMP_HEAP_RECLAIM", "1");
-    set_default("RESOT_RENDERER", "vulkan");
+    set_default("POPSOT_RENDERER", "vulkan");
     /* Opt-in developer frame capture: avoid a per-frame filesystem probe
      * in ordinary runs. The second file triggers the existing one-frame trace. */
     if (access("frame-trace-enable", F_OK) == 0)
         set_default("RECOMP_FRAME_TRACE", "frame-trace.flag");
-#if defined(RESOT_DEFAULT_EXT_VMA) && RESOT_DEFAULT_EXT_VMA
+#if defined(POPSOT_DEFAULT_EXT_VMA) && POPSOT_DEFAULT_EXT_VMA
     set_default("RECOMP_EXT_VMA", "1");
 #endif
-#ifdef RESOT_PROJECTED_UI
+#ifdef POPSOT_PROJECTED_UI
     set_default("RECOMP_HW_PROJECTED_UI", "1");
 #endif
 
@@ -450,11 +450,11 @@ int SDL_main(int argc, char **argv)
         return 1;
     }
     {
-        extern void resot_android_driver_init(int, char **);
-        resot_android_driver_init(argc,argv);
+        extern void popsot_android_driver_init(int, char **);
+        popsot_android_driver_init(argc,argv);
     }
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
-    s_window = SDL_CreateWindow("reSOT - " RESOT_TARGET_NAME, 0, 0,
+    s_window = SDL_CreateWindow("POPSoT - " POPSOT_TARGET_NAME, 0, 0,
                                 SDL_WINDOW_FULLSCREEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!s_window) {
         __android_log_print(ANDROID_LOG_ERROR, TAG, "SDL_CreateWindow: %s", SDL_GetError());
@@ -473,8 +473,8 @@ int SDL_main(int argc, char **argv)
             snprintf(aspect, sizeof aspect, "%d:%d", width, height);
             set_default("RECOMP_HW_ASPECT", aspect);
         }
-#ifdef RESOT_DEFAULT_ASPECT
-        else set_default("RECOMP_HW_ASPECT", RESOT_DEFAULT_ASPECT);
+#ifdef POPSOT_DEFAULT_ASPECT
+        else set_default("RECOMP_HW_ASPECT", POPSOT_DEFAULT_ASPECT);
 #endif
         fprintf(stderr, "[VIDEO] Android drawable %dx%d, Hor+ aspect %s\n",
                 width, height, getenv("RECOMP_HW_ASPECT")
@@ -483,10 +483,10 @@ int SDL_main(int argc, char **argv)
     xbox_FramebufferAndroidSetWindow(s_window);
     {
         extern void xbox_FramebufferSetWowProvider(void (*)(char *, size_t));
-        xbox_FramebufferSetWowProvider(resot_current_wow);
+        xbox_FramebufferSetWowProvider(popsot_current_wow);
     }
-    resot_options_init();
-    resot_android_input_start(s_window);
+    popsot_options_init();
+    popsot_android_input_start(s_window);
     install_fault_handler();
 
     pthread_attr_init(&attr);
@@ -521,7 +521,7 @@ int SDL_main(int argc, char **argv)
                 fflush(stderr);
                 _exit(0);
             }
-            resot_android_input_event(&event);
+            popsot_android_input_event(&event);
         }
         if (!s_game_running) {
             /* The game could not start: the message was shown, go back. */

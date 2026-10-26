@@ -69,8 +69,8 @@ static void set_notify_status(MCPXAPUState *d, uint32_t v, int notifier,
 static void voice_reset_filters(MCPXAPUState *d, uint16_t v)
 {
     assert(v < MCPX_HW_MAX_VOICES);
-    /* RE-SoT: a reused voice must not inherit another sound's cached input. */
-    resot_audio_resampler_reset(&d->vp.filters[v].sample_rate);
+    /* POPSoT: a reused voice must not inherit another sound's cached input. */
+    popsot_audio_resampler_reset(&d->vp.filters[v].sample_rate);
     memset(&d->vp.filters[v].svf, 0, sizeof(d->vp.filters[v].svf));
     hrtf_filter_clear_history(&d->vp.filters[v].hrtf);
     if (d->vp.filters[v].resampler) {
@@ -184,7 +184,7 @@ static void fe_method(MCPXAPUState *d, uint32_t method, uint32_t argument)
 {
     unsigned int slot;
 
-    /* RE-SoT: the trap is a latched method/argument pair, consumed by demo
+    /* POPSoT: the trap is a latched method/argument pair, consumed by demo
      * ISR 0x002EE257 / retail ISR 0x003E96EE in separate reads. A PIO write
      * between those reads used to replace its handle (including with zero),
      * sending demo 0x002EDD12 into 0x002EF6CD with a null voice object.
@@ -422,8 +422,8 @@ static void fe_method(MCPXAPUState *d, uint32_t method, uint32_t argument)
                        NV_PAVS_VOICE_CUR_PSH_SAMPLE_LBO, argument);
         break;
     case NV1BA0_PIO_SET_VOICE_BUF_CBO:
-        /* RE-SoT: seeking invalidates prefetched samples and fractional phase. */
-        resot_audio_resampler_reset(&d->vp.filters[d->regs[NV_PAPU_FECV]].sample_rate);
+        /* POPSoT: seeking invalidates prefetched samples and fractional phase. */
+        popsot_audio_resampler_reset(&d->vp.filters[d->regs[NV_PAPU_FECV]].sample_rate);
         voice_set_mask(d, (uint16_t)d->regs[NV_PAPU_FECV],
                        NV_PAVS_VOICE_PAR_OFFSET,
                        NV_PAVS_VOICE_PAR_OFFSET_CBO, argument);
@@ -804,7 +804,7 @@ static int voice_get_samples(MCPXAPUState *d, uint32_t v, float samples[][2],
         count = d->vp.ssl[v].count[ssl_index];
 
         if (count == 0) {
-            /* RE-SoT: an empty SSL ends a non-persistent stream for good;
+            /* POPSoT: an empty SSL ends a non-persistent stream for good;
              * say so, since missing music/speech is otherwise silent. */
             if (!persist) {
                 static int told;
@@ -818,7 +818,7 @@ static int voice_get_samples(MCPXAPUState *d, uint32_t v, float samples[][2],
             d->vp.ssl[v].ssl_seg = 0;
             if (!persist) {
                 d->vp.ssl[v].ssl_index = 0;
-                /* RE-SoT: drain the resampled tail before completing a stream. */
+                /* POPSoT: drain the resampled tail before completing a stream. */
                 d->vp.filters[v].sample_rate.ended = true;
             } else {
                 set_notify_status(d, v, MCPX_HW_NOTIFIER_SSLA_DONE +
@@ -933,7 +933,7 @@ static int voice_get_samples(MCPXAPUState *d, uint32_t v, float samples[][2],
         }
     }
 
-    /* RE-SoT: EBO is inclusive (the fetch loop uses cbo <= ebo). A block
+    /* POPSoT: EBO is inclusive (the fetch loop uses cbo <= ebo). A block
      * ending exactly one sample before EBO must not drop that final sample. */
     if (cbo > ebo) {
         if (stream) {
@@ -953,7 +953,7 @@ static int voice_get_samples(MCPXAPUState *d, uint32_t v, float samples[][2],
                 cbo = lbo;
             } else {
                 cbo = ebo;
-                /* RE-SoT: source EOF is not output EOF at fractional pitch. */
+                /* POPSoT: source EOF is not output EOF at fractional pitch. */
                 d->vp.filters[v].sample_rate.ended = true;
             }
         }
@@ -965,7 +965,7 @@ static int voice_get_samples(MCPXAPUState *d, uint32_t v, float samples[][2],
 }
 
 /* ============================================================
- * RE-SoT: voice resampling without the stubbed libsamplerate API.
+ * POPSoT: voice resampling without the stubbed libsamplerate API.
  * Honor output/source ratio, retain phase and distinguish underrun from EOF.
  * ============================================================ */
 
@@ -991,7 +991,7 @@ static int voice_resample(MCPXAPUState *d, uint16_t v, float samples[][2],
                           int requested_num, float rate)
 {
     VoiceResampleSource source = { d, v };
-    return resot_audio_resample(&d->vp.filters[v].sample_rate, samples,
+    return popsot_audio_resample(&d->vp.filters[v].sample_rate, samples,
                                requested_num, rate, voice_resample_read, &source);
 }
 
@@ -1065,7 +1065,7 @@ static void voice_process(MCPXAPUState *d,
             memset(&mixbins[mp_bin][0], 0, sizeof(mixbins[0]));
         }
     } else {
-        /* RE-SoT: one bounded pull; any underrun leaves the remaining output
+        /* POPSoT: one bounded pull; any underrun leaves the remaining output
          * zeroed instead of spinning while holding the APU lock. */
         voice_resample(d, v, samples, NUM_SAMPLES_PER_FRAME, rate);
     }
@@ -1074,10 +1074,10 @@ static void voice_process(MCPXAPUState *d,
                                 NV_PAVS_VOICE_PAR_STATE_ACTIVE_VOICE);
     if (!active) return;
 
-    /* RE-SoT: preserve the final output block, including its resampled tail.
+    /* POPSoT: preserve the final output block, including its resampled tail.
      * Complete the voice only after sampling; continue mixing this block even
      * though the next VP frame will now see an inactive voice. */
-    if (!multipass && resot_audio_resampler_finished(&d->vp.filters[v].sample_rate))
+    if (!multipass && popsot_audio_resampler_finished(&d->vp.filters[v].sample_rate))
         voice_off(d, v);
 
     /* Get volume bins */
@@ -1196,7 +1196,7 @@ static void voice_process(MCPXAPUState *d,
  * Simplified single-threaded version (no worker threads initially)
  * ============================================================ */
 
-/* RE-SoT: F6 diagnostics. Voices the last VP frame found active, per list
+/* POPSoT: F6 diagnostics. Voices the last VP frame found active, per list
  * (2D, 3D, multipass), how many of them stream (SSL data type), how many a
  * DirectSound lock kept out of the mix, and how many VP frames have run.
  * Written by the APU thread once a frame, read by the window thread. */
@@ -1214,7 +1214,7 @@ void mcpx_apu_vp_frame(MCPXAPUState *d,
     int active[3] = {0, 0, 0}, streams = 0, locked = 0;
     memset(d->vp.sample_buf, 0, sizeof(d->vp.sample_buf));
 
-    /* RE-SoT: do not generate another idle request until DirectSound has
+    /* POPSoT: do not generate another idle request until DirectSound has
      * serviced the current one and released FECTL (both XBE ISRs above).
      * Only the idle requests wait: the voices are still mixed. Skipping the
      * whole frame while a request was pending silenced every voice for 5 to
@@ -1253,13 +1253,13 @@ void mcpx_apu_vp_frame(MCPXAPUState *d,
                                 NV_PAVS_VOICE_PAR_STATE_ACTIVE_VOICE)) {
                 if (!trapped) {
                     fe_method(d, SE2FE_IDLE_VOICE, v);
-                    /* RE-SoT: preserve the first trap, its current/next
+                    /* POPSoT: preserve the first trap, its current/next
                      * cursors and handle; the rest of the scan only mixes. */
                     trapped = (d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) ==
                               NV_PAPU_FECTL_FEMETHMODE_TRAPPED;
                 }
             } else {
-                /* RE-SoT: xemu's voice_work_dispatch waits while DirectSound
+                /* POPSoT: xemu's voice_work_dispatch waits while DirectSound
                  * holds a voice locked (NV1BA0_PIO_VOICE_LOCK) to rewrite its
                  * SSL/buffer state; this port mixed it anyway, mid-update.
                  * Wait briefly (the wait releases d->lock, which voice_lock
@@ -1325,8 +1325,8 @@ void mcpx_apu_vp_reset(MCPXAPUState *d)
     memset(d->vp.submix_headroom, 0, sizeof(d->vp.submix_headroom));
     memset(d->vp.voice_locked, 0, sizeof(d->vp.voice_locked));
     for (int v = 0; v < MCPX_HW_MAX_VOICES; v++) {
-        /* RE-SoT: reset rates/cached audio when the entire APU is reset too. */
-        resot_audio_resampler_reset(&d->vp.filters[v].sample_rate);
+        /* POPSoT: reset rates/cached audio when the entire APU is reset too. */
+        popsot_audio_resampler_reset(&d->vp.filters[v].sample_rate);
         hrtf_filter_init(&d->vp.filters[v].hrtf);
     }
 }

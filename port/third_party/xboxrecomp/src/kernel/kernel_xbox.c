@@ -159,7 +159,7 @@ NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
          * advertising AC3 requires an encoded-output path.
          * RECOMP_XC_AUDIO overrides it: 2 (XC_AUDIO_FLAGS_SURROUND) makes
          * DirectSound pan into all six speaker mixbins, which a 5.1 host
-         * output takes directly (RE-SoT sets it for its 5.1 option; with
+         * output takes directly (POPSoT sets it for its 5.1 option; with
          * stereo the title's 3D panning left the rear mixbins empty). */
         if (ValueLength >= sizeof(ULONG)) {
             const char *e = getenv("RECOMP_XC_AUDIO");

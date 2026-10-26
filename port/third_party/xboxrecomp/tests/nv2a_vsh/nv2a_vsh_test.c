@@ -64,7 +64,7 @@ int main(void)
                o.pos[0], o.pos[1], o.pos[2], o.pos[3]);
         return 1;
     }
-    /* RE-SoT: unused inputs may be absent from the CPU fetch path. Decode
+    /* POPSoT: unused inputs may be absent from the CPU fetch path. Decode
      * invalidation must follow start-slot changes and partial word uploads. */
     {
         uint32_t mov[4] = {0};

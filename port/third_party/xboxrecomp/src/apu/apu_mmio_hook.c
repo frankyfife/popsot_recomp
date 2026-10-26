@@ -263,7 +263,7 @@ bool apu_hook_handle_mmio(PCONTEXT ctx, uintptr_t fault_addr,
     /* What the title actually asks the APU for. The DSPs are stubbed here, so
      * a title that waits on one waits forever, and the only way to work out
      * what it is waiting for is to see the register traffic that precedes the
-     * wait. RE-SoT: read once; every APU register access the title makes
+     * wait. POPSoT: read once; every APU register access the title makes
      * comes through this fault handler. */
     static int trace = -1;
     if (trace < 0) trace = getenv("RECOMP_APU_TRACE") != NULL;
@@ -286,7 +286,7 @@ bool apu_hook_handle_mmio(PCONTEXT ctx, uintptr_t fault_addr,
 #endif /* _WIN32 */
 
 #if defined(__ANDROID__) && defined(__aarch64__)
-/* RE-SoT: Android. ctx is the SIGSEGV ucontext; the AArch64 decoder in
+/* POPSoT: Android. ctx is the SIGSEGV ucontext; the AArch64 decoder in
  * platform/mmio_decode.h services the access against the same APU model. */
 #include "../platform/mmio_decode.h"
 

@@ -12,7 +12,7 @@
 namespace install {
 
 namespace {
-// default.xbe of the USA disc (source/xbox-retail/target.h RESOT_XBE_SHA256)
+// default.xbe of the USA disc (source/xbox-retail/target.h POPSOT_XBE_SHA256)
 const char kUsaXbe[] = "753C58B191279BF4D1A8B28A936DF36AA222ED566487AB1FBDFCD090E91EE379";
 const char kEnglish[] = "sound/english/";
 const char kGerman[] = "sound/german/";

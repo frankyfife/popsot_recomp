@@ -1,10 +1,10 @@
 # Feasibility: a high-level renderer for xbox-retail
 
 Question (user, 2026-10-21): the picture is weak (moderate resolution, poor
-post-processing, broken water, culling errors). Should reSOT be rebuilt the
+post-processing, broken water, culling errors). Should POPSoT be rebuilt the
 way FuturamaPC was, or is the base good enough to build on?
 
-Today reSOT renders at **NV2A level**: the game's own statically linked XDK
+Today POPSoT renders at **NV2A level**: the game's own statically linked XDK
 Direct3D runs and writes pushbuffer commands, and the runtime executes them
 (`nv2a_hw_*`). The renderer only sees registers and has to infer, by
 heuristics, what an effect buffer, a frame copy or a 2D draw is. This study
@@ -115,7 +115,7 @@ Unlike FuturamaPC, which used fixed function only, this game uses both:
   popsot-fixes).
 
 An API-level renderer still receives combiner register values and NV2A
-vertex microcode. reSOT already translates both, to HLSL for D3D11 and
+vertex microcode. POPSoT already translates both, to HLSL for D3D11 and
 `vs_uber` / specialised combiners for SDL GPU. That work carries over. It is
 the part FuturamaPC never had to write.
 
@@ -222,7 +222,7 @@ AGENTS.md). Selected parts are extracted to ignored `research/jade-src/`.
   | --- | --- | --- | --- |
   | `+0x14` | `0x000CFB90` | Clear | calls `D3DDevice_Clear` |
   | `+0x1C` | `0x000CFBF0` | Flip | calls `D3DDevice_Swap` |
-  | `+0x24` | `0x000CFC10` | SetProjectionMatrix | the projection reSOT hooks for Hor+ |
+  | `+0x24` | `0x000CFC10` | SetProjectionMatrix | the projection POPSoT hooks for Hor+ |
   | `+0x28` | `0x000D0090` | DrawIndexedTriangles | calls `DrawIndexedVertices` |
   | `+0x34` | `0x000D05A0` | probably DrawIndexedSprites | writes through `BeginPush` |
   | `+0x58` | `0x000D04B0` | probably SetTextureTarget (shadows) | sets a render target, clears, gets a surface level |
@@ -300,17 +300,17 @@ through it with positions in target pixels and texel coordinates.
 | --- | --- | --- | --- | --- |
 | A | Keep polishing the NV2A renderer | everything | ongoing | slowly, by more heuristics |
 | B | **Annotated NV2A**: hook the named D3D calls (`SetRenderTarget`, `CreateTexture2`, `GetSurfaceLevel2`, `Clear`, `SetViewport`, the effect modules, `DrawVerticesUP`) only to tell the existing renderer what each surface and draw is | the whole renderer, Android | about 1 week | effect buffers at full resolution (the pixel-unit vs. texture-space rule from popsot-fixes), the water frame copy, 2D/HUD classification; the basis for C |
-| C | **HLE Direct3D**: replace the 84 called functions (plus the 6 push writers and 5 replay sites) with an API-level renderer on SDL GPU (D3D12/Vulkan, Android too), reusing reSOT's combiner/vertex translation, texture formats and swizzling | game logic, kernel, audio, input, saves, tests, German speech | first image: several days; parity with today: about 2–3 weeks; then features | all of the above at the root, plus MSAA, texture packs, vector fonts, interpolation later |
+| C | **HLE Direct3D**: replace the 84 called functions (plus the 6 push writers and 5 replay sites) with an API-level renderer on SDL GPU (D3D12/Vulkan, Android too), reusing POPSoT's combiner/vertex translation, texture formats and swizzling | game logic, kernel, audio, input, saves, tests, German speech | first image: several days; parity with today: about 2–3 weeks; then features | all of the above at the root, plus MSAA, texture packs, vector fonts, interpolation later |
 | D | **Engine level**: a new GX8 behind Jade's GDI table (18 slots here) and the directly called GX8 entry points, on SDL GPU, using the 2006 GX8 source as the description and starting point | as C | comparable to FuturamaPC's engine-level renderer, plus confirming each slot and structure against the 2003 build | as C, with draws that carry their meaning; no generic combiner translation needed |
-| E | Restart like FuturamaPC (native XBE, own loader) | nothing of reSOT | months | nothing that C does not, and Android is lost |
+| E | Restart like FuturamaPC (native XBE, own loader) | nothing of POPSoT | months | nothing that C does not, and Android is lost |
 
-Culling errors are separate. reSOT widens the frustum side planes for Hor+
+Culling errors are separate. POPSoT widens the frustum side planes for Hor+
 (`target_hooks.c`). Other culling, such as sectors or the visibility test
 at `0x000CE2C0`, has not been examined. Each option needs that look.
 
 ## Risks
 
-- **Combiner and vertex-program coverage.** reSOT's translators cover what
+- **Combiner and vertex-program coverage.** POPSoT's translators cover what
   the current renderer has met. Missing modes (stencil, bump-env,
   dot-product) remain missing in C until written.
 - **Fake resource headers.** Game code reads Xbox resource headers (format,
@@ -333,7 +333,7 @@ API-level renderer:
 - the game uses the API;
 - direct pushbuffer writes are 6 small immediate-mode routines;
 - inline state is 16 variables in about 15 functions;
-- the shader work already exists in reSOT.
+- the shader work already exists in POPSoT.
 
 1. **Stage B first.** Use the names to annotate the existing renderer:
    render targets and their creators, the effect modules, frame copies and

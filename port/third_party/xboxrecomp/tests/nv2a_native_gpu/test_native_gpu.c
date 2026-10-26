@@ -1,4 +1,4 @@
-/* RE-SoT: exercise embedded NV2A shaders, scissored native GPU draws,
+/* POPSoT: exercise embedded NV2A shaders, scissored native GPU draws,
  * command submission, swapchain resize and GPU readback on both APIs.
  * No D3D11 headers/libraries/devices and no game data. */
 #include <SDL3/SDL.h>
@@ -17,7 +17,7 @@ static void report_complete(void *opaque, uint32_t at, uint64_t stamp, uint32_t 
 }
 
 #define REQUIRE(x) do { if (!(x)) { fprintf(stderr,"line %d: %s: %s\n",__LINE__,#x,SDL_GetError()); return 1; } } while (0)
-/* RE-SoT: small retail visibility runs append to a vertex ring. Verify
+/* POPSoT: small retail visibility runs append to a vertex ring. Verify
  * disjoint uploads preserve preceding runs, and wrapping/cycling preserves
  * copies already encoded against the previous backing allocation. */
 static int test_vertex_ring(SDL_GPUDevice *device)
@@ -64,14 +64,14 @@ static int test_vertex_ring(SDL_GPUDevice *device)
     puts("vertex ring append/wrap preserves queued uploads and readbacks");
     return 0;
 }
-/* RE-SoT: changing a cached texture reuses the SDL image with cycle=true.
+/* POPSoT: changing a cached texture reuses the SDL image with cycle=true.
  * Earlier GPU work must keep the old backing image, even within one command
  * buffer. This exercises the same upload/cycle sequence on both drivers. */
 static int test_texture_cycle(SDL_GPUDevice *device)
 {
     SDL_GPUTextureCreateInfo info = {0};
     SDL_GPUTransferBufferCreateInfo ti = {SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,64,0};
-    SDL_GPUTexture *texture,*snapshot; /* RE-SoT: exact deferred frame snapshot. */
+    SDL_GPUTexture *texture,*snapshot; /* POPSoT: exact deferred frame snapshot. */
     SDL_GPUTransferBuffer *upload, *download;
     SDL_GPUCommandBuffer *cmd;
     SDL_GPUFence *fence;
@@ -100,22 +100,22 @@ static int test_texture_cycle(SDL_GPUDevice *device)
         { SDL_GPUTextureLocation from={texture,0,0,0,0,0},to={snapshot,0,0,0,0,0};
           SDL_CopyGPUTextureToTexture(copy,&from,&to,4,4,1,true);
           region.texture=snapshot; dst.offset+=192;
-          SDL_DownloadFromGPUTexture(copy,&region,&dst); } /* RE-SoT: subsequent cycles must retain this frame. */
+          SDL_DownloadFromGPUTexture(copy,&region,&dst); } /* POPSoT: subsequent cycles must retain this frame. */
         SDL_EndGPUCopyPass(copy);
     }
     fence=SDL_SubmitGPUCommandBufferAndAcquireFence(cmd); REQUIRE(fence);
     REQUIRE(SDL_WaitForGPUFences(device,true,&fence,1));
     pixels=SDL_MapGPUTransferBuffer(device,download,false); REQUIRE(pixels);
     for (run=0;run<3;run++) for (i=0;i<16;i++) REQUIRE(pixels[run*16+i]==0xFF000000u+(Uint32)(run*100+i));
-    for (run=0;run<3;run++) for (i=0;i<16;i++) REQUIRE(pixels[48+run*16+i]==pixels[run*16+i]); /* RE-SoT */
+    for (run=0;run<3;run++) for (i=0;i<16;i++) REQUIRE(pixels[48+run*16+i]==pixels[run*16+i]); /* POPSoT */
     SDL_UnmapGPUTransferBuffer(device,download); SDL_ReleaseGPUFence(device,fence);
     SDL_ReleaseGPUTexture(device,texture);
-    SDL_ReleaseGPUTexture(device,snapshot); /* RE-SoT */
+    SDL_ReleaseGPUTexture(device,snapshot); /* POPSoT */
     SDL_ReleaseGPUTransferBuffer(device,upload); SDL_ReleaseGPUTransferBuffer(device,download);
     puts("texture cycling and exact frame snapshots preserve earlier image readbacks");
     return 0;
 }
-/* RE-SoT: real GPU readback of the production HLSL border helper: white
+/* POPSoT: real GPU readback of the production HLSL border helper: white
  * outside a multiplicative light map, black inside, and the half-texel
  * blend at the boundary. The same probe runs through DXIL and SPIR-V. */
 static int test_texture_border(SDL_GPUDevice *device, SDL_GPUShader *vs,
@@ -173,10 +173,10 @@ static int test_texture_border(SDL_GPUDevice *device, SDL_GPUShader *vs,
     puts("light-map borders: outside, inside, bilinear edge, nearest and mixed axes passed");
     return 0;
 }
-#include "test_simple_combiner.inc" /* RE-SoT: native shader differential readbacks. */
+#include "test_simple_combiner.inc" /* POPSoT: native shader differential readbacks. */
 int main(int argc, char **argv)
 {
-    setvbuf(stdout,NULL,_IONBF,0); /* RE-SoT: expose long GPU phases in test logs. */
+    setvbuf(stdout,NULL,_IONBF,0); /* POPSoT: expose long GPU phases in test logs. */
     const char *backend = argc > 1 ? argv[1] : "direct3d12";
     int dx = !strcmp(backend,"direct3d12"), frame;
     SDL_GPUDevice *device;
@@ -190,25 +190,25 @@ int main(int argc, char **argv)
     SDL_GPUTexture *target;
     SDL_GPUTexture *depth;
     SDL_SharedObject *query_library;
-    ResotGetGpuQueryAPI get_api;
-    const ResotGpuQueryAPI *api;
+    PopsotGetGpuQueryAPI get_api;
+    const PopsotGpuQueryAPI *api;
     NgVisibility visibility = {0};
     Reports reports = {0};
     SDL_GPUTransferBufferCreateInfo transfer_info = {SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,128*128*4,0};
     SDL_GPUTransferBuffer *transfer;
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
-    window = SDL_CreateWindow("reSOT native GPU test",128,128,SDL_WINDOW_HIDDEN);
+    window = SDL_CreateWindow("POPSoT native GPU test",128,128,SDL_WINDOW_HIDDEN);
     REQUIRE(window);
     device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV,true,backend);
     REQUIRE(device);
     REQUIRE(!strcmp(SDL_GetGPUDeviceDriver(device),backend));
     REQUIRE(!test_vertex_ring(device));
-    REQUIRE(!test_texture_cycle(device)); /* RE-SoT: cached image lifetime. */
+    REQUIRE(!test_texture_cycle(device)); /* POPSoT: cached image lifetime. */
     query_library = SDL_LoadObject("SDL3.dll"); REQUIRE(query_library);
-    get_api = (ResotGetGpuQueryAPI)SDL_LoadFunction(query_library,dx ? "RESOT_GetD3D12QueryAPI" : "RESOT_GetVulkanQueryAPI");
+    get_api = (PopsotGetGpuQueryAPI)SDL_LoadFunction(query_library,dx ? "POPSOT_GetD3D12QueryAPI" : "POPSOT_GetVulkanQueryAPI");
     REQUIRE(get_api);
-    api = get_api(RESOT_GPU_QUERY_ABI); REQUIRE(api && api->size == sizeof *api && !strcmp(api->driver,backend));
-    REQUIRE(!get_api(RESOT_GPU_QUERY_ABI+1)); /* Incompatible ABI must fail explicitly. */
+    api = get_api(POPSOT_GPU_QUERY_ABI); REQUIRE(api && api->size == sizeof *api && !strcmp(api->driver,backend));
+    REQUIRE(!get_api(POPSOT_GPU_QUERY_ABI+1)); /* Incompatible ABI must fail explicitly. */
     visibility.device = device; visibility.api = api; visibility.enabled = 1;
     REQUIRE(SDL_ClaimWindowForGPUDevice(device,window));
     REQUIRE(SDL_ShowWindow(window));
@@ -243,9 +243,9 @@ int main(int argc, char **argv)
     image.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT; image.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
     depth = SDL_CreateGPUTexture(device,&image); REQUIRE(depth);
     transfer = SDL_CreateGPUTransferBuffer(device,&transfer_info); REQUIRE(transfer);
-    REQUIRE(!test_texture_border(device,vs,target,transfer,dx)); /* RE-SoT: actual shader on both GPUs. */
-    REQUIRE(!test_simple_combiner(device,target,transfer,dx,0)); /* RE-SoT: specialization matches full interpreter. */
-    if(!dx) REQUIRE(!test_simple_combiner(device,target,transfer,dx,2)); /* RE-SoT: frozen/optimized reference comparisons. */ /* RE-SoT: Vulkan constant-state programs. */
+    REQUIRE(!test_texture_border(device,vs,target,transfer,dx)); /* POPSoT: actual shader on both GPUs. */
+    REQUIRE(!test_simple_combiner(device,target,transfer,dx,0)); /* POPSoT: specialization matches full interpreter. */
+    if(!dx) REQUIRE(!test_simple_combiner(device,target,transfer,dx,2)); /* POPSoT: frozen/optimized reference comparisons. */ /* POPSoT: Vulkan constant-state programs. */
     for (frame = 0; frame < 4; frame++) {
         SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(device);
         SDL_GPUColorTargetInfo ct = {0};

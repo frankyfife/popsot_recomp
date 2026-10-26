@@ -11,13 +11,13 @@ directory = root / 'build/apu-irq-tests'
 project = directory / 'project'
 project.mkdir(parents=True, exist_ok=True)
 source = (root / 'port/third_party/xboxrecomp/src/apu/apu_core.c').read_text()
-# The shared runtime keeps the demo's dispatcher under #if RESOT_RUNTIME_DEMO.
-begin = source.index('#if RESOT_RUNTIME_DEMO\n/* RE-SoT: xbox-demo. The ISR')
+# The shared runtime keeps the demo's dispatcher under #if POPSOT_RUNTIME_DEMO.
+begin = source.index('#if POPSOT_RUNTIME_DEMO\n/* POPSoT: xbox-demo. The ISR')
 end = source.index('/* ============================================================', begin)
 dispatcher = source[begin:end]
 harness = r'''
-#define RESOT_RUNTIME_DEMO 1
-#define RESOT_RUNTIME_RETAIL 0
+#define POPSOT_RUNTIME_DEMO 1
+#define POPSOT_RUNTIME_RETAIL 0
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>

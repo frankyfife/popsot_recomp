@@ -2,10 +2,10 @@
 
 Notes from before the static recompilation, when the Xbox demo was being
 analysed by hand in Ghidra and rebuilt routine by routine ("SOT DEMO RECOMP",
-then "RE-SoT"). They are kept because the addresses and observations about
+then "POPSoT"). They are kept because the addresses and observations about
 the demo's start-up, frame loop and menu AI records are still true of that
 XBE. The plans, build commands, directory names and status claims in them are
-obsolete: the project is now reSOT, described in the top-level README and in
+obsolete: the project is now POPSoT, described in the top-level README and in
 `../RECOMP.md`.
 
 | File | What it is |

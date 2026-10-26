@@ -1,4 +1,4 @@
-/* RE-SoT: asynchronous NV2A visibility reports backed by D3D11 occlusion
+/* POPSoT: asynchronous NV2A visibility reports backed by D3D11 occlusion
  * queries. Included after D3D11 headers. No waits and no per-draw readback;
  * only GET_REPORT flushes commands, and poll checks completed reports FIFO.
  * A report snapshots query references, so CLEAR/reuse cannot reset its data. */

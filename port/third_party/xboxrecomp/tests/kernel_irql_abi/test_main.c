@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "resot_runtime.h"
+#include "popsot_runtime.h"
 
-/* RE-SoT: both targets must restore ISR ownership and wait for exclusion. */
+/* POPSoT: both targets must restore ISR ownership and wait for exclusion. */
 extern int xbox_DispatchTryEnter(void);
 extern void xbox_DispatchLeave(void);
 extern int xbox_IrqlEnterInterrupt(int level);

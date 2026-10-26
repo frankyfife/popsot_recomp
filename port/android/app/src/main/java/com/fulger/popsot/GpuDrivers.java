@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -88,7 +88,7 @@ final class GpuDrivers {
             if (!ok) remove(dir);
             final String result=message;
             activity.runOnUiThread(()->{ if(!activity.isFinishing()) { progress.dismiss(); error(activity,result); } });
-        },"resot-gpu-driver-import").start();
+        },"popsot-gpu-driver-import").start();
     }
     static void unpack(InputStream input,File dir) throws IOException {
         if(input==null) throw new IOException("Cannot open driver ZIP.");

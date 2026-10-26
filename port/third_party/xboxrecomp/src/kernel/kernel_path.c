@@ -13,7 +13,7 @@
  */
 
 #include "kernel.h"
-#include "resot_runtime.h" /* RE-SoT: Android retail storage bring-up. */
+#include "popsot_runtime.h" /* POPSoT: Android retail storage bring-up. */
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -47,8 +47,8 @@ typedef struct {
 } path_rule;
 
 static const path_rule s_rules[] = {
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: retail resolves U:/T: to partition1. Store actual save files
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: retail resolves U:/T: to partition1. Store actual save files
      * in ordinary folders, independently of the synthetic raw devices. */
     { "\\Device\\Harddisk0\\Partition1\\UDATA", 1, NULL, "/UDATA" },
     { "\\Device\\Harddisk0\\Partition1\\TDATA", 1, NULL, "/TDATA" },
@@ -504,7 +504,7 @@ static BOOL s_initialized = FALSE;
 #if defined(__ANDROID__)
 #include <dirent.h>
 #include <strings.h>
-/* RE-SoT: Xbox paths are case-insensitive and the title does not ask for its
+/* POPSoT: Xbox paths are case-insensitive and the title does not ask for its
  * files in the disc's case (retail ships VIDEO/ and SOUND/). Android's shared
  * storage is case-insensitive on most devices, not all. When the exact path
  * does not exist, each component below base that matches an existing entry
@@ -574,8 +574,8 @@ static void mkdir_p(const char* path)
         xbox_log(XBOX_LOG_WARN, XBOX_LOG_PATH, "mkdir %s: %s", tmp, strerror(errno));
 }
 
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-/* RE-SoT: match the Windows raw devices for retail's XAPI utility-drive
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+/* POPSoT: match the Windows raw devices for retail's XAPI utility-drive
  * mount. Without Partition0's table and Partition5's backing file, startup
  * returns to the dashboard before reaching the renderer. These are sparse
  * emulated disks, not files extracted from the game. */
@@ -607,7 +607,7 @@ static void android_partition_images(void)
     for (int p = 0; p <= 5; ++p) {
         FILE *f;
         int ok;
-        /* RE-SoT: raw device compatibility is separate from visible saves. */
+        /* POPSoT: raw device compatibility is separate from visible saves. */
         snprintf(path, sizeof path, "%s/.devices", s_save_dir);
         mkdir_p(path);
         snprintf(path, sizeof path, "%s/.devices/Partition%d.img", s_save_dir, p);
@@ -635,7 +635,7 @@ static int android_partition_path(const char *path, char *out, size_t size)
     rest = path + n + 1;
     if (*rest == '\\' || *rest == '/') ++rest;
     if (*rest) return 0; /* Paths inside a partition still use directories. */
-    /* RE-SoT: profiles and saves are folders; only bare devices use images. */
+    /* POPSoT: profiles and saves are folders; only bare devices use images. */
     return snprintf(out, size, "%s/.devices/Partition%c.img", s_save_dir, path[n]) < (int)size;
 }
 #endif
@@ -669,8 +669,8 @@ void xbox_path_init(const char* game_dir, const char* save_dir)
     strip_trailing_slash(s_game_dir);
     strip_trailing_slash(s_save_dir);
 
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: create device backing before the first guest file request. */
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: create device backing before the first guest file request. */
     android_partition_images();
 #endif
     s_initialized = TRUE;
@@ -691,8 +691,8 @@ BOOL xbox_translate_path(const char* xbox_path, xbox_host_char* host_path_buf, D
     if (!s_initialized)
         xbox_path_init(NULL, NULL);
 
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-    /* RE-SoT: bare devices must support offset reads and size queries. */
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+    /* POPSoT: bare devices must support offset reads and size queries. */
     if (android_partition_path(xbox_path, host_path_buf, buf_size)) {
         fprintf(stderr, "  [PATH] %s -> partition image\n", xbox_path);
         return TRUE;
@@ -723,10 +723,10 @@ BOOL xbox_translate_path(const char* xbox_path, xbox_host_char* host_path_buf, D
 
 translate:
     {
-#if defined(__ANDROID__) && RESOT_RUNTIME_RETAIL
-        /* RE-SoT: retain the requested path alongside the bridge's status,
+#if defined(__ANDROID__) && POPSOT_RUNTIME_RETAIL
+        /* POPSoT: retain the requested path alongside the bridge's status,
          * including storage failures beyond the kernel-call log budget. */
-        /* RE-SoT: avoid synchronous log I/O for every file lookup per frame. */
+        /* POPSoT: avoid synchronous log I/O for every file lookup per frame. */
         static unsigned path_logs;
         if (path_logs++ < 64) fprintf(stderr, "  [PATH] %s\n", xbox_path);
 #endif

@@ -1,4 +1,4 @@
-// reSOT for Android: one app (com.fulger.resot) for the demo and the retail
+// POPSoT for Android: one app (com.fulger.popsot) for the demo and the retail
 // game. Built by tools/build-android.ps1; see README.md here.
 pluginManagement {
     repositories {
@@ -14,5 +14,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "reSOT"
+rootProject.name = "POPSoT"
 include ":app"

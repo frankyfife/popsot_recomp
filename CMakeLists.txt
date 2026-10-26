@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-# reSOT: static recompilation of the Xbox builds of
+# POPSoT: static recompilation of the Xbox builds of
 # Prince of Persia: The Sands of Time (demo and retail).
 #
 # One executable per target. A target is built when its lifted sources exist
@@ -9,63 +9,63 @@ cmake_minimum_required(VERSION 3.20)
 # Portable releases include the C runtime; users do not need Visual Studio
 # or a separately installed Visual C++ redistributable to start the game.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-project(reSOT C CXX RC)
+project(POPSoT C CXX RC)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    message(FATAL_ERROR "reSOT requires a 64-bit build (-A x64): the runtime maps the 4 GB guest space")
+    message(FATAL_ERROR "POPSoT requires a 64-bit build (-A x64): the runtime maps the 4 GB guest space")
 endif()
 
 # Diagnostic build: every lifted call verifies that ebx/esi/edi and esp came
 # back intact and names the callee when they did not (<name>-abi.exe).
-option(RESOT_ABI_CHECK "Build the callee-saved register checker into every call" OFF)
-if(RESOT_ABI_CHECK)
+option(POPSOT_ABI_CHECK "Build the callee-saved register checker into every call" OFF)
+if(POPSOT_ABI_CHECK)
     add_compile_definitions(RECOMP_ABI_CHECK)
 endif()
 
 # Picture shape when RECOMP_HW_ASPECT is not set: "16:9" widens Hor+ (more
 # scene at the sides, 2D at its 4:3 size); empty keeps the original 4:3.
-set(RESOT_ASPECT "16:9" CACHE STRING "Default picture shape (w:h), empty for 4:3")
+set(POPSOT_ASPECT "16:9" CACHE STRING "Default picture shape (w:h), empty for 4:3")
 
 # One target per build tree. Both targets share one copy of the recompiler
 # toolkit and Xbox runtime (kernel, NV2A, APU, USB, input, video) under
 # port/third_party/xboxrecomp. Where the two executables need different
-# behaviour, the runtime chooses it at compile time from RESOT_RUNTIME_DEMO or
-# RESOT_RUNTIME_RETAIL (src/kernel/resot_runtime.h), so each build tree still
+# behaviour, the runtime chooses it at compile time from POPSOT_RUNTIME_DEMO or
+# POPSOT_RUNTIME_RETAIL (src/kernel/popsot_runtime.h), so each build tree still
 # gets exactly its own target's runtime. tools/recomp.ps1 configures
-# build/<target> with -DRESOT_TARGET=<target>.
-set(RESOT_TARGET "" CACHE STRING "Target to build: xbox-demo or xbox-retail")
-set_property(CACHE RESOT_TARGET PROPERTY STRINGS xbox-demo xbox-retail)
-if(NOT RESOT_TARGET MATCHES "^(xbox-demo|xbox-retail)$")
-    message(FATAL_ERROR "Set -DRESOT_TARGET=xbox-demo or -DRESOT_TARGET=xbox-retail (tools/recomp.ps1 does)")
+# build/<target> with -DPOPSOT_TARGET=<target>.
+set(POPSOT_TARGET "" CACHE STRING "Target to build: xbox-demo or xbox-retail")
+set_property(CACHE POPSOT_TARGET PROPERTY STRINGS xbox-demo xbox-retail)
+if(NOT POPSOT_TARGET MATCHES "^(xbox-demo|xbox-retail)$")
+    message(FATAL_ERROR "Set -DPOPSOT_TARGET=xbox-demo or -DPOPSOT_TARGET=xbox-retail (tools/recomp.ps1 does)")
 endif()
 set(XBOXRECOMP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/port/third_party/xboxrecomp")
-if(RESOT_TARGET STREQUAL "xbox-demo")
-    add_compile_definitions(RESOT_RUNTIME_DEMO=1)
+if(POPSOT_TARGET STREQUAL "xbox-demo")
+    add_compile_definitions(POPSOT_RUNTIME_DEMO=1)
 else()
-    add_compile_definitions(RESOT_RUNTIME_RETAIL=1)
+    add_compile_definitions(POPSOT_RUNTIME_RETAIL=1)
 endif()
 # The runtime is built with symbols for its static functions, so the crash
 # report, the thread dump and the profiler in port/windows/src/main.c can name them.
 # Only the runtime: debug information for the lifted sources would be large.
 if(MSVC)
-    set(resot_c_flags_release "${CMAKE_C_FLAGS_RELEASE}")
+    set(popsot_c_flags_release "${CMAKE_C_FLAGS_RELEASE}")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Zi")
 endif()
 add_subdirectory(port/render)
 add_subdirectory(${XBOXRECOMP_DIR} ${CMAKE_BINARY_DIR}/xboxrecomp)
 if(MSVC)
-    set(CMAKE_C_FLAGS_RELEASE "${resot_c_flags_release}")
+    set(CMAKE_C_FLAGS_RELEASE "${popsot_c_flags_release}")
 endif()
 
-function(resot_add_target id exe_name)
+function(popsot_add_target id exe_name)
     set(dir "${CMAKE_CURRENT_SOURCE_DIR}/source/${id}")
     file(GLOB_RECURSE gen CONFIGURE_DEPENDS "${dir}/gen/*.c")
     if(NOT gen)
-        message(STATUS "reSOT: ${id} skipped (no lifted sources; run tools/recomp.ps1 -Target ${id})")
+        message(STATUS "POPSoT: ${id} skipped (no lifted sources; run tools/recomp.ps1 -Target ${id})")
         return()
     endif()
     # Entry hooks with this build's addresses (see tools/recomp.ps1).
@@ -82,7 +82,7 @@ function(resot_add_target id exe_name)
         message(FATAL_ERROR "Missing ${guest_xbe}: required to build ${id}")
     endif()
     file(READ "${dir}/target.h" target_facts)
-    string(REGEX MATCH "#define[ \t]+RESOT_XBE_SHA256[ \t]+\"([A-Fa-f0-9]+)\"" hash_match "${target_facts}")
+    string(REGEX MATCH "#define[ \t]+POPSOT_XBE_SHA256[ \t]+\"([A-Fa-f0-9]+)\"" hash_match "${target_facts}")
     set(expected_hash "${CMAKE_MATCH_1}")
     file(SHA256 "${guest_xbe}" actual_hash)
     string(TOUPPER "${actual_hash}" actual_hash)
@@ -107,8 +107,8 @@ function(resot_add_target id exe_name)
         msimg32 windowscodecs)
     target_include_directories(${exe_name} PRIVATE
         ${dir} ${dir}/gen ${XBOXRECOMP_DIR}/include)
-    if(RESOT_ASPECT)
-        target_compile_definitions(${exe_name} PRIVATE "RESOT_DEFAULT_ASPECT=\"${RESOT_ASPECT}\"")
+    if(POPSOT_ASPECT)
+        target_compile_definitions(${exe_name} PRIVATE "POPSOT_DEFAULT_ASPECT=\"${POPSOT_ASPECT}\"")
     endif()
     # Icon and version resource of the executable. The icon is the PC
     # version's (tools/extract-icon.py writes bin/pop.ico from the player's
@@ -128,7 +128,7 @@ function(resot_add_target id exe_name)
     set_source_files_properties("${app_resource}" PROPERTIES
         OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/default-options.ini;${app_icon}")
     set(out "${exe_name}")
-    if(RESOT_ABI_CHECK)
+    if(POPSOT_ABI_CHECK)
         set(out "${exe_name}-abi")
     endif()
     set_target_properties(${exe_name} PROPERTIES
@@ -142,4 +142,4 @@ function(resot_add_target id exe_name)
     endif()
 endfunction()
 
-resot_add_target(${RESOT_TARGET} sot-${RESOT_TARGET})
+popsot_add_target(${POPSOT_TARGET} sot-${POPSOT_TARGET})

@@ -1,4 +1,4 @@
-/* RE-SoT: waveform and source-lifecycle regressions for the actual VP resampler.
+/* POPSoT: waveform and source-lifecycle regressions for the actual VP resampler.
  * Run both runtime copies with: python tools/test-audio-resampler.py */
 #include "apu_resample.h"
 #include <stdio.h>
@@ -38,15 +38,15 @@ static int source_read(void *context, float output[][2], int requested, bool *en
     return count;
 }
 
-static unsigned render_clip(ResotAudioResampler *state, Source *source,
+static unsigned render_clip(PopsotAudioResampler *state, Source *source,
                             double ratio, float output[][2], unsigned capacity,
                             int block)
 {
     unsigned length = 0;
-    for (unsigned tries = 0; !resot_audio_resampler_finished(state); ++tries) {
+    for (unsigned tries = 0; !popsot_audio_resampler_finished(state); ++tries) {
         CHECK(tries < capacity * 2 + 100);
         CHECK(length + block <= capacity);
-        int count = resot_audio_resample(state, output + length, block, ratio,
+        int count = popsot_audio_resample(state, output + length, block, ratio,
                                         source_read, source);
         CHECK(count <= block);
         if (count > 0) length += count;
@@ -65,7 +65,7 @@ static unsigned crossings(const float samples[][2], unsigned count, unsigned cha
 static void waveform(unsigned source_hz, int stereo, int block)
 {
     Source source = {0};
-    ResotAudioResampler state = {0};
+    PopsotAudioResampler state = {0};
     source.length = source_hz; source.stall_at = -1;
     source.frames = calloc(source.length, sizeof(*source.frames));
     float (*output)[2] = calloc(50000, sizeof(*output));
@@ -93,7 +93,7 @@ static void lifecycle(void)
      * including a clip one sample longer than a 32-frame hardware block. */
     for (unsigned length=1;length<=65;length++) for (int block=1;block<=32;block+=31) {
         Source source={input,length,0,7,-1,0,0,0};
-        ResotAudioResampler state={0};
+        PopsotAudioResampler state={0};
         unsigned count=render_clip(&state,&source,2,output,512,block);
         CHECK(count==2*length);
         CHECK(output[count-1][0]==input[length-1][0]);
@@ -101,38 +101,38 @@ static void lifecycle(void)
     }
     /* A single-frame stream underrun preserves phase and later resumes. */
     Source stream={input,65,0,1,12,0,0,0};
-    ResotAudioResampler state={0};
+    PopsotAudioResampler state={0};
     unsigned count=render_clip(&state,&stream,1,output,512,7);
     CHECK(stream.stalled && count==65);
     for(unsigned i=0;i<count;i++) CHECK(output[i][0]==(float)i);
     /* Live pitch changes retain the exact source position between blocks. */
     Source changing={input,65,0,3,-1,0,0,0};
-    resot_audio_resampler_reset(&state);
-    CHECK(resot_audio_resample(&state,output,8,2,source_read,&changing)==8);
+    popsot_audio_resampler_reset(&state);
+    CHECK(popsot_audio_resample(&state,output,8,2,source_read,&changing)==8);
     for(unsigned i=0;i<8;i++) CHECK(output[i][0]==i*.5f);
-    CHECK(resot_audio_resample(&state,output,8,.5,source_read,&changing)==8);
+    CHECK(popsot_audio_resample(&state,output,8,.5,source_read,&changing)==8);
     for(unsigned i=0;i<8;i++) CHECK(output[i][0]==4.0f+i*2.0f);
     /* Loop boundaries are source transitions, not completed voices. */
     Source loop={input,3,0,2,-1,0,1,0};
-    resot_audio_resampler_reset(&state);
-    CHECK(resot_audio_resample(&state,output,64,1,source_read,&loop)==64);
-    CHECK(!resot_audio_resampler_finished(&state));
+    popsot_audio_resampler_reset(&state);
+    CHECK(popsot_audio_resample(&state,output,64,1,source_read,&loop)==64);
+    CHECK(!popsot_audio_resampler_finished(&state));
     for(unsigned i=0;i<64;i++) CHECK(output[i][0]==(float)(i%3));
     /* Voice reuse / explicit seek discards prefetched data and phase. */
     loop.cursor=2;
-    resot_audio_resampler_reset(&state);
-    CHECK(resot_audio_resample(&state,output,1,2,source_read,&loop)==1);
+    popsot_audio_resampler_reset(&state);
+    CHECK(popsot_audio_resample(&state,output,1,2,source_read,&loop)==1);
     CHECK(output[0][0]==2);
     Source other={input,65,40,4,-1,0,0,0};
-    resot_audio_resampler_reset(&state);
-    CHECK(resot_audio_resample(&state,output,1,1,source_read,&other)==1);
+    popsot_audio_resampler_reset(&state);
+    CHECK(popsot_audio_resample(&state,output,1,1,source_read,&other)==1);
     CHECK(output[0][0]==40);
     /* Each voice has independent sample history. */
-    ResotAudioResampler second={0};
+    PopsotAudioResampler second={0};
     Source separate={input,65,5,4,-1,0,0,0};
-    CHECK(resot_audio_resample(&second,output,1,1,source_read,&separate)==1);
+    CHECK(popsot_audio_resample(&second,output,1,1,source_read,&separate)==1);
     CHECK(output[0][0]==5);
-    CHECK(resot_audio_resample(&state,output,1,1,source_read,&other)==1);
+    CHECK(popsot_audio_resample(&state,output,1,1,source_read,&other)==1);
     CHECK(output[0][0]==41);
     puts("inclusive EOF, stream underrun/resume, pitch changes, loops, seek/reuse and independent voices passed");
 }

@@ -13,7 +13,7 @@ per target is small and lives in `source/<target>/`:
 ## Native host GPU encoders (experimental)
 
 The pushbuffer executor still decodes the same NV2A methods. In
-`nv2a_hw_d3d11.inc`, `RESOT_RENDERER=d3d12` or `vulkan` dispatches to
+`nv2a_hw_d3d11.inc`, `POPSOT_RENDERER=d3d12` or `vulkan` dispatches to
 `nv2a_hw_native.inc` before creating any D3D11 device. SDL GPU selects
 `direct3d12` or `vulkan` explicitly; shaders are embedded DXIL/SPIR-V compiled
 by `tools/build-native-shaders.py` from the same combiner HLSL as D3D11.
@@ -45,9 +45,9 @@ The native renderer is rejected on retail if query ABI/capability is missing.
 Build dependencies: `tools/setup-native-gpu.ps1` installs SHA-256-pinned
 SDL3 3.4.18 SDK/sources and DXC v1.9.2609 under ignored `build/deps/`. It
 applies the published additions and builds SDL3.dll with query ABI 1; the
-altered DLL, SDL licence and `SDL3-RESOT.txt` accompany player builds. DXC and
+altered DLL, SDL licence and `SDL3-POPSOT.txt` accompany player builds. DXC and
 its libraries are build tools. Delayed SDL loading preserves the D3D11
-fallback when it is absent. `RESOT_GPU_DEBUG=1` enables driver validation.
+fallback when it is absent. `POPSOT_GPU_DEBUG=1` enables driver validation.
 Retail texture borders now preserve the guest ARGB color in shared HLSL:
 nearest and base-level bilinear coverage, independent U/V address modes;
 cube maps retain their existing policy. The P8 light-map passes request white
@@ -75,7 +75,7 @@ the opaque entry has no discard, and the foliage entry preserves the guest
 8-bit alpha comparison. Complex states and cubes retain `ps_main`. Both
 GPU and CPU vertex paths use the same selection. Their PSO keys distinguish
 the shader entries, and the specialized shaders bind only their one sampler.
-`RESOT_NATIVE_SIMPLE=0` restores the generic fragment path for developer
+`POPSOT_NATIVE_SIMPLE=0` restores the generic fragment path for developer
 A/B tests; periodic logs report actual specialization coverage.
 Demo states were independently checked in its frame traces before enabling
 the whitelist (2026-10-19); bulk P8/ARGB texture decoding and cycling changed
@@ -100,15 +100,15 @@ The lifted code needs nothing new: it compiles for AArch64 as it is, with
 `-fwrapv -fsigned-char -ffp-contract=off -fno-strict-aliasing` so clang keeps
 x86's wrapping arithmetic, signed `char`, separate (unfused) floating-point
 operations and the type punning of `MEM*()`. What the runtime needed
-(all marked `RE-SoT`):
+(all marked `POPSoT`):
 
-- **GPU.** `nv2a_hw_d3d11.inc` builds on Android with `RESOT_HW_D3D11` 0:
+- **GPU.** `nv2a_hw_d3d11.inc` builds on Android with `POPSOT_HW_D3D11` 0:
   the NV2A state, surface bookkeeping and dispatch are shared, every Direct3D
   11 body is compiled out, and `hw_init` goes straight to the native encoder
   on Vulkan. `nv2a_hw_native.inc` takes the host's SDL window instead of
   wrapping an HWND, sizes the composition from it, and calls the retail query
   table directly (SDL is linked, not delay-loaded; the patch exports
-  `RESOT_GetVulkanQueryAPI` from SDL's version script).
+  `POPSOT_GetVulkanQueryAPI` from SDL's version script).
 - **MMIO.** The APU, AC'97 bus-master and OHCI registers are trapped as on
   Windows, but the fault is a SIGSEGV and the instruction AArch64:
   `platform/mmio_decode.h` gains a decoder for the load/store forms clang
@@ -150,9 +150,9 @@ replaces. See [port/android/README.md](../port/android/README.md).
 ### Portable host and player overlay
 
 The host applies the ordinary run-script defaults when
-`RESOT_LAUNCHER_CONFIGURED` is absent. `run.ps1` sets that marker so its
+`POPSOT_LAUNCHER_CONFIGURED` is absent. `run.ps1` sets that marker so its
 software/no-audio diagnostic modes keep their existing meaning. File lookup
-uses `RESOT_ASSET_DIR`, then the executable's directory, then the source-tree
+uses `POPSOT_ASSET_DIR`, then the executable's directory, then the source-tree
 `../Assets/<target>` fallback. SHA-256 is checked before mapping the XBE.
 Release builds link the static MSVC runtime. `tools/package.ps1` assembles a
 local player folder under ignored `bin/portable/<target>`.
@@ -183,14 +183,14 @@ changes need only `-BuildOnly`.
 
 `tools/recomp.ps1 -Target <id>` runs, from the shared toolkit
 (`port/third_party/xboxrecomp`), and builds in `build/<id>` with
-`-DRESOT_TARGET=<id>`, which compiles the runtime with `RESOT_RUNTIME_DEMO` or
-`RESOT_RUNTIME_RETAIL` (`src/kernel/resot_runtime.h`):
+`-DPOPSOT_TARGET=<id>`, which compiles the runtime with `POPSOT_RUNTIME_DEMO` or
+`POPSOT_RUNTIME_RETAIL` (`src/kernel/popsot_runtime.h`):
 
 1. `tools.xbe_parser`: sections, kernel imports, entry point.
 2. `tools.disasm --seed-functions`: disassembly and function detection.
 3. `tools.func_id`, `tools.abi_analysis`: library classification, calling
    conventions.
-4. `tools/sort-functions.py` (reSOT's): the folder each function goes to,
+4. `tools/sort-functions.py` (POPSoT's): the folder each function goes to,
    `research/<id>/recomp/folders.json` (see [Folders](#folders)).
 5. `tools.recomp --all --split 250 --folders folders.json`: one C function per
    x86 function, operating on global guest registers and a guest stack in
@@ -246,7 +246,7 @@ stub, and the stream reader returned whatever was on the stack.
 The lifted functions are named by address (`sub_XXXXXXXX`), so the folder
 each one goes to under `gen/` comes from evidence in the XBE.
 `tools/sort-functions.py` writes `research/<id>/recomp/folders.json`; the
-lifter's `--folders` (an RE-SoT change in `tools/recomp/translator.py`) writes
+lifter's `--folders` (an POPSoT change in `tools/recomp/translator.py`) writes
 `gen/<folder>/<leaf>_NNNN.c`, 250 functions per file in address order, adds a
 `Folder:` line with the evidence to each function's comment and lists the
 folders in `gen/README.md`. `recomp_funcs.h`, `recomp_dispatch.c` and
@@ -315,8 +315,8 @@ code: a relift with `-SkipAnalysis` is enough.
 
 ## Runtime
 
-`port/third_party/xboxrecomp-<demo|retail>/src`, with the reSOT changes marked
-`RE-SoT`. The two copies were identical when they were split (2026-10-15); from
+`port/third_party/xboxrecomp-<demo|retail>/src`, with the POPSoT changes marked
+`POPSoT`. The two copies were identical when they were split (2026-10-15); from
 then on each executable links only its own, and a change in one does not reach
 the other. What follows describes both as of the split:
 
@@ -361,9 +361,9 @@ original software rasteriser runs (about 1 fps).
 
 `RECOMP_HW_ASPECT=<w:h>` (`run.ps1 -Aspect 16:9`) widens the picture Hor+:
 more scene at the sides, the same at the top and bottom, the 2D untouched.
-The executables are built with `RESOT_ASPECT=16:9` (CMake cache variable),
+The executables are built with `POPSOT_ASPECT=16:9` (CMake cache variable),
 which `port/windows/src/main.c` puts in `RECOMP_HW_ASPECT` at start-up when
-the variable is not already set; an empty `RESOT_ASPECT` builds 4:3.
+the variable is not already set; an empty `POPSOT_ASPECT` builds 4:3.
 
 - The target's hook on the routine the finished projection is handed to
   (`sub_000EF140`, from `0x000EF5AA`) divides its x scale by the widening;
@@ -401,7 +401,7 @@ the variable is not already set; an empty `RESOT_ASPECT` builds 4:3.
   `hud -1/1` for the batches the rule moves. `-Set @{RECOMP_HW_HUD_EDGE='0'}`
   keeps the HUD inside the centred 4:3 frame; `-Set
   @{RECOMP_HW_PROJECTED_UI='0'}` turns the whole policy off for comparison.
-  Both targets enable it (`RESOT_PROJECTED_UI` in `target.h`). Render targets
+  Both targets enable it (`POPSOT_PROJECTED_UI` in `target.h`). Render targets
   of other sizes (the glow chain) are left alone.
 - The window keeps the picture's shape; movies stay 4:3 in the middle.
   Alt+Enter or F11 switches between the window and a borderless window over
@@ -442,7 +442,7 @@ relative to the first page of the DSP's scratch memory). Every ten seconds
 Contiguous memory and the rest of guest RAM are separate host memory, and
 `MmGetPhysicalAddress` answers with the address itself outside the
 contiguous window, so a heap address and a contiguous physical address can
-be the same number. DirectSound's calls (the target's `RESOT_DSOUND_CODE_*`
+be the same number. DirectSound's calls (the target's `POPSOT_DSOUND_CODE_*`
 range) therefore get heap addresses as `0x0B000000 + va`, which the APU maps
 back (`xbox_SetApuPhysicalCallers`). Without it every voice whose buffer sat in
 the heap played white noise once the contiguous arena had grown past the
@@ -478,7 +478,7 @@ the same answers from its own XBE.
    that emits `0x00041D70` into the pushbuffer; the device pointer global it
    loads, the offset it reads the next time from and the offset of the pointer
    it compares against go into `target.h`
-   (`RESOT_D3D_DEVICE_GLOBAL`, `_FENCE_ISSUED`, `_FENCE_GPU_PTR`).
+   (`POPSOT_D3D_DEVICE_GLOBAL`, `_FENCE_ISSUED`, `_FENCE_GPU_PTR`).
    Demo: `sub_0029D1E0` issues, `sub_0029D290` waits at `0x0029D3C0`, device
    global `0x002A8498`, offsets `+0x2C` / `+0x30`.
 3. **Stalls.** `run.ps1 -Watchdog N` dumps the main thread's guest stack after
@@ -494,12 +494,12 @@ Diagnostics added by the host (`port/windows/src/main.c`), all off unless set:
 
 | Variable | Effect |
 | --- | --- |
-| `RESOT_THREAD_DUMP_SECS=n` | every n seconds, the host call chain of every thread; lifted routines appear as `sub_XXXXXXXX`, so a deadlock shows both sides |
-| `RESOT_PROFILE_MS=n` | samples the two busiest threads every n ms and reports, every 10 s, the routines the samples fell in |
-| `RESOT_TRACE_ICALLS=va,...` | logs each call that reaches those routines through a pointer, with `ecx`, the first arguments and the returned `eax` |
+| `POPSOT_THREAD_DUMP_SECS=n` | every n seconds, the host call chain of every thread; lifted routines appear as `sub_XXXXXXXX`, so a deadlock shows both sides |
+| `POPSOT_PROFILE_MS=n` | samples the two busiest threads every n ms and reports, every 10 s, the routines the samples fell in |
+| `POPSOT_TRACE_ICALLS=va,...` | logs each call that reaches those routines through a pointer, with `ecx`, the first arguments and the returned `eax` |
 | `RECOMP_SYNC_TRACE=1` | mutex, event, thread-resume and unbounded-wait calls with thread id and guest caller |
 | `RECOMP_OVL_DUMP=prefix` | raw YUY2 of the first 400 distinct movie frames |
-| `RESOT_LOG_UNBUFFERED=1` | write every diagnostic line at once (default: buffered, flushed four times a second) |
+| `POPSOT_LOG_UNBUFFERED=1` | write every diagnostic line at once (default: buffered, flushed four times a second) |
 | `RECOMP_HW_GLOW_DUMP=prefix` | with the frame trace: the display surface before the first batch that samples another render target into it and at the flip, and every smaller render target, as BMPs at host resolution |
 | `RECOMP_HW_VSH_DUMP=all` | every vertex program's HLSL translation, headed `[VSH key]`; the frame trace's `gpu batch` lines name the key, the first vertex's `d0` and fog (without `all`: only translations that fail to compile) |
 | `RECOMP_NV2A_ACK_SPIN=1` | the NV2A busy-bit thread spins (`Sleep(0)`) as before instead of sleeping until kicked |
@@ -564,6 +564,6 @@ limited simulation to 0.06 seconds per wall second at 60 flips. The target
 hook replaces only that invalid fixed-step conversion's input with the
 elapsed interval already measured by the calibrated game clock. Valid
 refresh values, other `_ftol` callers, pause/speed factors and the game's
-limits retain their original paths. `RESOT_RAW_RETAIL_TIMESTEP=1` restores
-the original calculation for comparison; `RESOT_TIMER_DIAG=1` logs samples.
+limits retain their original paths. `POPSOT_RAW_RETAIL_TIMESTEP=1` restores
+the original calculation for comparison; `POPSOT_TIMER_DIAG=1` logs samples.
 See `docs/VALIDATION.md` for actual runtime observations and limits.

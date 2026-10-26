@@ -5,7 +5,7 @@
 Writes logs/fx-<name>/d_flip<n>_after.bmp (the finished frame) and one BMP per
 smaller render target (RECOMP_FRAME_TRACE + RECOMP_HW_GLOW_DUMP), using the
 retail pad timeline of VALIDATION.md. <fx-scale> other than 1 sets
-RECOMP_HW_FX_SCALE. The options in bin/resot-options.ini apply.
+RECOMP_HW_FX_SCALE. The options in bin/popsot-options.ini apply.
 """
 import subprocess
 import sys

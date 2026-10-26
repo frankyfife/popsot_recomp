@@ -49,7 +49,7 @@ void nv2a_vsh_set_cxt_write(uint32_t enable);         /* _CXT_WRITE_EN      */
  * FINAL flag within program memory), which the caller treats as "cannot
  * transform this batch" rather than drawing garbage. */
 int  nv2a_vsh_run(const float in[NV2A_VSH_INPUTS][4], Nv2aVshOutput *out);
-/* RE-SoT: inputs actually read by the current program, cached by generation. */
+/* POPSoT: inputs actually read by the current program, cached by generation. */
 uint32_t nv2a_vsh_input_mask(void);
 
 /* Direct access, for the self-test. */
@@ -60,7 +60,7 @@ const float *nv2a_vsh_constant(uint32_t index);   /* for traces */
 void nv2a_vsh_constant_component(uint32_t index, uint32_t comp, uint32_t word);
 void nv2a_vsh_set_instruction(uint32_t slot, const uint32_t words[4]);
 
-/* RE-SoT: for the Direct3D 11 path, which runs the program on the host GPU.
+/* POPSoT: for the Direct3D 11 path, which runs the program on the host GPU.
  * See the translation section at the end of nv2a_vsh_interp.c. */
 #include <stddef.h>
 uint32_t nv2a_vsh_program_generation(void);
@@ -69,7 +69,7 @@ uint32_t nv2a_vsh_program_key(int *gpu_ok);
 size_t   nv2a_vsh_emit_hlsl(char *dst, size_t cap);
 const float *nv2a_vsh_constants(void);        /* c[0..191], 4 floats each */
 
-/* RE-SoT: the current program, decoded for the native GPU interpreter
+/* POPSoT: the current program, decoded for the native GPU interpreter
  * (vs_uber, nv2a_hw_d3d11.inc). One uint4 per instruction from the start
  * slot through FINAL; inputs[] lists the v registers the program reads, in
  * the vertex slot order the shader expects. Returns the instruction count,

@@ -1,10 +1,10 @@
-> **reSOT:** one toolkit and runtime for both targets, `xbox-demo` and
+> **POPSoT:** one toolkit and runtime for both targets, `xbox-demo` and
 > `xbox-retail`. Each build tree compiles it for one target
-> (`RESOT_RUNTIME_DEMO` or `RESOT_RUNTIME_RETAIL`, see
-> `src/kernel/resot_runtime.h`); where the two executables need different
+> (`POPSOT_RUNTIME_DEMO` or `POPSOT_RUNTIME_RETAIL`, see
+> `src/kernel/popsot_runtime.h`); where the two executables need different
 > behaviour the code says which with `#if`, and a fix guarded for one
 > target does not reach the other until it is checked there. Mark local
-> changes `RE-SoT`.
+> changes `POPSoT`.
 
 # xboxrecomp
 

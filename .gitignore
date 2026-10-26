@@ -7,7 +7,7 @@
 /build*/
 /logs/
 /xbox_kernel.log
-resot-options.ini
+popsot-options.ini
 # Android (port/android): Gradle and NDK outputs, the SDK location, APKs.
 /port/android/.gradle/
 /port/android/build/

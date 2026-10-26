@@ -7,7 +7,7 @@
 #
 # Both targets share the toolkit and runtime in port/third_party/xboxrecomp.
 # Each has its own build tree, build/<target>, which compiles the runtime for
-# that target only (RESOT_RUNTIME_DEMO or RESOT_RUNTIME_RETAIL, CMakeLists.txt).
+# that target only (POPSOT_RUNTIME_DEMO or POPSOT_RUNTIME_RETAIL, CMakeLists.txt).
 #
 # Pipeline (the toolkit's tools/): parse Assets/<target>/default.xbe, detect
 # functions, recover calling conventions, sort them into folders by what they
@@ -119,8 +119,8 @@ if (-not $BuildOnly) {
 
 $build = if ($AbiCheck) { "$root\build-abi\$Target" } else { "$root\build\$Target" }
 $configure = @("$PSScriptRoot\run-build-tool.py", 'cmake', '-S', $root, '-B', $build, '-G', $Generator, '-A', 'x64',
-               "-DRESOT_TARGET=$Target",
-               "-DRESOT_ABI_CHECK=$(if ($AbiCheck) { 'ON' } else { 'OFF' })")
+               "-DPOPSOT_TARGET=$Target",
+               "-DPOPSOT_ABI_CHECK=$(if ($AbiCheck) { 'ON' } else { 'OFF' })")
 Invoke-Native 'python' $configure
 Invoke-Native 'python' @("$PSScriptRoot\run-build-tool.py", 'cmake', '--build', $build, '--config', 'Release', '--parallel')
 "Built $root\bin\sot-$Target$(if ($AbiCheck) { '-abi' }).exe"

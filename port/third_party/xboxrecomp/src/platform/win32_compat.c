@@ -30,8 +30,8 @@
 #include <fenv.h>
 #include <sys/mman.h>
 #if defined(__ANDROID__)
-#include <sys/syscall.h> /* RE-SoT: memfd_create below API 30 */
-#include <sys/resource.h> /* RE-SoT: normalize inherited mobile worker priority. */
+#include <sys/syscall.h> /* POPSoT: memfd_create below API 30 */
+#include <sys/resource.h> /* POPSoT: normalize inherited mobile worker priority. */
 #endif
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
@@ -333,7 +333,7 @@ DWORD GetCurrentProcessId(void) { return (DWORD)getpid(); }
 HANDLE GetCurrentThread(void)   { return t_self_obj ? (HANDLE)t_self_obj : PSEUDO_CURRENT_THREAD; }
 HANDLE GetCurrentProcess(void)  { return PSEUDO_CURRENT_PROCESS; }
 
-/* RE-SoT: the live objects, so a HANDLE is checked before it is used.
+/* POPSoT: the live objects, so a HANDLE is checked before it is used.
  *
  * Win32 answers a value that is not a handle with ERROR_INVALID_HANDLE; this
  * layer used to treat every HANDLE as a pointer to one of its objects. The
@@ -471,7 +471,7 @@ BOOL CloseHandle(HANDLE h)
         h == INVALID_HANDLE_VALUE)
         return TRUE;
     {
-        w32_object *o = obj_of(h);   /* RE-SoT */
+        w32_object *o = obj_of(h);   /* POPSoT */
         if (!o) return FALSE;
         obj_release(o);
     }
@@ -486,7 +486,7 @@ BOOL DuplicateHandle(HANDLE srcProc, HANDLE src, HANDLE dstProc, PHANDLE dst,
     if (src == PSEUDO_CURRENT_THREAD)  src = GetCurrentThread();
     if (src == PSEUDO_CURRENT_PROCESS) { *dst = src; return TRUE; }
     if (src == PSEUDO_CURRENT_THREAD || !src) { *dst = src; return TRUE; }
-    w32_object *o = obj_of(src);   /* RE-SoT */
+    w32_object *o = obj_of(src);   /* POPSoT */
     if (!o) return FALSE;
     InterlockedIncrement(&o->refcount);
     *dst = src;
@@ -608,7 +608,7 @@ DWORD WaitForSingleObject(HANDLE h, DWORD ms)
     if (!h || h == PSEUDO_CURRENT_THREAD || h == PSEUDO_CURRENT_PROCESS)
         return WAIT_OBJECT_0;
     {
-        w32_object *o = obj_of(h);   /* RE-SoT: Win32 fails an invalid handle */
+        w32_object *o = obj_of(h);   /* POPSoT: Win32 fails an invalid handle */
         if (!o) return WAIT_FAILED;
         return wait_single(o, ms);
     }
@@ -791,7 +791,7 @@ BOOL ReleaseMutex(HANDLE h)
 static void *thread_trampoline(void *arg)
 {
 #if defined(__ANDROID__)
-    /* RE-SoT: device traces show inherited nice -20 on busy game workers.
+    /* POPSoT: device traces show inherited nice -20 on busy game workers.
      * Keep runtime work at normal priority so system UI can preempt it. */
     if (setpriority(PRIO_PROCESS, 0, 0) != 0)
         fprintf(stderr, "[THREAD] normal priority failed: %s\n", strerror(errno));
@@ -800,9 +800,9 @@ static void *thread_trampoline(void *arg)
     t_self_obj = o;
     t_tid      = o->tid;
 #if defined(__ANDROID__)
-    /* RE-SoT: correlate runtime IDs in crash logs with Android thread samples. */
+    /* POPSoT: correlate runtime IDs in crash logs with Android thread samples. */
     char thread_name[16];
-    snprintf(thread_name, sizeof thread_name, "resot-%lu", (unsigned long)o->tid);
+    snprintf(thread_name, sizeof thread_name, "popsot-%lu", (unsigned long)o->tid);
     pthread_setname_np(pthread_self(), thread_name);
 #endif
 
@@ -840,7 +840,7 @@ HANDLE CreateThread(LPSECURITY_ATTRIBUTES sa, SIZE_T stackSize,
     pthread_attr_t attr;
     pthread_attr_init(&attr);
 #if defined(__ANDROID__)
-    /* RE-SoT: lifted guest code runs on the host stack, one C frame per guest
+    /* POPSoT: lifted guest code runs on the host stack, one C frame per guest
      * call. Bionic's default is 1 MB less its guard; ask for 8 MB, reserved
      * address space only, as Windows' 1 MB reserve grows on demand. */
     if (stackSize < (8u << 20))
@@ -878,7 +878,7 @@ VOID ExitThread(DWORD exitCode)
     pthread_exit(NULL);
 }
 
-/* RE-SoT: nonzero for a live thread object, as Win32 GetThreadId is. */
+/* POPSoT: nonzero for a live thread object, as Win32 GetThreadId is. */
 DWORD GetThreadId(HANDLE h)
 {
     w32_object *o = obj_of(h);
@@ -927,7 +927,7 @@ BOOL TerminateThread(HANDLE h, DWORD exitCode)
     w32_object *o = obj_of(h);
     if (!o || o->kind != K_THREAD) return FALSE;
 #if defined(__ANDROID__)
-    /* RE-SoT: bionic has no pthread_cancel. The thread is reported as ended;
+    /* POPSoT: bionic has no pthread_cancel. The thread is reported as ended;
      * it stops at its next exit point (every caller is process teardown). */
 #else
     pthread_cancel(o->thread);
@@ -1254,7 +1254,7 @@ static void *mach_map_fixed(void *address, size_t size, int prot)
 void view_register(void *addr, size_t len);
 size_t view_take(const void *addr);
 
-/* RE-SoT: the guest reservation (see win32_compat.h). Android places the
+/* POPSoT: the guest reservation (see win32_compat.h). Android places the
  * ART heap and libraries in the low 4 GB and wherever the kernel chooses; the
  * Xbox apertures (contiguous window, NV2A, MCPX, flash) are fixed offsets
  * from one base, so they are only safe inside a range this process owns. */
@@ -1289,11 +1289,11 @@ LPVOID VirtualAlloc(LPVOID address, SIZE_T size, DWORD allocationType, DWORD pro
 #if defined(MAP_FIXED_NOREPLACE)
     if (address && !owned) flags |= MAP_FIXED_NOREPLACE;
 #endif
-    if (owned) flags |= MAP_FIXED;   /* RE-SoT: replaces our own reservation */
+    if (owned) flags |= MAP_FIXED;   /* POPSoT: replaces our own reservation */
 
     void *p;
 #if defined(__ANDROID__)
-    /* RE-SoT: a pure reservation commits nothing. Mapped read-write, a 4 GB
+    /* POPSoT: a pure reservation commits nothing. Mapped read-write, a 4 GB
      * guest reservation is refused by the kernel's overcommit heuristic. */
     if ((allocationType & MEM_RESERVE) && !(allocationType & MEM_COMMIT)) {
         prot = PROT_NONE;
@@ -1312,7 +1312,7 @@ LPVOID VirtualAlloc(LPVOID address, SIZE_T size, DWORD allocationType, DWORD pro
         return NULL;
     }
 #if defined(__ANDROID__)
-    /* RE-SoT: kernels before 4.17 ignore MAP_FIXED_NOREPLACE and treat the
+    /* POPSoT: kernels before 4.17 ignore MAP_FIXED_NOREPLACE and treat the
      * address as a hint; a different address is a refusal, as on Win32. */
     if (address && p != address) {
         munmap(p, size);
@@ -1348,7 +1348,7 @@ BOOL VirtualFree(LPVOID address, SIZE_T size, DWORD freeType)
         size_t len = view_take(address);
         if (size == 0) size = len;
         if (size == 0) return FALSE;
-        if (owned_range(address, size))   /* RE-SoT: back to reserved */
+        if (owned_range(address, size))   /* POPSoT: back to reserved */
             return mmap(address, size, PROT_NONE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_NORESERVE,
                         -1, 0) == address;
@@ -1446,7 +1446,7 @@ VOID OutputDebugStringA(LPCSTR str)
 VOID ExitProcess(UINT exitCode)
 {
 #if defined(__ANDROID__)
-    /* RE-SoT: match Win32 process termination while SDL/audio and the log
+    /* POPSoT: match Win32 process termination while SDL/audio and the log
      * flusher are live. exit() destroys shared-library mutexes under those
      * threads, causing Android FORTIFY aborts on a normal guest exit. */
     fflush(stdout);
@@ -1496,7 +1496,7 @@ VOID SecureZeroMemory(PVOID ptr, SIZE_T cnt)
 #if defined(__APPLE__)
     memset_s(ptr, cnt, 0, cnt);
 #elif defined(__ANDROID__)
-    /* RE-SoT: bionic has no explicit_bzero; a volatile store loop is not elided. */
+    /* POPSoT: bionic has no explicit_bzero; a volatile store loop is not elided. */
     volatile unsigned char *p = (volatile unsigned char *)ptr;
     while (cnt--) *p++ = 0;
 #else
@@ -1793,7 +1793,7 @@ static int anon_map_fd(const char *name)
     if (fd >= 0) shm_unlink(shm_name);
     return fd;
 #elif defined(__ANDROID__)
-    /* RE-SoT: memfd_create is declared from API 30; the system call exists
+    /* POPSoT: memfd_create is declared from API 30; the system call exists
      * on every arm64 kernel Android supports (3.17+). */
     return (int)syscall(__NR_memfd_create, name ? name : "xbox_map", 0);
 #else
@@ -1847,7 +1847,7 @@ LPVOID MapViewOfFileEx(HANDLE mapping, DWORD access, DWORD offHigh, DWORD offLow
      * difference is the process quietly destroying its own libraries and heap
      * and dying somewhere unrelated a moment later. */
     if (baseAddr && owned_range(baseAddr, len)) {
-        flags |= MAP_FIXED;   /* RE-SoT: replaces our own reservation */
+        flags |= MAP_FIXED;   /* POPSoT: replaces our own reservation */
     } else if (baseAddr) {
 #if defined(MAP_FIXED_NOREPLACE)
         flags |= MAP_FIXED_NOREPLACE;
@@ -1887,7 +1887,7 @@ BOOL UnmapViewOfFile(LPCVOID baseAddr)
 {
     size_t len = view_take(baseAddr);
     if (len == 0) return FALSE;
-    if (owned_range(baseAddr, len))   /* RE-SoT: back to reserved */
+    if (owned_range(baseAddr, len))   /* POPSoT: back to reserved */
         return mmap((void *)baseAddr, len, PROT_NONE,
                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_NORESERVE,
                     -1, 0) == baseAddr;

@@ -1,4 +1,4 @@
-# RE-SoT: exercise Android's production POSIX save backend on a Windows host.
+# POPSoT: exercise Android's production POSIX save backend on a Windows host.
 cmake_minimum_required(VERSION 3.20)
 project(kernel_save_posix_test C)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)

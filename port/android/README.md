@@ -1,6 +1,6 @@
-# reSOT for Android
+# POPSoT for Android
 
-One app, **com.fulger.resot**, for both Xbox builds of Prince of Persia: The
+One app, **com.fulger.popsot**, for both Xbox builds of Prince of Persia: The
 Sands of Time: the E3 2003 demo and the NTSC retail game. arm64-v8a, Android
 10 (API 29) or later, a Vulkan 1.0 GPU. Rendering is the native SDL GPU
 encoder on Vulkan, the same code as the Windows build's optional Vulkan
@@ -55,10 +55,10 @@ remain; full-game sustained 60 FPS is unverified. The APK is installed; see
 
 | Library | Contents |
 | --- | --- |
-| `libresot_demo.so` | `source/xbox-demo/gen` (lifted from the user's demo XBE), the shared runtime built with `RESOT_RUNTIME_DEMO`, the Android host (`src/`) |
-| `libresot_retail.so` | the same for `xbox-retail` with `RESOT_RUNTIME_RETAIL` |
-| `libSDL3.so` | SDL 3.4.18 with reSOT's Vulkan occlusion-query extension (`port/third_party/sdl-gpu-query`; the retail game needs it) |
-| `libresot_launcher.so` | demo/retail detection by `default.xbe` SHA-256 |
+| `libpopsot_demo.so` | `source/xbox-demo/gen` (lifted from the user's demo XBE), the shared runtime built with `POPSOT_RUNTIME_DEMO`, the Android host (`src/`) |
+| `libpopsot_retail.so` | the same for `xbox-retail` with `POPSOT_RUNTIME_RETAIL` |
+| `libSDL3.so` | SDL 3.4.18 with POPSoT's Vulkan occlusion-query extension (`port/third_party/sdl-gpu-query`; the retail game needs it) |
+| `libpopsot_launcher.so` | demo/retail detection by `default.xbe` SHA-256 |
 
 No game data is packaged. The lifted C is built from `source/<target>/gen`,
 which `tools/recomp.ps1` produces from the user's own XBEs; like the Windows
@@ -76,12 +76,12 @@ Windows provides the same tracer through `RECOMP_FRAME_TRACE`.
 The launcher keeps the games in the app's external files folder:
 
 ```text
-Android/data/com.fulger.resot/files/
+Android/data/com.fulger.popsot/files/
   xbox-demo/      default.xbe  prince.bf  video/  sound/  ...
   xbox-retail/    default.xbe  prince.bf  shaders.bin  VIDEO/  SOUND/  ...
   saves/<target>/ the games' saves (kept when a game is reinstalled)
   logs/           <target>-err.txt, <target>-out.txt, history/
-  resot-options.ini
+  popsot-options.ini
 ```
 
 **Install from ISO** asks for the disc image with the system file picker,
@@ -160,9 +160,9 @@ Device appearance and multi-touch gameplay still require validation.
 The overlay hides itself when a controller is connected. The game's rumble
 drives the controller, or the phone's vibrator. The Android back key is B.
 A hardware keyboard and mouse work with the Windows layout (WASD, Space,
-mouse buttons...). The game's own reSOT Options pages (FPS limit, VSync,
+mouse buttons...). The game's own POPSoT Options pages (FPS limit, VSync,
 post-processing, keyboard and joystick bindings) work as on Windows and are
-saved in `resot-options.ini`. On Android, the resolution entry cycles the
+saved in `popsot-options.ini`. On Android, the resolution entry cycles the
 **internal rendering resolution**, without resizing the fullscreen surface:
 240p (0.5x), 360p (0.75x), 480p (1x), 720p (1.5x), 1080p (2.25x), and
 1440p (3x), relative to the game's 480-line view. Width follows the aspect
@@ -230,7 +230,7 @@ Tap **FPS** at the top left to show the panel. Its button becomes invisible
 while the panel is open; tapping the same spot closes the panel and restores
 the button. The invisible touch area remains active. Windows uses F5 and
 has no corresponding touch button.
-**Look sensitivity** is in **reSOT Options → Controls** in both games:
+**Look sensitivity** is in **POPSoT Options → Controls** in both games:
 25–200% in steps of 25, default 200%, with 100% retaining the original speed. It applies
 to controller, keyboard/mouse and the touch camera, after the game's original
 stick deadzone; movement sensitivity is unchanged. The setting is stored as
@@ -280,14 +280,14 @@ The cache does not cover a state combination the phone has never seen: in
 2026-10-20 retail logs a new pipeline of the main pixel shader still took
 0.15–1.8 s, and entering an area that needed several of them froze the game
 for seconds (12 s in total in one run). Android therefore compiles the
-pipelines of guest draws on two background threads (`resot-pso`); a draw
+pipelines of guest draws on two background threads (`popsot-pso`); a draw
 whose pipeline is not ready yet is skipped, so a new material can appear a
 few frames late instead of the game stopping. The same threads write
 `vulkan-pipelines.bin`. The log says `[HW native] pipeline compilation:
 background …` at start-up, marks such creations `(background)`, and reports
 `background pipelines: N compiled, M guest draws skipped` every 5 s.
-`RESOT_ASYNC_PIPELINES=0` restores compilation on the renderer thread.
-Windows keeps compiling on the renderer thread unless `RESOT_ASYNC_PIPELINES=1`.
+`POPSOT_ASYNC_PIPELINES=0` restores compilation on the renderer thread.
+Windows keeps compiling on the renderer thread unless `POPSOT_ASYNC_PIPELINES=1`.
 
 ## Custom Adreno Vulkan drivers
 
@@ -295,7 +295,7 @@ The Android launcher has **GPU driver…** → **Install driver ZIP…**, plus
 **Use system driver** and **Use installed**. Import a driver package compatible
 with your GPU and Android version (for example, a suitable Turnip package for
 Adreno 750). The ZIP must contain `meta.json` at its root, with `name`,
-`libraryName` and optionally `minApi`, and the named arm64 `.so`. reSOT does
+`libraryName` and optionally `minApi`, and the named arm64 `.so`. POPSoT does
 not download or include a custom GPU driver and does not install anything
 into Android's system driver folders. Changes apply on the next game start.
 
@@ -326,8 +326,8 @@ with platform 36, NDK **29.0.14206865** and CMake **3.30.3**, a JDK 17 or
 later, Python 3.
 
 ```powershell
-.\tools\build-android.ps1            # bin/reSOT-android.apk (release, signed with the debug key)
-.\tools\build-android.ps1 -Debug     # bin/reSOT-android-debug.apk
+.\tools\build-android.ps1            # bin/POPSoT-android.apk (release, signed with the debug key)
+.\tools\build-android.ps1 -Debug     # bin/POPSoT-android-debug.apk
 .\tools\build-android.ps1 -Install   # and adb install it
 ```
 
@@ -356,7 +356,7 @@ anything is mapped into it, because an Android process has the ART heap and
 its libraries in places a fixed Xbox aperture could otherwise hit.
 
 Retail saves and profiles are ordinary files under
-`Android/data/com.fulger.resot/files/saves/xbox-retail/UDATA/5553001d/`.
+`Android/data/com.fulger.popsot/files/saves/xbox-retail/UDATA/5553001d/`.
 Title data lives in the adjacent `TDATA` folder. On the first launch after
 updating, files from the installed game's `UDATA`/`TDATA` and the old
 `UserData`/`TitleData` folders are copied when missing; originals and newer
@@ -391,7 +391,7 @@ and the remaining water/motion-blur identification work.
 ### On-screen console logs
 
 Only the INI can enable the Android log overlay; there is no Android menu
-switch. In `Android/data/com.fulger.resot/files/resot-options.ini`, set:
+switch. In `Android/data/com.fulger.popsot/files/popsot-options.ini`, set:
 
 ```ini
 [Diagnostics]
@@ -403,7 +403,7 @@ The overlay reads `logs/xbox-demo-err.txt` and `logs/xbox-demo-out.txt`, or
 the retail equivalents, inside the same app files folder. Errors are red,
 warnings yellow; recent rows scroll and fade. Normal file logging is retained.
 
-The in-game reSOT Options post-processing selector offers Low/Mid/High/Ultra.
+The in-game POPSoT Options post-processing selector offers Low/Mid/High/Ultra.
 Off remains available through `[Graphics] PostProcessingQuality=0` in the INI
 and, on Windows, through F7. An existing Off setting is shown as Custom in
 the in-game menu and is preserved until the quality selector is changed.
@@ -415,8 +415,8 @@ platform dependency setup script. Players need no separate shader compiler.
 Optimized modules are stored in `shadercache/`; Vulkan's driver pipeline cache
 is separate. Compilation uses background workers by default on both hosts,
 with reference pipelines available during compilation. First-use draw skips
-can still occur until a pipeline is ready. `RESOT_NATIVE_TRANSLATE=0` and
-`RESOT_NATIVE_SPECIALIZE=0` are developer comparison switches;
-`RESOT_ASYNC_PIPELINES=0` forces synchronous compilation. See
+can still occur until a pipeline is ready. `POPSOT_NATIVE_TRANSLATE=0` and
+`POPSOT_NATIVE_SPECIALIZE=0` are developer comparison switches;
+`POPSOT_ASYNC_PIPELINES=0` forces synchronous compilation. See
 [the shader study](../../docs/VULKAN-PERFORMANCE.md) and
 [validation](../../docs/VALIDATION.md) for scope and observed results.

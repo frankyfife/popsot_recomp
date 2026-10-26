@@ -1,7 +1,7 @@
 #include "guest_vmem.h"
 #include "xbox_memory_layout.h"
-#include "resot_runtime.h" /* RE-SoT: per-target behaviour. */
-#include "xbox_apu_dma.h" /* RE-SoT: invalidate audio DMA aliases on virtual frees. */
+#include "popsot_runtime.h" /* POPSoT: per-target behaviour. */
+#include "xbox_apu_dma.h" /* POPSoT: invalidate audio DMA aliases on virtual frees. */
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +56,7 @@ static size_t host_free_run(uintptr_t host, size_t limit)
         MEMORY_BASIC_INFORMATION mbi;
         if (!VirtualQuery((void *)cur, &mbi, sizeof mbi) || mbi.State != MEM_FREE)
             break;
-        /* RE-SoT: a query must advance; the POSIX shim reports unknown
+        /* POPSoT: a query must advance; the POSIX shim reports unknown
          * regions with size zero. Never spin forever during Android boot. */
         if ((uintptr_t)mbi.BaseAddress + mbi.RegionSize <= cur)
             break;
@@ -76,12 +76,12 @@ int guest_vmem_init(ptrdiff_t offset, uint64_t mirror_lo, uint64_t mirror_top)
     void *host;
 
     const char *enabled = getenv("RECOMP_EXT_VMA");
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: retail enables this by default; explicit 0 permits A/B runs. */
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: retail enables this by default; explicit 0 permits A/B runs. */
     if (s_pages || !enabled || !strcmp(enabled, "0"))
         return 0;
 #else
-    /* RE-SoT: the demo keeps the toolkit's rule: any value turns it on. */
+    /* POPSoT: the demo keeps the toolkit's rule: any value turns it on. */
     if (s_pages || !enabled)
         return 0;
 #endif
@@ -97,7 +97,7 @@ int guest_vmem_init(ptrdiff_t offset, uint64_t mirror_lo, uint64_t mirror_top)
     s_lo = (uint32_t)mirror_top;
     host = (void *)((uintptr_t)s_lo + (uintptr_t)offset);
 
-    /* RE-SoT: Android's VirtualQuery tracks our mappings only, not host free
+    /* POPSoT: Android's VirtualQuery tracks our mappings only, not host free
      * runs. Ask VirtualAlloc for the range directly: its fixed-address mmap
      * refuses collisions rather than replacing existing mappings. */
 #ifdef __ANDROID__
@@ -249,7 +249,7 @@ int guest_vmem_allocate(uint32_t *base, uint32_t *size, uint32_t alloc_type,
 {
     int handled;
 
-    /* RE-SoT: the retail CRT reserves growing heap segments with base=NULL.
+    /* POPSoT: the retail CRT reserves growing heap segments with base=NULL.
      * Charging those reservations to physical RAM exhausted the 48.5 MB heap
      * during the reproduced 2026-10-16 run. Reserve full address ranges here;
      * only subsequent MEM_COMMIT calls back their pages. The demo CRT also
@@ -282,7 +282,7 @@ int guest_vmem_allocate(uint32_t *base, uint32_t *size, uint32_t alloc_type,
     return handled;
 }
 
-/* RE-SoT: bridge I/O buffers can now live in a committed CRT reservation
+/* POPSoT: bridge I/O buffers can now live in a committed CRT reservation
  * (both targets). Reserved pages alone must still be rejected before a host
  * ReadFile writes. */
 int guest_vmem_accessible(uint32_t address, uint32_t bytes)
@@ -366,8 +366,8 @@ int guest_vmem_free(uint32_t *base, uint32_t *size, uint32_t free_type,
     AcquireSRWLockExclusive(&s_lock);
     handled = free_locked(base, size, free_type, status);
     ReleaseSRWLockExclusive(&s_lock);
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: released/decommitted virtual pages no longer own DMA tokens.
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: released/decommitted virtual pages no longer own DMA tokens.
      * Do this outside the VM lock; the mapper has its own synchronization.
      * Retail only: the demo's DirectSound gets no tokens (kernel_bridge.c). */
     if (handled && *status == 0)

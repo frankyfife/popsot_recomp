@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.content.Context;
 import android.util.Log;
@@ -13,15 +13,15 @@ final class DefaultOptions {
     static void ensure(Context context) {
         File base=context.getExternalFilesDir(null);
         if(base==null)base=context.getFilesDir();
-        File ini=new File(base,"resot-options.ini");
+        File ini=new File(base,"popsot-options.ini");
         if(ini.exists())return;
-        try(InputStream input=context.getAssets().open("resot-options.ini")) {
+        try(InputStream input=context.getAssets().open("popsot-options.ini")) {
             // Files.copy uses CREATE_NEW: another process cannot overwrite a user's INI.
             Files.copy(input,ini.toPath());
         } catch(FileAlreadyExistsException ignored) {
             // The launcher and game process may start together.
         } catch(IOException error) {
-            Log.w("reSOT","Could not create default options; native defaults remain available",error);
+            Log.w("POPSoT","Could not create default options; native defaults remain available",error);
         }
     }
     private DefaultOptions() { }

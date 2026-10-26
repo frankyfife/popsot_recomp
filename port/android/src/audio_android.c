@@ -1,5 +1,5 @@
 /**
- * reSOT - Android audio output for the emulated APU: the xa2_* interface of
+ * POPSoT - Android audio output for the emulated APU: the xa2_* interface of
  * src/apu/apu_xaudio2.h on an SDL3 audio stream (AAudio/OpenSL underneath).
  *
  * The same queue policy as the Windows XAudio2 backend: one APU monitor frame

@@ -12,7 +12,7 @@
  */
 
 #include "kernel.h"
-#include "resot_runtime.h" /* RE-SoT: demo interrupt dispatch restoration. */
+#include "popsot_runtime.h" /* POPSoT: demo interrupt dispatch restoration. */
 #include "xbox_memory_layout.h"   /* RECOMP_TLS, g_fs_base */
 #include <stdio.h>
 #include <stdlib.h>
@@ -199,7 +199,7 @@ static void irql_track(KIRQL old_level, KIRQL new_level, void *ra)
     }
 }
 
-/* RE-SoT: uniprocessor DISPATCH_LEVEL exclusion.
+/* POPSoT: uniprocessor DISPATCH_LEVEL exclusion.
  *
  * The console has one CPU: while a guest thread is at DISPATCH_LEVEL or
  * above, no DPC and no other thread runs. DirectSound relies on exactly that
@@ -257,7 +257,7 @@ static void dispatch_guest_raise(void)
         if (GetTickCount() - start > 100) {
             static volatile LONG told;
             if (InterlockedIncrement(&told) <= 5)
-                /* RE-SoT: demo D3D DPC 0x0029FEE0 can take >100 ms during
+                /* POPSoT: demo D3D DPC 0x0029FEE0 can take >100 ms during
                  * startup; retail logs also show this timeout bypass.
                  * Both DirectSound scopes above require real exclusion;
                  * time passing never grants ownership. */
@@ -300,7 +300,7 @@ static void dispatch_guest_edge(KIRQL old_level, KIRQL new_level)
 int xbox_IrqlEnterInterrupt(int level)
 {
     int saved = (int)g_current_irql;
-    /* RE-SoT: preserve guest ownership independently of IRQL. A nested ISR
+    /* POPSoT: preserve guest ownership independently of IRQL. A nested ISR
      * can lower and raise back to the same level while creating a guest
      * reference; level-only restoration then leaks the dispatch lock.
      * Applies to both targets; covered by kernel_irql_abi in both modes. */
@@ -315,7 +315,7 @@ int xbox_IrqlEnterInterrupt(int level)
 
 void xbox_IrqlLeaveInterrupt(int saved)
 {
-    /* RE-SoT: balance references even if the callback returns at its saved
+    /* POPSoT: balance references even if the callback returns at its saved
      * level. Keep the delivery caller's separate dispatch reference intact. */
     int saved_guest = (saved >> 8) & 1;
     saved &= 0xFF;
@@ -347,7 +347,7 @@ KIRQL __fastcall xbox_KfRaiseIrql(KIRQL NewIrql)
     irql_track(old, NewIrql, IRQL_CALLER());
     g_current_irql = NewIrql;
     irql_publish();
-    dispatch_guest_edge(old, NewIrql); /* RE-SoT: uniprocessor exclusion */
+    dispatch_guest_edge(old, NewIrql); /* POPSoT: uniprocessor exclusion */
     return old;
 }
 
@@ -387,7 +387,7 @@ VOID __fastcall xbox_KfLowerIrql(KIRQL NewIrql)
         irql_track(old, NewIrql, IRQL_CALLER());
         g_current_irql = NewIrql;
         irql_publish();
-        dispatch_guest_edge(old, NewIrql); /* RE-SoT: uniprocessor exclusion */
+        dispatch_guest_edge(old, NewIrql); /* POPSoT: uniprocessor exclusion */
     }
 }
 
@@ -401,7 +401,7 @@ KIRQL __stdcall xbox_KeRaiseIrqlToDpcLevel(void)
     irql_track(old, DISPATCH_LEVEL, IRQL_CALLER());
     g_current_irql = DISPATCH_LEVEL;
     irql_publish();
-    dispatch_guest_edge(old, DISPATCH_LEVEL); /* RE-SoT: uniprocessor exclusion */
+    dispatch_guest_edge(old, DISPATCH_LEVEL); /* POPSoT: uniprocessor exclusion */
     return old;
 }
 

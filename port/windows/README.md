@@ -55,10 +55,10 @@ First start, or "Install from ISO...": a setup wizard asks for
 The launcher reads the images itself (XDVDFS: bare XISO and redump layouts,
 `launcher/src/xiso.cpp`), copies every file except the dashboard update,
 and remembers the folder as `[Launcher] GameDir`. Play saves the settings and
-starts `sot-xbox-retail.exe` with `RESOT_ASSET_DIR` set to that folder.
+starts `sot-xbox-retail.exe` with `POPSOT_ASSET_DIR` set to that folder.
 
 Without the launcher: `sot-xbox-retail.exe` finds the game through
-`RESOT_ASSET_DIR`, `[Launcher] GameDir`, the files beside it, or a source
+`POPSOT_ASSET_DIR`, `[Launcher] GameDir`, the files beside it, or a source
 checkout's `..\Assets\xbox-retail`; without game files it starts the
 launcher beside it, or says that it needs it. `tools/run.ps1` is unchanged.
 
@@ -72,23 +72,21 @@ version's: `python tools\extract-icon.py "<PC game folder>\POP.EXE"
 bin\pop.ico` writes it from the player's own copy (not in the repository);
 without it the builds use the neutral `port/windows/res/app.ico`.
 
-The settings file was `resot-options.ini`; the first start moves it to
+The settings file was `popsot-options.ini`; the first start moves it to
 `popsot-options.ini`.
 
 The app starts full screen with graphics, audio, keyboard and controller
 enabled. Space or controller A skips a Bink video, including videos whose
-original skip permission is disabled. F5 opens/closes the compact translucent top-left panel
-with game FPS, `Current WOW` (the loaded BF world's own name, `None`
-when no world is loaded), and `Renderer:` showing the active Direct3D 11,
-Direct3D 12, Vulkan or software renderer. F11 changes window mode; Alt+F4 exits.
+original skip permission is disabled. F11 changes window mode; Alt+F4 exits.
+(The F5 info panel is gone from Windows, 2026-10-26: F6 shows the same and more.)
 F9 (this fork) traces the next frame into the error log and, with the
 Direct3D 11 renderer, writes it and every smaller render target as BMPs at
 host resolution to `logs/capture/` beside the EXE (`c_flip<n>_after.bmp`
 and one file per target); press it where something looks wrong.
 Internal resolution now goes up to 2160p (450%).
 Android's FPS touch button hides while its panel is open and keeps the same
-touch area to close it; Windows uses F5 and has no on-screen FPS button.
-F6 opens the translucent diagnostics panel. Like F5 it leaves the game
+touch area to close it.
+F6 opens the translucent diagnostics panel. It leaves the game
 playable. It shows, twice a second: frame rate and frame time with the
 current graphics settings; executor time (interpreter, draw calls), present
 and title time; draws, triangles, vertices and texture uploads per frame;
@@ -141,7 +139,7 @@ upgrading from a native build without retail queries. It downloads pinned,
 SHA-256-checked SDL3/DXC SDKs and SDL3 sources, applies the published
 `port/third_party/sdl-gpu-query/` additions, then builds SDL3.dll with native
 D3D12/Vulkan occlusion queries. Visual Studio and CMake are build requirements.
-The player executable needs that SDL3.dll, its licence and `SDL3-RESOT.txt`,
+The player executable needs that SDL3.dll, its licence and `SDL3-POPSOT.txt`,
 which identifies this altered SDL build. It needs no compiler or SDK.
 Host shaders are embedded at build time; DXC is not a runtime requirement.
 `tools/setup-vulkan.ps1` forwards to this installer. Existing DXVK files under
@@ -158,16 +156,16 @@ validation remains pending. Stencil support is still incomplete, as on the
 D3D11 renderer. NV2A vertex programs run on the GPU in `vs_uber`, a shader
 compiled offline that interprets the program (no shader compiler at run
 time); programs that write constants or read more than eight inputs still use
-the CPU interpreter. `RESOT_NATIVE_CPU_VSH=1` puts every program back on the
-CPU, for comparison. `RESOT_ASYNC_PIPELINES=1` compiles new D3D12/Vulkan
+the CPU interpreter. `POPSOT_NATIVE_CPU_VSH=1` puts every program back on the
+CPU, for comparison. `POPSOT_ASYNC_PIPELINES=1` compiles new D3D12/Vulkan
 pipelines on background threads and skips their draws until ready, as
 Android does by default (see port/android/README.md); off on Windows, where
 no compile stall has been measured.
 
-`RESOT_RENDERER=d3d11`, `d3d12` or `vulkan` overrides the saved choice for one
+`POPSOT_RENDERER=d3d11`, `d3d12` or `vulkan` overrides the saved choice for one
 run. D3D11 stays the default. The panel reports the actual active backend,
 separately from the saved choice. Missing SDL3.dll, unsupported drivers or
-initialization failure log a D3D11 fallback. `RESOT_GPU_DEBUG=1` enables SDL's
+initialization failure log a D3D11 fallback. `POPSOT_GPU_DEBUG=1` enables SDL's
 native GPU validation where available. Logs remain beside the executable.
 Save data stays in
 that game folder, so keep it writable.
@@ -198,18 +196,18 @@ in the [README](../../README.md#supply-your-game-files).
 
 Both targets share the runtime in `port/third_party/xboxrecomp`; each has
 its own build tree, `build/<target>`, which compiles it for that target
-(`RESOT_RUNTIME_DEMO` or `RESOT_RUNTIME_RETAIL`). `-BuildOnly` rebuilds only
+(`POPSOT_RUNTIME_DEMO` or `POPSOT_RUNTIME_RETAIL`). `-BuildOnly` rebuilds only
 the target named. The lifted C goes to `source/<target>/gen` (ignored by
 Git). The executables
 land in `bin/` as `sot-xbox-demo.exe` and `sot-xbox-retail.exe`, with the
-reSOT icon (`port/windows/res`).
+POPSoT icon (`port/windows/res`).
 
 The build is 16:9 (Hor+) by default. To build the original 4:3 instead,
-configure with an empty `RESOT_ASPECT`; `run.ps1 -Aspect` (or
+configure with an empty `POPSOT_ASPECT`; `run.ps1 -Aspect` (or
 `RECOMP_HW_ASPECT`) overrides either at run time:
 
 ```powershell
-cmake -S . -B build/xbox-demo -DRESOT_TARGET=xbox-demo -DRESOT_ASPECT=""   # then recomp.ps1 -Target xbox-demo -BuildOnly
+cmake -S . -B build/xbox-demo -DPOPSOT_TARGET=xbox-demo -DPOPSOT_ASPECT=""   # then recomp.ps1 -Target xbox-demo -BuildOnly
 .\tools\run.ps1 -Pad -Aspect 4:3          # a 16:9 build shown 4:3
 ```
 
@@ -226,9 +224,9 @@ rendering and audio threads.
 
 Double-clicking also works directly from `bin/`: select the game folder in
 the picker when the files are not beside the executable.
-`RESOT_ASSET_DIR` explicitly overrides the game folder. The script remains
+`POPSOT_ASSET_DIR` explicitly overrides the game folder. The script remains
 useful for diagnostic settings and captures and selects `Assets/<target>/`.
-`.\tools\shortcut.ps1` puts a desktop shortcut, "reSOT - Xbox demo", that
+`.\tools\shortcut.ps1` puts a desktop shortcut, "POPSoT - Xbox demo", that
 runs `run.ps1` with a double click, full screen (`-Target xbox-retail` for
 the retail build, `-Arguments '-Windowed'` for extra switches).
 
@@ -301,7 +299,7 @@ rasteriser, for comparison), `-Seconds N`, `-SnapshotEvery S` (frame dumps in
 `english` restores the original for either.
 
 Texture packs replace a guest texture by content, at any size: `<key>.tga` in
-`textures/` beside the executable (`RESOT_TEXTURE_PACK` overrides the folder).
+`textures/` beside the executable (`POPSOT_TEXTURE_PACK` overrides the folder).
 `tools/hd-ui.py` builds the menu font and button atlases at 8x:
 - The font is rendered from the disc's own vector font
   (`MEDIA/AtlantisMF.ttf`) into the measured glyph rectangles.
@@ -309,7 +307,7 @@ Texture packs replace a guest texture by content, at any size: `<key>.tga` in
 - The controller drawing is traced from your own atlas.
 
 To build them:
-1. Run the game once with `RESOT_TEXTURE_DUMP=1` up to the profile screen.
+1. Run the game once with `POPSOT_TEXTURE_DUMP=1` up to the profile screen.
    This writes `textures/dump/`.
 2. Run:
 
@@ -317,8 +315,8 @@ To build them:
 
 For the HUD, `--hud-pack` takes it from the PC version's PoP Texture
 Studio pack (`Evgesha.JK`, e.g. in the GOG folder). Run a level once with
-the dump on (`RESOT_TEXTURE_DUMP=1`, `RESOT_START_LEVEL=6101_couloir`, with
-`RESOT_CHEATS=sand` for the full tanks), then:
+the dump on (`POPSOT_TEXTURE_DUMP=1`, `POPSOT_START_LEVEL=6101_couloir`, with
+`POPSOT_CHEATS=sand` for the full tanks), then:
 
        python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures --hud-pack "F:/GOG Games/Prince of Persia - The Sands of Time/Evgesha.JK"
 
@@ -331,7 +329,7 @@ the chosen one directly, like popsot-fixes' Special Load on PC. The
 developers' test maps (WhiteRoom, magic corridor, magic fountain) are left
 out: they have no start and do not play. It is meant for testing: the Prince keeps whatever the
 menu had (sword, sand tanks), not what the story would have given him by
-then. `RESOT_HIDDEN_MENUS=0` hides it together with "Port Options".
+then. `POPSOT_HIDDEN_MENUS=0` hides it together with "Port Options".
 
 ### Free camera (retail)
 
@@ -340,7 +338,7 @@ movement keys fly, right stick / the look keys turn, LT / RT or Q / E move
 down / up, Black or Shift is faster, White or Ctrl slower, Y or P freezes
 the world while the camera keeps moving. The game gets no input but Start
 while it is on (a menu page keeps its input). The Debug page switches it
-too. `RESOT_FREECAM=0` disables it.
+too. `POPSOT_FREECAM=0` disables it.
 
 ### Cheats (retail)
 
@@ -353,8 +351,8 @@ but never sets: "No enemies" (spawners drop their spawn requests) and
 is at hand in play; its last entry gives the next of the four swords once
 the menu is closed. In play, Ctrl+F1, Ctrl+F2 and Ctrl+F3 switch the first
 three and Ctrl+F4 gives the next sword. They are not saved and start off.
-For tests, `RESOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
-them on at start and `RESOT_START_LEVEL=6101_couloir` (a room of the level
+For tests, `POPSOT_CHEATS=invulnerable,sand,onehit,nospawn,endless` switches
+them on at start and `POPSOT_START_LEVEL=6101_couloir` (a room of the level
 select) starts that level by itself once the main menu is up.
 
 ### German hint text (retail)
@@ -362,14 +360,14 @@ select) starts that level by itself once the main menu is up.
 With German text, the hints say "Drückt" where the German data has
 "Ziehen" ("Ziehen X, um das Schwert zu ziehen", "Ihr ziehenet A zu früh"),
 and the button symbols lose the brackets fifteen hints put around them.
-`RESOT_TEXT_FIXES=0` shows the original text.
+`POPSOT_TEXT_FIXES=0` shows the original text.
 
 ### Sound: 5.1 and room reverb
 
 "Port Options" -> "Sound" (Windows): "Speakers" Stereo (default) or 5.1,
 used from the next start, and "Room reverb" On (default) / Off, at once.
 Saved in `popsot-options.ini` (`[Audio] Speakers=stereo|5.1`, `Reverb=1|0`);
-`RESOT_SPEAKERS` and `RESOT_REVERB` override them for one run. The reverb
+`POPSOT_SPEAKERS` and `POPSOT_REVERB` override them for one run. The reverb
 is the Xbox's I3DL2 room reverb: the game sends a copy of its sounds to it
 and sets the room (the DSP that ran it on the Xbox is not emulated; the
 XAudio2 reverb takes its place with the game's own settings). 5.1 sends the
@@ -390,7 +388,7 @@ pitch`; `CameraMode=own`). New Game flies from the picture to the end at
 the game's pace. "Port Options" -> "Debug" -> "Menu camera" switches PC
 port, original and own. `[Menu] CameraForward` / `CameraUp` / `CameraSide`
 move the camera when a mode has no picture (defaults 3.5 / 6.25 / 0);
-`RESOT_MENU_CAMERA=0` (or `pc`, `own`, `original`) overrides the mode for
+`POPSOT_MENU_CAMERA=0` (or `pc`, `own`, `original`) overrides the mode for
 one run.
 
 ### Prototype page (retail)
@@ -398,17 +396,16 @@ one run.
 "Port Options" -> "Prototype": switches the PS2 prototype used that
 retail still reads but never sets. "Life regeneration" gives one life point
 per second; "Hide interface" hides the life bar and the hints. Not saved;
-`RESOT_PROTO=regen,nohud` switches them on at start.
+`POPSOT_PROTO=regen,nohud` switches them on at start.
 
 ### Debug page (retail)
 ### Debug page (retail)
 
-"Port Options" -> "Debug", in the main and the pause menu: the F5 info
-panel, the free camera, the world freeze, the game speed and the main-menu
+"Port Options" -> "Debug", in the main and the pause menu: the free camera, the world freeze, the game speed and the main-menu
 camera (100 %, 50 %,
 25 %, through a clock factor the game reads but never writes; the scripts'
-own slow motion still works on top). Not saved; `RESOT_GAME_SPEED=50`
-starts at that speed and `RESOT_TIMER_DIAG=1` logs the game clock against
+own slow motion still works on top). Not saved; `POPSOT_GAME_SPEED=50`
+starts at that speed and `POPSOT_TIMER_DIAG=1` logs the game clock against
 the wall clock. The level select stays in the main menu only: started from
 the pause menu, a map change ended on the "Spielende" page.
 
@@ -418,7 +415,7 @@ The menu entry formerly called texture glow switches the title's soft-focus
 overlay (a blurred 160x120 copy of the frame laid over it). Port Options >
 Graphics > Soft focus cycles Off, 25 %, 50 %, 75 % and 100 % (the Xbox's own
 strength); the INI keeps `[Graphics] TextureGlowEffect` as the switch and
-`SoftFocusStrength=1..100` as the strength (`RESOT_SOFT_FOCUS_STRENGTH`
+`SoftFocusStrength=1..100` as the strength (`POPSOT_SOFT_FOCUS_STRENGTH`
 overrides it). Direct3D 11 only for now.
 
 ### Post processing quality and texture glow
@@ -461,8 +458,8 @@ platform dependency setup script. Players need no separate shader compiler.
 Optimized modules are stored in `shadercache/`; Vulkan's driver pipeline cache
 is separate. Compilation uses background workers by default on both hosts,
 with reference pipelines available during compilation. First-use draw skips
-can still occur until a pipeline is ready. `RESOT_NATIVE_TRANSLATE=0` and
-`RESOT_NATIVE_SPECIALIZE=0` are developer comparison switches;
-`RESOT_ASYNC_PIPELINES=0` forces synchronous compilation. See
+can still occur until a pipeline is ready. `POPSOT_NATIVE_TRANSLATE=0` and
+`POPSOT_NATIVE_SPECIALIZE=0` are developer comparison switches;
+`POPSOT_ASYNC_PIPELINES=0` forces synchronous compilation. See
 [the shader study](../../docs/VULKAN-PERFORMANCE.md) and
 [validation](../../docs/VALIDATION.md) for scope and observed results.

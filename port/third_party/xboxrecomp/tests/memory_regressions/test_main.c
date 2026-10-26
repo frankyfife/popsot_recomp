@@ -36,7 +36,7 @@
 #include "kernel.h"
 #include "xbox_memory_layout.h"
 #include "guest_vmem.h"
-#include "xbox_apu_dma.h" /* RE-SoT: check virtual frees retire audio aliases. */
+#include "xbox_apu_dma.h" /* POPSoT: check virtual frees retire audio aliases. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -331,7 +331,7 @@ int main(int argc, char **argv)
             snprintf(d, sizeof d, "status 0x%08X, base 0x%08X", st, base);
             check(base != hi, "default: an explicit high base is not honoured", d);
         } else if (ext) {
-            /* RE-SoT: both CRTs reserve with a null base (the demo's 1 MB
+            /* POPSoT: both CRTs reserve with a null base (the demo's 1 MB
              * reserve, retail's heap segments). The full 64 MB
              * reservation must cost no guest heap or alias the RAM mirrors. */
             uint32_t any = 0, amount = 0x4000000, again, first, dma;

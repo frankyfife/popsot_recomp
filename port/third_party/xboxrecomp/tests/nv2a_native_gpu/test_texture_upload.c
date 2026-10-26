@@ -1,4 +1,4 @@
-/* RE-SoT: compare the bulk upload to scalar Morton addressing, with
+/* POPSoT: compare the bulk upload to scalar Morton addressing, with
  * nonsquare shapes, palettes rewritten in place, and opaque XRGB alpha. */
 #include "../../src/kernel/nv2a_texture_upload.h"
 #include <stdio.h>
@@ -18,7 +18,7 @@ int main(void)
         for (i = 0; i < 256; i++) palette[i] = (i*0x01010101u) ^ (pass ? 0x7FA38190u : 0);
         for (si = 0; si < sizeof shapes/sizeof shapes[0]; si++) for (fi = 0; fi < 3; fi++) {
             uint32_t w=shapes[si][0], h=shapes[si][1], fmt=formats[fi];
-            if (!resot_decode_swizzled(dst,src,w,h,fmt,palette)) return 2;
+            if (!popsot_decode_swizzled(dst,src,w,h,fmt,palette)) return 2;
             for (y=0; y<h; y++) for (x=0; x<w; x++) {
                 uint32_t at=swizzle_offset(x,y,w,h), expected;
                 if (fmt==0x0B) expected=palette[src[at]];
@@ -27,11 +27,11 @@ int main(void)
             }
         }
     }
-    if (resot_decode_swizzled(dst,src,32,32,0x0B,NULL) ||
-        resot_decode_swizzled(dst,src,31,32,0x06,palette) ||
-        resot_decode_swizzled(dst,src,32,32,0x0C,palette)) return 4;
+    if (popsot_decode_swizzled(dst,src,32,32,0x0B,NULL) ||
+        popsot_decode_swizzled(dst,src,31,32,0x06,palette) ||
+        popsot_decode_swizzled(dst,src,32,32,0x0C,palette)) return 4;
     start=clock();
-    for (i=0;i<200;i++) resot_decode_swizzled(dst,src,512,512,0x0B,palette);
+    for (i=0;i<200;i++) popsot_decode_swizzled(dst,src,512,512,0x0B,palette);
     printf("bulk upload: scalar comparison passed; 512x512 P8 %.3f ms (200 iterations), checksum %08X\n",
         1000.0*(clock()-start)/CLOCKS_PER_SEC/200,dst[12345]);
     free(src); free(dst); return 0;

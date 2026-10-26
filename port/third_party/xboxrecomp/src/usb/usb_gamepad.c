@@ -556,7 +556,7 @@ static void pad_script_apply(int pad, uint8_t *out)
     }
 }
 
-/* RE-SoT: the pad without the USB bus.
+/* POPSoT: the pad without the USB bus.
  *
  * The emulated OHCI pad had to be enumerated by XAPI's USB stack first, and
  * that failed in most starts (the title then saw no controller at all). A
@@ -607,7 +607,7 @@ uint32_t xbox_HlePadState(uint32_t port, uint8_t *out)
     return 0;
 }
 
-/* RE-SoT: the title's rumble, to whichever host pad is port 0. */
+/* POPSoT: the title's rumble, to whichever host pad is port 0. */
 void xbox_HlePadRumble(uint32_t port, uint16_t left, uint16_t right)
 {
     XBOX_VIBRATION v;

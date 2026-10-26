@@ -23,8 +23,8 @@
 #include "apu.h"
 #include "apu_xaudio2.h"
 #include "fpconv.h"
-#include "../kernel/resot_runtime.h" /* RE-SoT: per-target behaviour. */
-#include "../kernel/xbox_apu_dma.h" /* RE-SoT: extended-VA audio DMA tokens. */
+#include "../kernel/popsot_runtime.h" /* POPSoT: per-target behaviour. */
+#include "../kernel/xbox_apu_dma.h" /* POPSoT: extended-VA audio DMA tokens. */
 #include "../kernel/xbox_memory_layout.h"   /* XBOX_WORKER_STACK_TOP */
 
 /* ============================================================
@@ -75,7 +75,7 @@ void mcpx_debug_end_frame(void) {}
 extern uint32_t g_xbox_image_lo, g_xbox_image_hi;
 extern uint32_t xbox_ContiguousAllocatedBytes(void);
 
-/* RE-SoT: the kernel publishes mappings while the mixer resolves SGE pages.
+/* POPSoT: the kernel publishes mappings while the mixer resolves SGE pages.
  * A read/write lock avoids publishing partially initialized mappings. */
 static xbox_apu_dma_table s_apu_dma;
 static SRWLOCK s_apu_dma_lock = SRWLOCK_INIT;
@@ -106,14 +106,14 @@ void xbox_ApuDmaUnmap(uint32_t va, uint32_t bytes)
 uint8_t *mcpx_apu_phys(uint64_t addr)
 {
     uint32_t a = (uint32_t)addr & 0x0FFFFFFFu;
-    /* RE-SoT: SG entries for high guest VA must resolve before 26-bit fallback.
+    /* POPSoT: SG entries for high guest VA must resolve before 26-bit fallback.
      * Resolve to the original VA so a multi-byte sample/ADPCM memcpy crossing
      * a page boundary still sees adjacent guest bytes, not adjacent tokens. */
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
     if (a >= XBOX_APU_DMA_BASE && a < XBOX_APU_DMA_END) {
         uint32_t va = xbox_ApuDmaResolve(a);
         if (va) return g_apu_ram_ptr + va;
-        /* RE-SoT: a revoked/unassigned token is not low console RAM. A
+        /* POPSoT: a revoked/unassigned token is not low console RAM. A
          * bounded scratch span makes stale bus reads silent and isolates
          * stale bus writes, including reads crossing the page boundary. */
         {
@@ -122,7 +122,7 @@ uint8_t *mcpx_apu_phys(uint64_t addr)
         }
     }
 #endif
-    /* RE-SoT: an address DirectSound was given for ordinary guest RAM
+    /* POPSoT: an address DirectSound was given for ordinary guest RAM
      * (kernel_bridge.c, MmGetPhysicalAddress): unambiguous, so first. */
     if (a >= XBOX_APU_HEAP_ALIAS && a < XBOX_APU_HEAP_ALIAS + 0x04000000u)
         return g_apu_ram_ptr + (a - XBOX_APU_HEAP_ALIAS);
@@ -140,7 +140,7 @@ static volatile LONG s_irq_line;
 
 static void update_irq(MCPXAPUState *d)
 {
-    /* RE-SoT: FEMETHMODE is an enum; HALTED (0x80) is not TRAPPED (0xE0). */
+    /* POPSoT: FEMETHMODE is an enum; HALTED (0x80) is not TRAPPED (0xE0). */
     if ((d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) ==
             NV_PAPU_FECTL_FEMETHMODE_TRAPPED) {
         qatomic_or(&d->regs[NV_PAPU_ISTS], NV_PAPU_ISTS_FETINTSTS);
@@ -168,9 +168,9 @@ extern int  xbox_worker_stack_alloc(void);
 extern void xbox_worker_stack_free(int slot);
 extern uint32_t xbox_GetConnectedInterrupt(uint32_t vector);
 extern uint32_t xbox_AllocThreadTib(void);
-extern int xbox_IrqlBlocksInterrupts(void);  /* RE-SoT: demo dispatcher */
+extern int xbox_IrqlBlocksInterrupts(void);  /* POPSoT: demo dispatcher */
 extern int xbox_IrqlEnterInterrupt(int level);
-extern int  xbox_DispatchTryEnter(void);  /* RE-SoT: kernel_hal.c */
+extern int  xbox_DispatchTryEnter(void);  /* POPSoT: kernel_hal.c */
 extern void xbox_DispatchLeave(void);
 extern void xbox_IrqlLeaveInterrupt(int saved);
 #if defined(_MSC_VER)
@@ -181,7 +181,7 @@ extern void xbox_IrqlLeaveInterrupt(int saved);
 extern APU_TLS uint32_t g_eax, g_ecx, g_edx, g_esp, g_ebx, g_esi, g_edi;
 extern APU_TLS uint32_t g_fs_base;
 
-/* RE-SoT: called by the demo's 0x002E9F30 / 0x002E9F52 entry hooks. The
+/* POPSoT: called by the demo's 0x002E9F30 / 0x002E9F52 entry hooks. The
  * audio-only gate (apu_guest_gate.h) they took is superseded by the
  * uniprocessor dispatch lock (kernel_hal.c): those scopes raise IRQL, which
  * takes that lock, and the ISR and every DPC run only while holding it. Two
@@ -197,7 +197,7 @@ void xbox_ApuGuestScopeLeave(void) { }
  * while a guest thread sits at raised IRQL, which is when the single-CPU
  * console could not have taken the interrupt. The routine acknowledges by
  * writing ISTS, which drops the line through update_irq. */
-/* RE-SoT: demo ISR 0x002EE410 and retail ISR 0x003E98A7 share hardware
+/* POPSoT: demo ISR 0x002EE410 and retail ISR 0x003E98A7 share hardware
  * state with their DirectSound IRQL scopes (0x002E9F30 / 0x003E53D0).
  * Keep level-triggered interrupts pending while a guest/DPC owns dispatch;
  * the retail 300-poll escape could race those scopes just like the demo. */
@@ -210,7 +210,7 @@ static void apu_deliver_irq(MCPXAPUState *d)
 
     if (!InterlockedCompareExchange(&s_irq_line, 0, 0))
         return;
-    /* RE-SoT: never expire the guest's interrupt mask. The demo's crash at
+    /* POPSoT: never expire the guest's interrupt mask. The demo's crash at
      * 0x002EF6CD (DirectSound voice-list service) came from this ISR thread
      * while reading a null voice/list link. The old 50-poll escape could
      * admit an ISR while a raised guest IRQL still protected the list. Keep
@@ -236,7 +236,7 @@ static void apu_deliver_irq(MCPXAPUState *d)
     if (slot < 0)
         return;
 
-    /* RE-SoT: no raised guest thread and no DPC (timer thread) while the
+    /* POPSoT: no raised guest thread and no DPC (timer thread) while the
      * ISR runs: the uniprocessor dispatch lock, kernel_hal.c. A guest scope
      * can begin after the first IRQL check; its raise then waits for this
      * lock. Never waited for here: leave the IRQ pending. */
@@ -252,7 +252,7 @@ static void apu_deliver_irq(MCPXAPUState *d)
     g_esp -= 4; *(uint32_t *)(g_apu_ram_ptr + g_esp) = kint;
     g_esp -= 4; *(uint32_t *)(g_apu_ram_ptr + g_esp) = 0xDEADBEEFu;
     { int _irql = xbox_IrqlEnterInterrupt(16); fn(); xbox_IrqlLeaveInterrupt(_irql); }
-    xbox_DispatchLeave();    /* RE-SoT: release before reacquiring device lock. */
+    xbox_DispatchLeave();    /* POPSoT: release before reacquiring device lock. */
     xbox_worker_stack_free(slot);
     qemu_mutex_lock(&d->lock);
 
@@ -393,7 +393,7 @@ typedef struct {
 
 static WaveOutState g_waveout = { 0 };
 
-/* RE-SoT: why the frame thread falls behind real time, for the ten-second
+/* POPSoT: why the frame thread falls behind real time, for the ten-second
  * [APU] line. On xbox-demo in the bath fight (06_GP24_Bath_Fight) it made
  * 1866 of 1875 frames in ten seconds and the XAudio2 queue ran dry: these
  * say whether the time went into processing a block of eight sub-frames,
@@ -480,7 +480,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
 
     /* XAudio2 path.
      *
-     * RE-SoT: frame_buf arrives holding the 256 samples the voice processor
+     * POPSoT: frame_buf arrives holding the 256 samples the voice processor
      * and the DSP stage produced over the last eight sub-frames (or silence,
      * when the front end is not running -- the frame thread clears it). This
      * used to wipe the buffer and submit 1024 samples of the software mixer
@@ -489,7 +489,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
      * mixer and the test tone are now added on top of them. */
     if (xa2_is_active()) {
         int i, peak = 0;
-        /* RE-SoT: what goes to XAudio2: the speakers (2 or 6, xa2_layout)
+        /* POPSoT: what goes to XAudio2: the speakers (2 or 6, xa2_layout)
          * and, with the host reverb, the I3DL2 send as the last channel. */
         static int16_t out[MIXER_FRAME_SAMPLES * 8];
         int speakers = 2, send = 0, chans;
@@ -540,7 +540,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
         }
         xa2_submit_samples(out, MIXER_FRAME_SAMPLES);
 
-        /* RE-SoT: RECOMP_APU_WAV=<file> keeps what is sent to the sound card
+        /* POPSoT: RECOMP_APU_WAV=<file> keeps what is sent to the sound card
          * as a 48 kHz stereo WAV, so the output can be examined rather than
          * described. The header's sizes are rewritten once a second. */
         {
@@ -551,7 +551,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
                 const char *path = getenv("RECOMP_APU_WAV");
                 asked = 1;
                 if (path && *path && (wav = fopen(path, "wb")) != NULL) {
-                    /* RE-SoT: as many channels as go to XAudio2 (the
+                    /* POPSoT: as many channels as go to XAudio2 (the
                      * reverb send last); 48 kHz, 16 bit. */
                     uint8_t hdr[44] = {
                         'R','I','F','F', 0,0,0,0, 'W','A','V','E', 'f','m','t',' ',
@@ -680,13 +680,13 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
  * Throttle (timing control for frame pacing)
  * ============================================================ */
 
-/* RE-SoT: how far behind real time the frame thread may fall and still make
+/* POPSoT: how far behind real time the frame thread may fall and still make
  * the lost frames up, back to back, instead of forgetting them. On xbox-demo
  * the front end is held (below) for one to four frames at a time; with the
  * old limit of one frame the time held was never produced, the XAudio2
  * queue lost those frames for good and ran dry. Sixteen frames is the queue's
  * own maximum (XA2_QUEUE_MAX); a longer stall starts the clock again. */
-#if RESOT_RUNTIME_DEMO || RESOT_RUNTIME_RETAIL   /* retail too, see the frame thread */
+#if POPSOT_RUNTIME_DEMO || POPSOT_RUNTIME_RETAIL   /* retail too, see the frame thread */
 #define APU_CATCH_UP_US (16 * EP_FRAME_US)
 #else
 #define APU_CATCH_UP_US EP_FRAME_US
@@ -781,8 +781,8 @@ static void *mcpx_apu_frame_thread(void *arg)
             continue;
         }
 
-#if RESOT_RUNTIME_DEMO || RESOT_RUNTIME_RETAIL
-        /* RE-SoT (retail too, 2026-10-26: the same gaps, a few a second in the
+#if POPSOT_RUNTIME_DEMO || POPSOT_RUNTIME_RETAIL
+        /* POPSoT (retail too, 2026-10-26: the same gaps, a few a second in the
          * menu and in play, recorded at the sound card's output; this branch
          * was built for the demo only).
          * DirectSound halts or traps the front end while it edits
@@ -845,7 +845,7 @@ static void *mcpx_apu_frame_thread(void *arg)
             se_frame(d);
         } else {
             /* Lightweight: just monitor frame (test tone + software mixer).
-             * RE-SoT: nothing wrote this frame's voice output, so what the
+             * POPSoT: nothing wrote this frame's voice output, so what the
              * buffer still holds is the last frame the front end mixed. */
             if (((d->ep_frame_div + 1) % 8) == 0) {
                 memset(d->monitor.frame_buf, 0, sizeof(d->monitor.frame_buf));
@@ -1056,7 +1056,7 @@ uint64_t mcpx_apu_mmio_read(MCPXAPUState *d, uint64_t addr, unsigned int size)
 void mcpx_apu_mmio_write(MCPXAPUState *d, uint64_t addr, uint64_t val, unsigned int size)
 {
     if (!d) return;
-    /* RE-SoT: serialize method/argument latching and FECTL acknowledgement
+    /* POPSoT: serialize method/argument latching and FECTL acknowledgement
      * with the VP scan. voice_lock nests this recursive device mutex. The
      * guest ISR runs outside it, so its MMIO can take it normally. */
     qemu_mutex_lock(&d->lock);

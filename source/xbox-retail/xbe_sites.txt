@@ -3,7 +3,7 @@
 # target_hooks.c say; every address those files name must be covered here.
 
 # The executable
-entry 0x00335753                    # RESOT_ENTRY_POINT
+entry 0x00335753                    # POPSOT_ENTRY_POINT
 title 0x5553001D                    # target.h header
 value 0x00010000                    # 0x10000u: NV_PFB_WC_FLUSH bit, not an address
 
@@ -144,7 +144,7 @@ func 0x000DBDE0
 ret 0x000DC0B3 sub_000DBDE0         # left stick
 ret 0x000DC0C2 sub_000DBDE0         # right stick
 
-# Menu library and reSOT Options (target_hooks.c)
+# Menu library and POPSoT Options (target_hooks.c)
 func 0x002A2B20                     # page open
 func 0x002A3910                     # add choice
 func 0x002A2670                     # close
@@ -359,13 +359,13 @@ ref 0x001CAE42 0x00766C3C           # Spawn_WP__MSG: Cheat_Test's global object 
 ref 0x0021F889 0x0076766C           # Spawn_WP_bhv_spawn: Cheat_Test's global object (endless bit 0x08)
 call 0x0021F8C1 sub_00266E20        # bit 8: the spawner starts its count again
 ret 0x001A323E sub_002A2B20        # pause menu: page "Pause" opens
-ret 0x001A3441 sub_002A2670        # pause page closes: reSOT entries added
-ret 0x001A3470 sub_002A2B20        # pause menu: "Optionen" opens next, reSOT pages built
+ret 0x001A3441 sub_002A2670        # pause page closes: POPSoT entries added
+ret 0x001A3470 sub_002A2B20        # pause menu: "Optionen" opens next, POPSoT pages built
 ref 0x000DB850 0x0043B100           # frame clock: second time factor (Debug page game speed)
 ref 0x000DB856 0x0043B12C           # frame clock: TIM_gf_SpeedFactor
 ref 0x000DB861 0x0043B100           # the same factor on TIM_gf_dt
 ref 0x000DB88C 0x00470D74           # TIM_gf_dt stored
-ref 0x000DB8EF 0x00758C80           # the game clock in seconds (RESOT_TIMER_DIAG)
+ref 0x000DB8EF 0x00758C80           # the game clock in seconds (POPSOT_TIMER_DIAG)
 f32 0x0043B100 1.0                  # 1.0 in the XBE, never written by the game
 func 0x000164D0                     # ENG_Loop
 ref 0x0001663F 0x007584A0           # ENG_gb_ForcePauseEngine: skips the engine call (free camera freeze)

@@ -1,4 +1,4 @@
-package com.fulger.resot;
+package com.fulger.popsot;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -23,11 +23,11 @@ import java.io.FileInputStream;
 import java.nio.channels.FileChannel;
 
 /**
- * The reSOT title screen and installer, as on Windows (launcher.c), for the
+ * The POPSoT title screen and installer, as on Windows (launcher.c), for the
  * one Android app that runs both games.
  *
  * Games live in the app's external files folder,
- * Android/data/com.fulger.resot/files: xbox-demo and xbox-retail are where
+ * Android/data/com.fulger.popsot/files: xbox-demo and xbox-retail are where
  * an ISO installation puts them, and any other folder there that holds game
  * files counts too (extracted discs copied over from a computer). Each is
  * identified as the demo or the retail game from default.xbe's SHA-256, as
@@ -173,9 +173,9 @@ public final class LauncherActivity extends Activity implements LauncherView.Lis
         LauncherView.State s = view.state;
         if (!s.installed[kind]) return;
         if (!s.exact[kind]) {
-            new AlertDialog.Builder(this).setTitle("reSOT")
+            new AlertDialog.Builder(this).setTitle("POPSoT")
                 .setMessage("This folder's default.xbe is not the " + (kind == 0 ? "demo" : "retail")
-                    + " build reSOT was recompiled from, so the game cannot start.\n\n" + s.dir[kind])
+                    + " build POPSoT was recompiled from, so the game cannot start.\n\n" + s.dir[kind])
                 .setPositiveButton(android.R.string.ok, null).show();
             return;
         }
@@ -225,7 +225,7 @@ public final class LauncherActivity extends Activity implements LauncherView.Lis
         s.isoName = displayName(iso);
         s.status = ""; s.error = ""; s.done = s.total = 0;
         view.refresh();
-        worker = new Thread(() -> extract(iso, out), "resot-extract-iso");
+        worker = new Thread(() -> extract(iso, out), "popsot-extract-iso");
         worker.start();
     }
 
@@ -278,7 +278,7 @@ public final class LauncherActivity extends Activity implements LauncherView.Lis
 
     private void cancelInstall() {
         if (!view.state.extracting) return;
-        new AlertDialog.Builder(this).setTitle("reSOT")
+        new AlertDialog.Builder(this).setTitle("POPSoT")
             .setMessage("Stop installing? The files written so far are removed.")
             .setPositiveButton(android.R.string.yes, (d, w) -> cancelRequested = true)
             .setNegativeButton(android.R.string.no, null).show();
@@ -304,7 +304,7 @@ public final class LauncherActivity extends Activity implements LauncherView.Lis
         }
         File target = new File(base, FOLDER[kind]);
         if (target.exists()) {
-            new AlertDialog.Builder(this).setTitle("reSOT")
+            new AlertDialog.Builder(this).setTitle("POPSoT")
                 .setMessage("The " + (kind == 0 ? "demo" : "retail game") + " is already installed in\n"
                     + target.getAbsolutePath() + "\n\nReplace it with this disc? Its saved games are kept.")
                 .setPositiveButton("Replace", (d, w) -> {
@@ -333,7 +333,7 @@ public final class LauncherActivity extends Activity implements LauncherView.Lis
     /** Removes a folder tree in the background (an extracted disc is GBs). */
     private static void deleteLater(File dir) {
         if (dir == null || !dir.exists()) return;
-        new Thread(() -> deleteTree(dir), "resot-delete").start();
+        new Thread(() -> deleteTree(dir), "popsot-delete").start();
     }
 
     private static void deleteTree(File f) {

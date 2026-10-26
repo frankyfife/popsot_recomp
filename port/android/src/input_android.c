@@ -1,5 +1,5 @@
 /**
- * reSOT - Android input: physical gamepads (SDL3), a hardware keyboard and
+ * POPSoT - Android input: physical gamepads (SDL3), a hardware keyboard and
  * the on-screen touch controls (TouchControls.java), merged into the Xbox
  * pad state the runtime asks for (src/input/xinput_xbox.h).
  *
@@ -42,7 +42,7 @@ static pthread_mutex_t s_touch_lock = PTHREAD_MUTEX_INITIALIZER;
 static int32_t s_touch[7];
 static volatile int s_rumble;      /* 0..255, for the phone's vibrator */
 
-JNIEXPORT void JNICALL Java_com_fulger_resot_TouchControls_nativeState(
+JNIEXPORT void JNICALL Java_com_fulger_popsot_TouchControls_nativeState(
     JNIEnv *env, jclass cls, jint lx, jint ly, jint rx, jint ry, jint lt, jint rt, jint buttons)
 {
     (void)env; (void)cls;
@@ -52,19 +52,19 @@ JNIEXPORT void JNICALL Java_com_fulger_resot_TouchControls_nativeState(
     pthread_mutex_unlock(&s_touch_lock);
 }
 
-JNIEXPORT jint JNICALL Java_com_fulger_resot_TouchControls_nativeRumble(JNIEnv *env, jclass cls)
+JNIEXPORT jint JNICALL Java_com_fulger_popsot_TouchControls_nativeRumble(JNIEnv *env, jclass cls)
 {
     (void)env; (void)cls;
     return s_rumble;
 }
 
-JNIEXPORT void JNICALL Java_com_fulger_resot_TouchControls_nativeToggleFps(JNIEnv *env, jclass cls)
+JNIEXPORT void JNICALL Java_com_fulger_popsot_TouchControls_nativeToggleFps(JNIEnv *env, jclass cls)
 {
     (void)env; (void)cls;
     xbox_FramebufferToggleDebugPanel();
 }
 
-JNIEXPORT jboolean JNICALL Java_com_fulger_resot_TouchControls_nativeFpsVisible(JNIEnv *env, jclass cls)
+JNIEXPORT jboolean JNICALL Java_com_fulger_popsot_TouchControls_nativeFpsVisible(JNIEnv *env, jclass cls)
 {
     (void)env; (void)cls;
     return xbox_FramebufferFpsVisible() ? JNI_TRUE : JNI_FALSE;
@@ -101,7 +101,7 @@ static void close_pad(SDL_JoystickID id)
         }
 }
 
-void resot_android_input_start(SDL_Window *window)
+void popsot_android_input_start(SDL_Window *window)
 {
     int count = 0, i;
     SDL_JoystickID *ids;
@@ -150,7 +150,7 @@ static int vk_from_key(SDL_Keycode key, SDL_Scancode scan)
 static volatile int s_back_down;
 
 /* Called on the SDL thread for every event (main_android.c). */
-void resot_android_input_event(const SDL_Event *e)
+void popsot_android_input_event(const SDL_Event *e)
 {
     switch (e->type) {
     case SDL_EVENT_GAMEPAD_ADDED:
@@ -299,7 +299,7 @@ DWORD xbox_InputGetCapabilities(DWORD port, DWORD flags, XBOX_INPUT_CAPABILITIES
 }
 
 /* Space or A skips a movie (the targets' hooks), as on Windows. */
-int resot_movie_skip_down(void)
+int popsot_movie_skip_down(void)
 {
     uint8_t report[20];
     return xbox_FramebufferKeyDown(VK_SPACE)

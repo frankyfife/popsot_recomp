@@ -1,32 +1,32 @@
-/* RE-SoT: explicit GPU encoder shared by SDL GPU's native D3D12 and Vulkan
+/* POPSoT: explicit GPU encoder shared by SDL GPU's native D3D12 and Vulkan
  * drivers. No D3D11 device, command context, 11On12 or DXVK is used here.
- * RE-SoT: supported vertex programs use vs_uber, with CPU fallback; triangles,
+ * POPSoT: supported vertex programs use vs_uber, with CPU fallback; triangles,
  * register combiners, blending, depth tests and render targets run on the GPU.
  * SDL owns native resource barriers, command submission and resource retirement.
  * Included after the common NV2A/D3D11 helpers, not a standalone translation unit. */
 #include <SDL3/SDL.h>
 #include "nv2a_native_shaders.h"
-#include "nv2a_native_scale.h" /* RE-SoT: Android percentage scales. */
-#include "nv2a_native_simple.h" /* RE-SoT: exact mobile combiner whitelist. */
+#include "nv2a_native_scale.h" /* POPSoT: Android percentage scales. */
+#include "nv2a_native_simple.h" /* POPSoT: exact mobile combiner whitelist. */
 #include "nv2a_hw_native_visibility.inc"
-static NgVisibility s_ng_visibility; /* RE-SoT: retail-only counting, shared native drivers. */
+static NgVisibility s_ng_visibility; /* POPSoT: retail-only counting, shared native drivers. */
 #if defined(__ANDROID__)
-/* RE-SoT: Android links the patched SDL directly; the query table is not
+/* POPSoT: Android links the patched SDL directly; the query table is not
  * looked up in a DLL that may be absent (port/third_party/sdl-gpu-query). */
-extern const ResotGpuQueryAPI *SDLCALL RESOT_GetVulkanQueryAPI(Uint32 version);
-extern void SDLCALL RESOT_SetVulkanPipelineCachePath(const char *path);
-extern bool SDLCALL RESOT_SaveVulkanPipelineCache(SDL_GPUDevice *device);
+extern const PopsotGpuQueryAPI *SDLCALL POPSOT_GetVulkanQueryAPI(Uint32 version);
+extern void SDLCALL POPSOT_SetVulkanPipelineCachePath(const char *path);
+extern bool SDLCALL POPSOT_SaveVulkanPipelineCache(SDL_GPUDevice *device);
 #endif
-/* RE-SoT: persistent Vulkan pipeline cache (resot_pipeline_cache_vulkan.inc).
+/* POPSoT: persistent Vulkan pipeline cache (popsot_pipeline_cache_vulkan.inc).
  * Optional on Windows, where an older SDL3.dll lacks the exports. */
 static void (SDLCALL *s_ng_cache_path)(const char *);
 static bool (SDLCALL *s_ng_cache_save)(SDL_GPUDevice *);
 
-#include "resot_native_vsh.h" /* RE-SoT: exact small-register program admission. */
-#include "shader_compiler.h" /* RE-SoT: shared Windows/Android native compiler. */
-#include "resot_native_translate.h" /* RE-SoT: immutable vertex translation. */
-#include "resot_native_specialize.h" /* RE-SoT: constant Vulkan combiner programs. */
-/* RE-SoT: the specialization key reads only these immutable program words. */
+#include "popsot_native_vsh.h" /* POPSoT: exact small-register program admission. */
+#include "shader_compiler.h" /* POPSoT: shared Windows/Android native compiler. */
+#include "popsot_native_translate.h" /* POPSoT: immutable vertex translation. */
+#include "popsot_native_specialize.h" /* POPSoT: constant Vulkan combiner programs. */
+/* POPSoT: the specialization key reads only these immutable program words. */
 _Static_assert(sizeof(HwPsConst)==168*4 && offsetof(HwPsConst,ctl)==96*4 &&
                offsetof(HwPsConst,misc)==132*4,"Native fragment constant ABI changed");
 
@@ -42,9 +42,9 @@ typedef struct {
     SDL_GPUTexture *image;
     Texture guest;
     uint32_t hash, checked, used;
-    uint32_t host_w, host_h;   /* RE-SoT: image size; a pack replacement differs */
+    uint32_t host_w, host_h;   /* POPSoT: image size; a pack replacement differs */
 } NgTexture;
-/* RE-SoT: stable, collision-checked program entries. Workers only read the
+/* POPSoT: stable, collision-checked program entries. Workers only read the
  * immutable source/key; shader publication is protected by each entry's lock.
  * No arbitrary 256-program limit returns later levels to generic shaders. */
 typedef struct NgTranslatedVertex {
@@ -57,26 +57,26 @@ typedef struct NgTranslatedVertex {
 } NgTranslatedVertex;
 typedef struct NgTranslatedFragment {
     struct NgTranslatedFragment *next;
-    uint32_t key[RESOT_PS_SPEC_WORDS];
+    uint32_t key[POPSOT_PS_SPEC_WORDS];
     SDL_Mutex *lock;
     SDL_GPUShader *shader;
     int attempted;
 } NgTranslatedFragment;
 typedef struct {
     uint32_t shader, mask, blend, src, dst, op, depth, write, cmp, cull, ccw;
-    uint32_t vertex_stride; /* RE-SoT: compact native program inputs, zero for HwVertex. */
-    uint32_t small_vsh; /* RE-SoT: no reads of temporary registers R4..R11. */
-    NgTranslatedFragment *specialized_ps; /* RE-SoT: stable program identity. */
-    NgTranslatedVertex *translated_vs; /* RE-SoT: direct Vulkan vertex program. */
+    uint32_t vertex_stride; /* POPSoT: compact native program inputs, zero for HwVertex. */
+    uint32_t small_vsh; /* POPSoT: no reads of temporary registers R4..R11. */
+    NgTranslatedFragment *specialized_ps; /* POPSoT: stable program identity. */
+    NgTranslatedVertex *translated_vs; /* POPSoT: direct Vulkan vertex program. */
     SDL_GPUTextureFormat format;
 } NgPipelineKey;
-_Static_assert(sizeof(HwVertex) == 128, "Native vertex ring alignment requires 128-byte HwVertex"); /* RE-SoT: compact pitches divide this alignment. */
+_Static_assert(sizeof(HwVertex) == 128, "Native vertex ring alignment requires 128-byte HwVertex"); /* POPSoT: compact pitches divide this alignment. */
 typedef struct NgPipeline {
     NgPipelineKey key;
     SDL_GPUGraphicsPipeline *gpu;
     struct NgPipeline *next;
-    struct NgPipeline *bucket_next; /* RE-SoT: indexed lookup, retain list for destruction. */
-    /* RE-SoT: background compilation (ng_pipeline). NG_PSO_PENDING until a
+    struct NgPipeline *bucket_next; /* POPSoT: indexed lookup, retain list for destruction. */
+    /* POPSoT: background compilation (ng_pipeline). NG_PSO_PENDING until a
      * compiler thread publishes gpu; the executor reads gpu only after
      * reading NG_PSO_READY. */
     SDL_AtomicInt state;
@@ -84,9 +84,9 @@ typedef struct NgPipeline {
 } NgPipeline;
 enum { NG_PSO_READY, NG_PSO_PENDING, NG_PSO_FAILED };
 #define NG_DRAW_QUEUE 1024
-/* RE-SoT: immutable state snapshots keep deferred native draws in guest order. */
+/* POPSoT: immutable state snapshots keep deferred native draws in guest order. */
 typedef struct {
-    /* RE-SoT: native vs_main consumes only this header. Avoid copying the
+    /* POPSoT: native vs_main consumes only this header. Avoid copying the
      * unused 3 KB of D3D11 program constants for every queued native draw. */
     float vp[4], fogp[4], ws[4], pad[4];
 } NgVsConst;
@@ -100,10 +100,10 @@ typedef struct {
     SDL_Rect sc;
     SDL_FColor blend;
     uint32_t offset,count;
-    /* RE-SoT: vs_uber draws: an index run over the batch's distinct vertices,
+    /* POPSoT: vs_uber draws: an index run over the batch's distinct vertices,
      * and the constant/program snapshots (s_ng.cpool/ppool) they run with. */
     uint32_t first_index,index_count,cslot,pslot,pcount;
-    double pixel_scale; /* RE-SoT: guest pixel count normalization. */
+    double pixel_scale; /* POPSoT: guest pixel count normalization. */
 } NgDraw;
 static void ng_flush_draws(void);
 static struct {
@@ -111,17 +111,17 @@ static struct {
     SDL_GPUDevice *device;
     SDL_GPUCommandBuffer *cmd;
     SDL_GPUShader *vs, *blit_vs, *ps, *blit_ps, *solid_ps, *panel_ps;
-    SDL_GPUShader *simple_ps, *simple_alpha_ps; /* RE-SoT: opaque one-stage combiner, no discard. */
-    uint64_t simple_draws, guest_draws; /* RE-SoT: observe fast-path coverage on-device. */
-    uint64_t small_vsh_draws; /* RE-SoT: measure actual program admission. */
-    SDL_GPUShader *small_vs; /* RE-SoT: fewer live temporary vectors on mobile GPUs. */
-    /* RE-SoT: bounded variants; retain failed entries to avoid retrying every draw. */
+    SDL_GPUShader *simple_ps, *simple_alpha_ps; /* POPSoT: opaque one-stage combiner, no discard. */
+    uint64_t simple_draws, guest_draws; /* POPSoT: observe fast-path coverage on-device. */
+    uint64_t small_vsh_draws; /* POPSoT: measure actual program admission. */
+    SDL_GPUShader *small_vs; /* POPSoT: fewer live temporary vectors on mobile GPUs. */
+    /* POPSoT: bounded variants; retain failed entries to avoid retrying every draw. */
     NgTranslatedFragment *spec_ps[256];
     NgTranslatedVertex *translated_vs[256];
-    uint64_t translated_vsh_draws; /* RE-SoT: admitted direct-program coverage. */
-    uint64_t reference_draws; /* RE-SoT: reference draws while translation pipelines compile. */
+    uint64_t translated_vsh_draws; /* POPSoT: admitted direct-program coverage. */
+    uint64_t reference_draws; /* POPSoT: reference draws while translation pipelines compile. */
     uint32_t spec_ps_count;
-    uint64_t spec_ps_draws; /* RE-SoT: measure specialization coverage. */
+    uint64_t spec_ps_draws; /* POPSoT: measure specialization coverage. */
     SDL_GPUBuffer *vertices;
     SDL_GPUTexture *white, *white_cube, *composed;
     uint32_t compose_w, compose_h, vertex_offset;
@@ -130,31 +130,31 @@ static struct {
     NgDepth depths[HW_MAX_DEPTHS];
     NgTexture textures[HW_MAX_TEXTURES];
     NgPipeline *pipelines;
-    NgPipeline *pipeline_buckets[256]; /* RE-SoT: avoid scanning all PSOs per draw. */
+    NgPipeline *pipeline_buckets[256]; /* POPSoT: avoid scanning all PSOs per draw. */
     SDL_GPUTextureFormat depth_format;
     uint8_t *queued_vertices;
     NgDraw *queued;
     uint32_t queued_count,queued_bytes,command_samplers;
-    /* RE-SoT: one persistent upload buffer, cycled by SDL while in flight,
+    /* POPSoT: one persistent upload buffer, cycled by SDL while in flight,
      * instead of creating and releasing one for every flush. */
     SDL_GPUTransferBuffer *vertex_transfer;
-    uint32_t vertex_transfer_size; /* RE-SoT: allocate staging for the run, not the whole GPU ring. */
-    /* RE-SoT: reuse texture staging storage on Vulkan/D3D12; SDL cycling
+    uint32_t vertex_transfer_size; /* POPSoT: allocate staging for the run, not the whole GPU ring. */
+    /* POPSoT: reuse texture staging storage on Vulkan/D3D12; SDL cycling
      * preserves earlier uploads still referenced by submitted commands. */
     SDL_GPUTransferBuffer *texture_transfer;
     uint32_t texture_transfer_size;
-    /* RE-SoT: uniform data persists for the rest of a command buffer; the
+    /* POPSoT: uniform data persists for the rest of a command buffer; the
      * last pushed copies skip identical pushes. Cleared at each submission. */
     NgVsConst last_vc;
     HwPsConst last_pc;
     int vc_valid, pc_valid;
-    /* RE-SoT: overlay and F5/F6 panel images, kept while their size holds. */
+    /* POPSoT: overlay and F5/F6 panel images, kept while their size holds. */
     SDL_GPUTexture *overlay, *panel;
     uint32_t overlay_w, overlay_h, overlay_serial, panel_w, panel_h;
     DWORD movie_log;
-    uint32_t movie_composes; /* RE-SoT: distinguish movie repaint cadence from guest flips. */
+    uint32_t movie_composes; /* POPSoT: distinguish movie repaint cadence from guest flips. */
     int active, present_mode;
-    /* RE-SoT: vertex programs on the GPU (vs_uber). The CPU interpreter cost
+    /* POPSoT: vertex programs on the GPU (vs_uber). The CPU interpreter cost
      * 20-50 ms a frame on Android. Constants and programs are snapshotted
      * once per change into pools that live as long as the queued run. */
     SDL_GPUShader *uber_vs;
@@ -164,10 +164,10 @@ static struct {
     float (*cpool)[NV2A_VSH_CONSTANTS][4];
     uint32_t (*ppool)[NV2A_VSH_SLOTS][4];
     uint32_t ccount, pcount, c_gen, p_gen;
-    uint32_t p_small; /* RE-SoT: original and remapped programs cannot share a snapshot. */
+    uint32_t p_small; /* POPSoT: original and remapped programs cannot share a snapshot. */
     int last_cslot, last_pslot, gpu_vsh;
 } s_ng;
-/* RE-SoT: pipeline compiler threads. On Adreno a new pipeline with the
+/* POPSoT: pipeline compiler threads. On Adreno a new pipeline with the
  * NV2A combiner shader took 0.15-1.8 s inside vkCreateGraphicsPipelines;
  * eight new state combinations on entering an area froze one retail run for
  * 12 s in total (2026-10-20 device logs, "[HW native] pipeline N created in").
@@ -184,7 +184,7 @@ static struct {
 } s_ngc;
 static void ng_compiler_start(void);
 static void ng_compiler_stop(void);
-/* RE-SoT: SDL 3.4.18's D3D12 sampler heap (see ng_flush_draws). Vulkan
+/* POPSoT: SDL 3.4.18's D3D12 sampler heap (see ng_flush_draws). Vulkan
  * allocates its descriptor sets from growing pools and needs no budget. */
 #define NG_D3D12_SAMPLER_BUDGET 1536
 static int ng_sampler_budget(uint32_t samplers)
@@ -202,15 +202,15 @@ static void SDLCALL ng_log(void *data, int category, SDL_LogPriority priority, c
 static void ng_fail(const char *where)
 {
     fprintf(stderr, "[HW native] fatal %s: %s\n", where, SDL_GetError());
-    abort(); /* RE-SoT: never silently lose submitted guest draws. */
+    abort(); /* POPSoT: never silently lose submitted guest draws. */
 }
 static SDL_GPUCommandBuffer *ng_cmd(void)
 {
 #if defined(__ANDROID__)
-    /* RE-SoT: Android's hidden surface must not keep encoding frames and
+    /* POPSoT: Android's hidden surface must not keep encoding frames and
      * burning CPU/GPU. Its separate SDL event loop wakes this condition. */
-    extern void resot_android_wait_foreground(void);
-    resot_android_wait_foreground();
+    extern void popsot_android_wait_foreground(void);
+    popsot_android_wait_foreground();
 #endif
     if (!s_ng.cmd) s_ng.cmd = SDL_AcquireGPUCommandBuffer(s_ng.device);
     if (!s_ng.cmd) ng_fail("acquire command buffer");
@@ -225,21 +225,21 @@ static void ng_submit_encoded(void)
         } else if (!SDL_SubmitGPUCommandBuffer(s_ng.cmd)) ng_fail("submit");
     }
     s_ng.cmd = NULL;
-    /* RE-SoT: retain the append position across submissions; cycle only
+    /* POPSoT: retain the append position across submissions; cycle only
      * when the vertex ring wraps, preserving resources used by prior draws. */
     s_ng.command_samplers = 0;
     s_ng.vc_valid = s_ng.pc_valid = 0;
-    s_ng.last_cslot = s_ng.last_pslot = -1; /* RE-SoT: uniforms live per command buffer. */
+    s_ng.last_cslot = s_ng.last_pslot = -1; /* POPSoT: uniforms live per command buffer. */
 }
 static void ng_submit(void)
 {
     ng_flush_draws();
     ng_submit_encoded();
 }
-/* RE-SoT: both hosts use the same internal scale, independent of the window. */
+/* POPSoT: both hosts use the same internal scale, independent of the window. */
 static int s_applied_render_percent;
 #if defined(_WIN32)
-/* RE-SoT: SDL subclasses the adopted HWND. Its WM_NCCALCSIZE handler uses
+/* POPSoT: SDL subclasses the adopted HWND. Its WM_NCCALCSIZE handler uses
  * cached BORDERLESS/RESIZABLE flags, so changing GWL_STYLE alone cannot
  * restore a caption or resize frame on Vulkan/D3D12 after F11. The host
  * window thread calls this before applying its saved Win32 placement. */
@@ -254,10 +254,10 @@ void nv2a_hw_set_window_frame(int bordered)
 #endif
 static uint32_t ng_px(uint32_t x,uint32_t scale) { return hw_px(x,scale); }
 static uint32_t ng_py(uint32_t y,uint32_t scale) { return hw_py(y,scale); }
-/* RE-SoT: caller holds s_hw.lock. GPU polling never blocks or submits. */
+/* POPSoT: caller holds s_hw.lock. GPU polling never blocks or submits. */
 static void ng_visibility_complete(void *opaque, uint32_t at, uint64_t stamp, uint32_t count)
 {
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
     static uint32_t logged;
     hw_visibility_complete(opaque,at,stamp,count);
     if (logged++ < 8)
@@ -302,7 +302,7 @@ static void ng_upload(SDL_GPUTexture *image, const uint32_t *pixels,
 {
     ng_upload_cycle(image, pixels, w, h, layers, mips, 0);
 }
-/* RE-SoT: cycle only for a whole single-layer image rewritten every frame
+/* POPSoT: cycle only for a whole single-layer image rewritten every frame
  * (overlay, panel): SDL then gives it fresh storage if the GPU still reads
  * the previous contents, instead of a new texture each frame. */
 static void ng_upload_cycle(SDL_GPUTexture *image, const uint32_t *pixels,
@@ -313,7 +313,7 @@ static void ng_upload_cycle(SDL_GPUTexture *image, const uint32_t *pixels,
     SDL_GPUCopyPass *copy;
     uint32_t layer;
     void *mapped;
-    /* RE-SoT: avoid a driver allocation/release for every texture or video
+    /* POPSoT: avoid a driver allocation/release for every texture or video
      * upload. Grow only when necessary, and cycle before overwriting. */
     if (!s_ng.texture_transfer || s_ng.texture_transfer_size < ci.size) {
         transfer = SDL_CreateGPUTransferBuffer(s_ng.device, &ci);
@@ -356,7 +356,7 @@ static SDL_GPUShader *ng_shader(const unsigned char *dxil, size_t dxil_size,
 #define NG_SHADER(entry, vertex, samplers, uniforms) ng_shader(ng_##entry##_dxil, sizeof ng_##entry##_dxil, \
     ng_##entry##_spirv, sizeof ng_##entry##_spirv, #entry, vertex, samplers, uniforms)
 
-/* RE-SoT: specialize only the generic Vulkan path; existing simple shaders
+/* POPSoT: specialize only the generic Vulkan path; existing simple shaders
  * remain cheaper. Full-key equality prevents hash collisions changing math.
  * Constants, texture scales/borders and alpha reference remain uniforms. */
 static uint32_t ng_program_bucket(const uint32_t *words,uint32_t count)
@@ -367,12 +367,12 @@ static uint32_t ng_program_bucket(const uint32_t *words,uint32_t count)
 }
 static NgTranslatedFragment *ng_specialized_ps(const HwPsConst *pc)
 {
-    uint32_t key[RESOT_PS_SPEC_WORDS],bucket;
+    uint32_t key[POPSOT_PS_SPEC_WORDS],bucket;
     NgTranslatedFragment *entry;
     static int enabled=-1;
-    if(enabled<0) { const char *e=getenv("RESOT_NATIVE_SPECIALIZE"); enabled=!(e && *e=='0'); }
+    if(enabled<0) { const char *e=getenv("POPSOT_NATIVE_SPECIALIZE"); enabled=!(e && *e=='0'); }
     if(!enabled || s_ng.active!=100) return NULL;
-    resot_ps_spec_key(key,pc); bucket=ng_program_bucket(key,RESOT_PS_SPEC_WORDS);
+    popsot_ps_spec_key(key,pc); bucket=ng_program_bucket(key,POPSOT_PS_SPEC_WORDS);
     for(entry=s_ng.spec_ps[bucket];entry;entry=entry->next)
         if(!memcmp(key,entry->key,sizeof key)) return entry;
     entry=(NgTranslatedFragment*)calloc(1,sizeof *entry);
@@ -383,14 +383,14 @@ static NgTranslatedFragment *ng_specialized_ps(const HwPsConst *pc)
     entry->next=s_ng.spec_ps[bucket]; s_ng.spec_ps[bucket]=entry; s_ng.spec_ps_count++;
     return entry;
 }
-/* RE-SoT: only immutable packed words enter the cache: uniforms, game target
+/* POPSoT: only immutable packed words enter the cache: uniforms, game target
  * addresses and the live viewport never enter a translated program's key. */
 static NgTranslatedVertex *ng_translated_vs(const uint32_t *words,uint32_t count)
 {
     uint32_t bucket;
     NgTranslatedVertex *entry;
     static int enabled=-1;
-    if(enabled<0) { const char *e=getenv("RESOT_NATIVE_TRANSLATE"); enabled=!(e && *e=='0'); }
+    if(enabled<0) { const char *e=getenv("POPSOT_NATIVE_TRANSLATE"); enabled=!(e && *e=='0'); }
     if(!enabled || s_ng.active!=100) return NULL;
     bucket=ng_program_bucket(words,count*4);
     for(entry=s_ng.translated_vs[bucket];entry;entry=entry->next)
@@ -398,7 +398,7 @@ static NgTranslatedVertex *ng_translated_vs(const uint32_t *words,uint32_t count
     entry=(NgTranslatedVertex*)calloc(1,sizeof *entry);
     if(!entry) return NULL;
     entry->lock=SDL_CreateMutex();
-    entry->source=resot_translate_vertex(ng_translated_vertex_head,words,count);
+    entry->source=popsot_translate_vertex(ng_translated_vertex_head,words,count);
     if(!entry->lock || !entry->source) {
         if(entry->lock) SDL_DestroyMutex(entry->lock);
         free(entry->source); free(entry); return NULL;
@@ -407,13 +407,13 @@ static NgTranslatedVertex *ng_translated_vs(const uint32_t *words,uint32_t count
     entry->next=s_ng.translated_vs[bucket]; s_ng.translated_vs[bucket]=entry;
     return entry;
 }
-/* RE-SoT: called on the existing pipeline workers, not on every draw.
+/* POPSoT: called on the existing pipeline workers, not on every draw.
  * Compilation failure keeps a reference shader; the entry is not retried. */
 static SDL_GPUShader *ng_vertex_compile(NgTranslatedVertex *entry)
 {
     SDL_LockMutex(entry->lock);
     if(!entry->attempted) {
-        size_t bytes=0; uint32_t *code=resot_compile_vertex(entry->source,&bytes);
+        size_t bytes=0; uint32_t *code=popsot_compile_vertex(entry->source,&bytes);
         if(code) { entry->shader=ng_shader(NULL,0,(const unsigned char*)code,bytes,"main",1,0,2); free(code); }
         if(entry->shader) fprintf(stderr,"[HW native] translated vertex: %u instructions, %zu SPIR-V bytes\n",entry->count,bytes);
         if(!entry->shader) fprintf(stderr,"[HW native] vertex translation failed; using reference interpreter\n");
@@ -428,9 +428,9 @@ static SDL_GPUShader *ng_fragment_compile(NgTranslatedFragment *entry)
     if(!entry->attempted) {
         size_t bytes,optimized_bytes=0;
         const unsigned char *source=ng_ps_specialized_source(entry->key[32]&255,&bytes);
-        uint32_t *code=resot_ps_specialize(source,bytes,entry->key);
+        uint32_t *code=popsot_ps_specialize(source,bytes,entry->key);
         if(code) {
-            uint32_t *optimized=resot_optimize_fragment(code,bytes,&optimized_bytes);
+            uint32_t *optimized=popsot_optimize_fragment(code,bytes,&optimized_bytes);
             if(optimized) {
                 entry->shader=ng_shader(NULL,0,(const unsigned char*)optimized,optimized_bytes,"ps_main",0,8,1);
                 free(optimized);
@@ -452,9 +452,9 @@ static void ng_shutdown(void)
     if (s_ng.cmd) { SDL_CancelGPUCommandBuffer(s_ng.cmd); s_ng.cmd = NULL; }
     if (s_ng.device) {
         SDL_WaitForGPUIdle(s_ng.device);
-        ng_compiler_stop(); /* RE-SoT: no background creation past this point. */
+        ng_compiler_stop(); /* POPSoT: no background creation past this point. */
         if (s_ng_cache_save) s_ng_cache_save(s_ng.device);
-        ng_vis_destroy(&s_ng_visibility); /* RE-SoT: release native counters only after idle. */
+        ng_vis_destroy(&s_ng_visibility); /* POPSoT: release native counters only after idle. */
         for (i = 0; i < HW_MAX_SURFACES; i++)
             if (s_ng.surfaces[i].color) SDL_ReleaseGPUTexture(s_ng.device,s_ng.surfaces[i].color);
         for (i = 0; i < HW_MAX_DEPTHS; i++)
@@ -480,14 +480,14 @@ static void ng_shutdown(void)
         if (s_ng.vs) SDL_ReleaseGPUShader(s_ng.device,s_ng.vs);
         if (s_ng.blit_vs) SDL_ReleaseGPUShader(s_ng.device,s_ng.blit_vs);
         if (s_ng.ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.ps);
-        if (s_ng.simple_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.simple_ps); /* RE-SoT */
-        if (s_ng.simple_alpha_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.simple_alpha_ps); /* RE-SoT */
+        if (s_ng.simple_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.simple_ps); /* POPSoT */
+        if (s_ng.simple_alpha_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.simple_alpha_ps); /* POPSoT */
         if (s_ng.blit_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.blit_ps);
         if (s_ng.solid_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.solid_ps);
         if (s_ng.panel_ps) SDL_ReleaseGPUShader(s_ng.device,s_ng.panel_ps);
         if (s_ng.uber_vs) SDL_ReleaseGPUShader(s_ng.device,s_ng.uber_vs);
-        if (s_ng.small_vs) SDL_ReleaseGPUShader(s_ng.device,s_ng.small_vs); /* RE-SoT */
-        /* RE-SoT: workers stopped and pipelines released before program entries. */
+        if (s_ng.small_vs) SDL_ReleaseGPUShader(s_ng.device,s_ng.small_vs); /* POPSoT */
+        /* POPSoT: workers stopped and pipelines released before program entries. */
         for(i=0;i<256;i++) {
             NgTranslatedVertex *vertex;
             NgTranslatedFragment *fragment;
@@ -507,7 +507,7 @@ static void ng_shutdown(void)
         SDL_DestroyGPUDevice(s_ng.device);
     }
 #if !defined(__ANDROID__)
-    if (s_ng.window) SDL_DestroyWindow(s_ng.window);   /* RE-SoT: Android: the host's */
+    if (s_ng.window) SDL_DestroyWindow(s_ng.window);   /* POPSoT: Android: the host's */
 #endif
     free(s_ng.queued_vertices); free(s_ng.queued);
     free(s_ng.queued_indices); free(s_ng.cpool); free(s_ng.ppool);
@@ -515,9 +515,9 @@ static void ng_shutdown(void)
 }
 static int ng_init(const char *backend)
 {
-    /* RE-SoT: Android's CWD is the writable app files directory; Windows'
+    /* POPSoT: Android's CWD is the writable app files directory; Windows'
      * is the executable directory. Source equality versions cache entries. */
-    resot_shader_cache_init("shadercache");
+    popsot_shader_cache_init("shadercache");
 #if defined(_WIN32)
     char dll_path[MAX_PATH];
     HMODULE module;
@@ -527,7 +527,7 @@ static int ng_init(const char *backend)
     SDL_GPUSamplerCreateInfo sampler = {0};
     uint32_t white[6] = {~0u,~0u,~0u,~0u,~0u,~0u};
 #if defined(_WIN32)
-    /* RE-SoT: load only the SDK DLL beside this executable. Delay loading
+    /* POPSoT: load only the SDK DLL beside this executable. Delay loading
      * keeps the D3D11 fallback usable in portable folders without SDL. */
     if (!GetModuleFileNameA(NULL, dll_path, sizeof dll_path) || !strrchr(dll_path, '\\') ||
         (size_t)(strrchr(dll_path, '\\')-dll_path)+sizeof("\\SDL3.dll") > sizeof dll_path) return 0;
@@ -545,7 +545,7 @@ static int ng_init(const char *backend)
     s_ng.window = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
 #else
-    /* RE-SoT (Android): the host created the full-screen SDL window on its
+    /* POPSoT (Android): the host created the full-screen SDL window on its
      * own thread before the game started (port/android/src/main_android.c). */
     SDL_SetLogOutputFunction(ng_log,NULL);
     s_ng.window = (SDL_Window *)s_hw.hwnd;
@@ -555,16 +555,16 @@ static int ng_init(const char *backend)
     if (s_ng.active == 100) {
         char cache[MAX_PATH + 64];
 #if defined(_WIN32)
-        s_ng_cache_path = (void (SDLCALL *)(const char *))GetProcAddress(module, "RESOT_SetVulkanPipelineCachePath");
-        s_ng_cache_save = (bool (SDLCALL *)(SDL_GPUDevice *))GetProcAddress(module, "RESOT_SaveVulkanPipelineCache");
+        s_ng_cache_path = (void (SDLCALL *)(const char *))GetProcAddress(module, "POPSOT_SetVulkanPipelineCachePath");
+        s_ng_cache_save = (bool (SDLCALL *)(SDL_GPUDevice *))GetProcAddress(module, "POPSOT_SaveVulkanPipelineCache");
         /* Beside the executable, as the D3D11 shader cache. */
         strcpy(cache, dll_path);
         strcpy(strrchr(cache, '\\') + 1, "shadercache");
         CreateDirectoryA(cache, NULL);
         strcat(cache, "\\vulkan-pipelines.bin");
 #else
-        s_ng_cache_path = RESOT_SetVulkanPipelineCachePath;
-        s_ng_cache_save = RESOT_SaveVulkanPipelineCache;
+        s_ng_cache_path = POPSOT_SetVulkanPipelineCachePath;
+        s_ng_cache_save = POPSOT_SaveVulkanPipelineCache;
         /* The host's working directory is the game's writable data folder.
          * Absolute: SDL on Android reads relative paths from the APK assets. */
         if (!getcwd(cache, MAX_PATH)) cache[0] = 0;
@@ -574,25 +574,25 @@ static int ng_init(const char *backend)
         else s_ng_cache_save = NULL;
     }
     s_ng.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV,
-                                     getenv("RESOT_GPU_DEBUG") != NULL,
+                                     getenv("POPSOT_GPU_DEBUG") != NULL,
                                      s_ng.active == 12 ? "direct3d12" : "vulkan");
     if (!s_ng.device || !SDL_ClaimWindowForGPUDevice(s_ng.device, s_ng.window)) goto fail;
     if (strcmp(SDL_GetGPUDeviceDriver(s_ng.device), s_ng.active == 12 ? "direct3d12" : "vulkan")) goto fail;
-#if RESOT_RUNTIME_RETAIL
-    /* RE-SoT: retail XBE 0x000CE32E/0x000CE366 requires actual occlusion
+#if POPSOT_RUNTIME_RETAIL
+    /* POPSoT: retail XBE 0x000CE32E/0x000CE366 requires actual occlusion
      * counts. ABI lookup rejects an old/unmodified SDL DLL before GPU draws. */
     {
 #if defined(_WIN32)
-        ResotGetGpuQueryAPI get_api = (ResotGetGpuQueryAPI)GetProcAddress(module,
-            s_ng.active == 12 ? "RESOT_GetD3D12QueryAPI" : "RESOT_GetVulkanQueryAPI");
+        PopsotGetGpuQueryAPI get_api = (PopsotGetGpuQueryAPI)GetProcAddress(module,
+            s_ng.active == 12 ? "POPSOT_GetD3D12QueryAPI" : "POPSOT_GetVulkanQueryAPI");
 #else
-        ResotGetGpuQueryAPI get_api = RESOT_GetVulkanQueryAPI;
+        PopsotGetGpuQueryAPI get_api = POPSOT_GetVulkanQueryAPI;
 #endif
         void *probe;
-        const ResotGpuQueryAPI *api = get_api ? get_api(RESOT_GPU_QUERY_ABI) : NULL;
-        if (!api || api->version != RESOT_GPU_QUERY_ABI || api->size != sizeof *api ||
+        const PopsotGpuQueryAPI *api = get_api ? get_api(POPSOT_GPU_QUERY_ABI) : NULL;
+        if (!api || api->version != POPSOT_GPU_QUERY_ABI || api->size != sizeof *api ||
             strcmp(api->driver,SDL_GetGPUDeviceDriver(s_ng.device))) {
-            SDL_SetError("retail requires reSOT native queries; run tools/setup-native-gpu.ps1"); goto fail;
+            SDL_SetError("retail requires POPSoT native queries; run tools/setup-native-gpu.ps1"); goto fail;
         }
         s_ng_visibility.device = s_ng.device; s_ng_visibility.api = api;
         probe = api->create(s_ng.device);
@@ -608,25 +608,25 @@ static int ng_init(const char *backend)
     s_ng.vs = NG_SHADER(vs_main, 1, 0, 1);
     s_ng.blit_vs = NG_SHADER(vs_blit, 1, 0, 0);
     s_ng.ps = NG_SHADER(ps_main, 0, 8, 1);
-    s_ng.simple_alpha_ps = NG_SHADER(ps_simple_alpha, 0, 1, 1); /* RE-SoT: foliage specialization. */
-    s_ng.simple_ps = NG_SHADER(ps_simple, 0, 1, 1); /* RE-SoT: native mobile specialization. */
+    s_ng.simple_alpha_ps = NG_SHADER(ps_simple_alpha, 0, 1, 1); /* POPSoT: foliage specialization. */
+    s_ng.simple_ps = NG_SHADER(ps_simple, 0, 1, 1); /* POPSoT: native mobile specialization. */
     s_ng.blit_ps = NG_SHADER(ps_blit, 0, 1, 0);
     s_ng.solid_ps = NG_SHADER(ps_solid, 0, 0, 1);
     s_ng.panel_ps = NG_SHADER(ps_debug, 0, 1, 0);
     s_ng.vertices = SDL_CreateGPUBuffer(s_ng.device, &vb);
-    /* RE-SoT: GPU vertex programs. RESOT_NATIVE_CPU_VSH=1 keeps the CPU
+    /* POPSoT: GPU vertex programs. POPSOT_NATIVE_CPU_VSH=1 keeps the CPU
      * interpreter (the previous behaviour), for comparison and fallback.
      * Both hosts: an Android build with the CPU interpreter on worker
      * threads stalled its executor (2026-10-19 logs). */
     {
         SDL_GPUBufferCreateInfo ib = {SDL_GPU_BUFFERUSAGE_INDEX, HW_IB_BYTES, 0};
-        const char *cpu = getenv("RESOT_NATIVE_CPU_VSH");
+        const char *cpu = getenv("POPSOT_NATIVE_CPU_VSH");
         int want_gpu = !(cpu && *cpu && *cpu != '0');
         s_ng.last_cslot = s_ng.last_pslot = -1;
         if (want_gpu) {
             s_ng.uber_vs = NG_SHADER(vs_uber, 1, 0, 3);
-#if RESOT_RUNTIME_RETAIL
-            /* RE-SoT: retail-only until demo device validation. */
+#if POPSOT_RUNTIME_RETAIL
+            /* POPSoT: retail-only until demo device validation. */
             s_ng.small_vs = NG_SHADER(vs_uber_small, 1, 0, 3);
 #endif
             s_ng.indices = SDL_CreateGPUBuffer(s_ng.device, &ib);
@@ -657,7 +657,7 @@ static int ng_init(const char *backend)
     s_hw.cpu_vsh = 1;
     s_hw.cull_face = 0x405; s_hw.front_face = 0x900;
     s_ng.present_mode = -1;
-    ng_compiler_start(); /* RE-SoT: background pipelines and cache saves. */
+    ng_compiler_start(); /* POPSoT: background pipelines and cache saves. */
     InterlockedExchange(&s_hw_backend, s_ng.active);
     xbox_FramebufferWindowHwMode(1);
     fprintf(stderr, "[HW] active renderer: %s native (SDL GPU %s; NV2A vertex programs on the %s)\n",
@@ -665,7 +665,7 @@ static int ng_init(const char *backend)
     return 1;
 fail:
     fprintf(stderr, "[HW native] %s initialization failed: %s; falling back to %s\n", backend, SDL_GetError(),
-            RESOT_HW_D3D11 ? "D3D11" : "the software rasteriser");
+            POPSOT_HW_D3D11 ? "D3D11" : "the software rasteriser");
     ng_shutdown();
     return 0;
 }
@@ -674,7 +674,7 @@ static NgSurface *ng_surface(void)
 {
     uint32_t bpp = surface_bpp(), w, h, off, i;
     NgSurface *out = NULL, *old = &s_ng.surfaces[0];
-    /* RE-SoT: retire old targets only after their queued draws are submitted.
+    /* POPSoT: retire old targets only after their queued draws are submitted.
      * SDL retains in-flight resources; the independent composed frame remains
      * available while the guest begins drawing at its new internal size. */
     int percent = (int)InterlockedCompareExchange(&s_render_percent,0,0);
@@ -699,14 +699,14 @@ static NgSurface *ng_surface(void)
     for (i = 0; i < HW_MAX_SURFACES; i++) {
         NgSurface *s = &s_ng.surfaces[i];
         if (s->color && s->offset == off && s->w == w) {
-            /* RE-SoT: rebuild a learned effect target when its quality changes. */
+            /* POPSoT: rebuild a learned effect target when its quality changes. */
             if (s->h >= h && s->sc == hw_surface_scale(w)) return s;
             out = s; break;
         }
         if (!s->color || (old->color && s->frame < old->frame)) old = s;
     }
     if (!out) out = old;
-    if (out->color) ng_flush_draws(); /* RE-SoT: queued draws still own this image. */
+    if (out->color) ng_flush_draws(); /* POPSoT: queued draws still own this image. */
     if (out->color) SDL_ReleaseGPUTexture(s_ng.device, out->color);
     if (s_ng.front == out) s_ng.front = NULL;
     if (s_ng.largest == out) s_ng.largest = NULL;
@@ -731,9 +731,9 @@ static void ng_mark(NgSurface *s)
     s->frame = s_hw.frame;
     if (!s_ng.largest || s->w*s->h >= s_ng.largest->w*s_ng.largest->h) s_ng.largest = s;
 }
-/* RE-SoT: the glow chain's 160x120 source, drawn this frame
+/* POPSoT: the glow chain's 160x120 source, drawn this frame
  * (hw_postprocess_candidate's test on the D3D11 surfaces). */
-/* RE-SoT: distinguish render-to-texture effects from static UI textures. */
+/* POPSoT: distinguish render-to-texture effects from static UI textures. */
 static int ng_effect_source(uint32_t offset,uint32_t w,uint32_t h)
 {
     unsigned i;
@@ -758,7 +758,7 @@ static SDL_GPUTexture *ng_depth(NgSurface *s)
     uint32_t i, w = ng_px(s->w,s->sc), h = ng_py(s->h,s->sc);
     static uint32_t next;
     if (!s_gpu.zeta_offset) return NULL;
-    /* RE-SoT: color targets can share one guest zeta allocation. Key depth
+    /* POPSoT: color targets can share one guest zeta allocation. Key depth
      * independently, as the D3D11 path does, rather than losing its contents. */
     for (i = 0; i < HW_MAX_DEPTHS; i++) {
         NgDepth *d = &s_ng.depths[i];
@@ -768,7 +768,7 @@ static SDL_GPUTexture *ng_depth(NgSurface *s)
         if (!d->image) depth = d;
     }
     if (!depth) depth = &s_ng.depths[next++ % HW_MAX_DEPTHS];
-    if (depth->image) ng_flush_draws(); /* RE-SoT: preserve queued depth users. */
+    if (depth->image) ng_flush_draws(); /* POPSoT: preserve queued depth users. */
     if (depth->image) SDL_ReleaseGPUTexture(s_ng.device,depth->image);
     {
         SDL_GPUDepthStencilTargetInfo ds = {0};
@@ -785,7 +785,7 @@ static SDL_GPUTexture *ng_depth(NgSurface *s)
     depth->offset = s_gpu.zeta_offset; depth->w = w; depth->h = h;
     return s->depth;
 }
-/* RE-SoT: the guest size of the render target a stage samples (0: a
+/* POPSoT: the guest size of the render target a stage samples (0: a
  * texture). Retail's bloom tail declares 40x30, 20x15 and 10x7 textures on
  * surfaces drawn 48x30, 32x15 and 16x7 wide (pitch padding; frame trace
  * "[HW-TEX] declared=40x30 selected=48x30"). The host image spans the
@@ -804,7 +804,7 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     NgSurface *best = NULL;
     NgTexture *c = NULL, *victim = NULL;
     uint32_t i, slot, hash, layers, face, *px, levels = 1;
-    int reuse_image = 0; /* RE-SoT: SDL cycling preserves earlier sampled versions. */
+    int reuse_image = 0; /* POPSoT: SDL cycling preserves earlier sampled versions. */
     s_ng_rt_size[stage & 3][0] = s_ng_rt_size[stage & 3][1] = 0;
     if (!t->valid || !t->width || !t->height || t->width > 4096 || t->height > 4096) return NULL;
     for (i = 0; !t->cube && i < HW_MAX_SURFACES; i++) {
@@ -814,7 +814,7 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
             ((s->w == t->width) == (best->w == t->width) && s->frame > best->frame))) best = s;
     }
     if (best) {
-        hw_trace_effect_source(stage,best->offset,best->w,best->h,best->frame); /* RE-SoT */
+        hw_trace_effect_source(stage,best->offset,best->w,best->h,best->frame); /* POPSoT */
         if (best != target) { s_ng_rt_size[stage & 3][0] = best->w; s_ng_rt_size[stage & 3][1] = best->h; }
         return best == target ? NULL : best->color;
     }
@@ -831,8 +831,8 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     if (c && c->checked == s_hw.frame) { c->used = s_hw.frame; return c->image; }
     hash = hw_tex_hash(t);
     if (c && c->hash == hash) { c->checked = c->used = s_hw.frame; return c->image; }
-#if RESOT_RUNTIME_RETAIL || RESOT_RUNTIME_DEMO
-    /* RE-SoT: content changes do not require a new 2D resource. Flush its
+#if POPSOT_RUNTIME_RETAIL || POPSOT_RUNTIME_DEMO
+    /* POPSoT: content changes do not require a new 2D resource. Flush its
      * readers, then cycle storage on upload; SDL retires the old backing
      * allocation after those draws. Demo menu independently has repeated
      * uploads (android-demo-simple-trace.txt); both native backends pass
@@ -844,12 +844,12 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
     layers = t->cube ? 6 : 1;
     px = (uint32_t *)malloc((size_t)t->width*t->height*layers*4);
     if (!px) ng_fail("decode texture allocation");
-    /* RE-SoT: same bulk P8/ARGB conversion as D3D11, including Android. */
+    /* POPSoT: same bulk P8/ARGB conversion as D3D11, including Android. */
     for (face = 0; face < layers; face++)
         hw_decode_texture(t, t->cube ? face*tex_face_stride(t) : 0,
             px + (size_t)face*t->width*t->height);
     {
-        /* RE-SoT: a texture pack replacement (resot_texpack.h) has its own
+        /* POPSoT: a texture pack replacement (popsot_texpack.h) has its own
          * size and always a full mip chain; cycling needs the same shape. */
         uint32_t rw = t->width, rh = t->height, *rep = NULL, extent;
         if (!t->cube)
@@ -860,9 +860,9 @@ static SDL_GPUTexture *ng_texture(int stage, NgSurface *target)
             while ((extent >>= 1) != 0) levels++;
         }
         if (c->image && (c->host_w != rw || c->host_h != rh || rep)) reuse_image = 0;
-        /* RE-SoT: flush readers before cycling or recreating. SDL retires the
+        /* POPSoT: flush readers before cycling or recreating. SDL retires the
          * old backing image after its last encoded GPU use. */
-        if (c->image) ng_flush_draws(); /* RE-SoT: retire a sampled version only after encoding its draws. */
+        if (c->image) ng_flush_draws(); /* POPSoT: retire a sampled version only after encoding its draws. */
         if (c->image && !reuse_image) SDL_ReleaseGPUTexture(s_ng.device, c->image);
         if (!reuse_image) c->image = ng_image(rw, rh, t->cube, levels,
             SDL_GPU_TEXTUREUSAGE_SAMPLER | (levels > 1 ? SDL_GPU_TEXTUREUSAGE_COLOR_TARGET : 0),
@@ -922,12 +922,12 @@ static SDL_GPUGraphicsPipeline *ng_pipeline_build(const NgPipelineKey *key, int 
     SDL_GPUVertexAttribute attrs[8] = {0};
     SDL_GPUVertexBufferDescription vb = {0};
     uint32_t i;
-    /* RE-SoT: vs_uber uses only its packed program's referenced inputs. */
+    /* POPSoT: vs_uber uses only its packed program's referenced inputs. */
     ci.vertex_shader = key->shader == 0 || key->shader == 6 || key->shader == 8 ? s_ng.vs : key->shader == 4 || key->shader == 5 || key->shader == 7 ? s_ng.uber_vs : s_ng.blit_vs;
-    if (key->small_vsh) ci.vertex_shader = s_ng.small_vs; /* RE-SoT: selector already proved absent high-temp reads. */
+    if (key->small_vsh) ci.vertex_shader = s_ng.small_vs; /* POPSoT: selector already proved absent high-temp reads. */
     ci.fragment_shader = key->shader == 7 || key->shader == 8 ? s_ng.simple_alpha_ps : key->shader == 5 || key->shader == 6 ? s_ng.simple_ps : key->shader == 0 || key->shader == 4 ? s_ng.ps : key->shader == 1 ? s_ng.blit_ps :
                          key->shader == 2 ? s_ng.solid_ps : s_ng.panel_ps;
-    /* RE-SoT: compile immutable programs once; reference shaders survive failures. */
+    /* POPSoT: compile immutable programs once; reference shaders survive failures. */
     if(key->translated_vs) {
         SDL_GPUShader *translated=ng_vertex_compile(key->translated_vs);
         if(translated) ci.vertex_shader=translated;
@@ -936,11 +936,11 @@ static SDL_GPUGraphicsPipeline *ng_pipeline_build(const NgPipelineKey *key, int 
         SDL_GPUShader *translated=ng_fragment_compile(key->specialized_ps);
         if(translated) ci.fragment_shader=translated;
     }
-    if (!key->shader || key->shader >= 4) { /* RE-SoT: guest shader input layout, including simple variants. */
+    if (!key->shader || key->shader >= 4) { /* POPSoT: guest shader input layout, including simple variants. */
         vb.pitch = key->vertex_stride ? key->vertex_stride : sizeof(HwVertex);
         vb.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
         ci.vertex_input_state.vertex_buffer_descriptions = &vb; ci.vertex_input_state.num_vertex_buffers = 1;
-        /* RE-SoT: unused shader locations alias slot zero; the packed program
+        /* POPSoT: unused shader locations alias slot zero; the packed program
          * cannot reference them. Keep all declared locations valid in Vulkan. */
         for (i = 0; i < 8; i++) { attrs[i].location = i; attrs[i].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4; attrs[i].offset = i*16 < vb.pitch ? i*16 : 0; }
         ci.vertex_input_state.vertex_attributes = attrs; ci.vertex_input_state.num_vertex_attributes = 8;
@@ -970,7 +970,7 @@ static SDL_GPUGraphicsPipeline *ng_pipeline_build(const NgPipelineKey *key, int 
     ci.target_info.has_depth_stencil_target = (key->depth & 2) != 0;
     ci.target_info.depth_stencil_format = s_ng.depth_format;
     {
-        /* RE-SoT: driver shader compilation happens here; log slow or early
+        /* POPSoT: driver shader compilation happens here; log slow or early
          * creations (Android first-frame stalls) and which thread paid. */
         static SDL_AtomicInt created;
         LARGE_INTEGER t0, t1, f;
@@ -1019,12 +1019,12 @@ static int SDLCALL ng_compiler(void *unused)
     return 0;
 }
 
-/* RE-SoT: RESOT_ASYNC_PIPELINES=0 compiles on the executor; =1 forces
+/* POPSoT: POPSOT_ASYNC_PIPELINES=0 compiles on the executor; =1 forces
  * workers. Default on for Vulkan on both hosts: dedicated program compilation
  * must not stall the executor. D3D12 retains its existing default. */
 static void ng_compiler_start(void)
 {
-    const char *e = getenv("RESOT_ASYNC_PIPELINES");
+    const char *e = getenv("POPSOT_ASYNC_PIPELINES");
     int i;
 #if defined(__ANDROID__)
     s_ngc.async = !(e && *e == '0');
@@ -1037,7 +1037,7 @@ static void ng_compiler_start(void)
     if (!s_ngc.lock || !s_ngc.cond) { s_ngc.async = 0; return; }
     s_ngc.quit = 0;
     for (i = 0; i < (s_ngc.async ? NG_COMPILERS : 1); i++) {
-        s_ngc.thread[i] = SDL_CreateThread(ng_compiler, "resot-pso", NULL);
+        s_ngc.thread[i] = SDL_CreateThread(ng_compiler, "popsot-pso", NULL);
         if (s_ngc.thread[i]) s_ngc.running++;
     }
     if (!s_ngc.running) s_ngc.async = 0;
@@ -1072,7 +1072,7 @@ static SDL_GPUGraphicsPipeline *ng_pipeline(const NgPipelineKey *key, int may_de
     NgPipeline *p;
     uint32_t i, bucket = 2166136261u;
     int state;
-    /* RE-SoT: retail scenes issue hundreds/thousands of draws and accumulate
+    /* POPSoT: retail scenes issue hundreds/thousands of draws and accumulate
      * many pipelines. Hash the entire initialized key, retaining full-key
      * comparison so collisions never substitute a different pipeline. */
     for (i = 0; i < sizeof *key; i++) bucket = (bucket ^ ((const uint8_t *)key)[i])*16777619u;
@@ -1088,7 +1088,7 @@ static SDL_GPUGraphicsPipeline *ng_pipeline(const NgPipelineKey *key, int may_de
         if (may_defer && s_ngc.async) {
             SDL_SetAtomicInt(&p->state, NG_PSO_PENDING);
             SDL_LockMutex(s_ngc.lock);
-            /* RE-SoT: prioritize reference pipelines so a cold translation
+            /* POPSoT: prioritize reference pipelines so a cold translation
              * cannot leave geometry absent throughout shader optimization. */
             if (!key->translated_vs && !key->specialized_ps) {
                 p->job_next=s_ngc.head; s_ngc.head=p;
@@ -1106,7 +1106,7 @@ static SDL_GPUGraphicsPipeline *ng_pipeline(const NgPipelineKey *key, int may_de
     }
     state = SDL_GetAtomicInt(&p->state);
     if (state == NG_PSO_PENDING) {
-        if (may_defer) return NULL; /* RE-SoT: caller counts only genuinely skipped draws. */
+        if (may_defer) return NULL; /* POPSoT: caller counts only genuinely skipped draws. */
         /* A blit wanting a key a guest draw queued: wait for it. */
         while (SDL_GetAtomicInt(&p->state) == NG_PSO_PENDING) SDL_Delay(1);
         state = SDL_GetAtomicInt(&p->state);
@@ -1124,7 +1124,7 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
     vc->pad[0] = hw_soft_focus_step(s->h, ng_py(s->h, s->sc));
     vc->ws[0] = main_view && !s_hw.batch_full_width ? 1.0f/s_hw.widen : 1;
     if (main_view && s_hw.batch_projected_screen) vc->ws[0] = s_hw.widen;
-    if (main_view && s_hw.batch_projected_2d) vc->ws[0] = 1; /* RE-SoT: hw_classify_screen */
+    if (main_view && s_hw.batch_projected_2d) vc->ws[0] = 1; /* POPSoT: hw_classify_screen */
     vc->ws[1] = (float)s->w; vc->ws[2] = 1;
     if (main_view && s_hw.batch_hud) { vc->ws[0] = 1; vc->ws[3] = hw_hud_shift(); }
     for (i = 0; i < 8; i++) {
@@ -1143,7 +1143,7 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
     for (i = 0; i < 4; i++) {
         const Texture *t = &s_gpu.texs[i];
         uint32_t mode = (s_gpu.rc.stage_program >> (5*i))&31;
-        hw_border_constants(pc, i, t); /* RE-SoT: same guest border as D3D11. */
+        hw_border_constants(pc, i, t); /* POPSoT: same guest border as D3D11. */
         SDL_GPUTexture *image = NULL;
         if ((s_gpu.rc_seen ? mode >= 1 && mode <= 3 : i == 0) && t->valid) image = ng_texture(i, s);
         pc->tscale[i][0] = pc->tscale[i][1] = 1;
@@ -1151,7 +1151,7 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
             pc->tscale[i][0] = 1.0f/t->width; pc->tscale[i][1] = 1.0f/t->height;
         }
         if (image && t->valid && s_ng_rt_size[i][0] >= t->width && s_ng_rt_size[i][1] >= t->height
-                && (s_ng_rt_size[i][0] != t->width || s_ng_rt_size[i][1] != t->height)) {   /* RE-SoT: s_ng_rt_size */
+                && (s_ng_rt_size[i][0] != t->width || s_ng_rt_size[i][1] != t->height)) {   /* POPSoT: s_ng_rt_size */
             int linear = !tex_size_from_format(t->color);
             pc->tscale[i][0] = (linear ? 1.0f : (float)t->width) / (float)s_ng_rt_size[i][0];
             pc->tscale[i][1] = (linear ? 1.0f : (float)t->height) / (float)s_ng_rt_size[i][1];
@@ -1163,7 +1163,7 @@ static void ng_constants(NgSurface *s, NgVsConst *vc, HwPsConst *pc, SDL_GPUText
         tex[i].sampler = tex[i+4].sampler = ng_sampler(t);
     }
 }
-/* RE-SoT: collect a run of guest draws, upload its vertices once, then
+/* POPSoT: collect a run of guest draws, upload its vertices once, then
  * keep a native render pass open across compatible draws. Per-draw transfer
  * buffers and copy/render barriers otherwise dominate the initial encoder. */
 static void ng_flush_draws(void)
@@ -1172,16 +1172,16 @@ static void ng_flush_draws(void)
     SDL_GPUBufferRegion dst = {0};
     SDL_GPUCopyPass *copy;
     SDL_GPURenderPass *pass = NULL;
-    NgVisSegment *query = NULL; /* RE-SoT: hardware query for this pass. */
+    NgVisSegment *query = NULL; /* POPSoT: hardware query for this pass. */
     SDL_GPUTexture *last_color = NULL, *last_depth = NULL;
     SDL_GPUGraphicsPipeline *bound_pipeline = NULL;
     const NgDraw *bound_textures = NULL;
-    const NgDraw *bound_dynamic = NULL; /* RE-SoT: retain unchanged viewport/scissor/blend within a pass. */
+    const NgDraw *bound_dynamic = NULL; /* POPSoT: retain unchanged viewport/scissor/blend within a pass. */
     uint32_t i;
     void *mapped;
     uint32_t staged;
     if (!s_ng.queued_count) return;
-    /* RE-SoT: visibility transitions flush small runs very frequently in
+    /* POPSoT: visibility transitions flush small runs very frequently in
      * retail. Cycling a full 16 MB staging allocation and GPU allocation
      * for each run creates hundreds of MB of transient buffers per frame.
      * Grow staging to the run size, then append to the GPU ring. A wrap
@@ -1197,7 +1197,7 @@ static void ng_flush_draws(void)
         SDL_ReleaseGPUTransferBuffer(s_ng.device,s_ng.vertex_transfer);
         s_ng.vertex_transfer = transfer; s_ng.vertex_transfer_size = ti.size;
     }
-    /* RE-SoT: every supported vertex pitch divides HwVertex's 128 bytes. */
+    /* POPSoT: every supported vertex pitch divides HwVertex's 128 bytes. */
     s_ng.vertex_offset = (s_ng.vertex_offset + sizeof(HwVertex)-1) & ~(uint32_t)(sizeof(HwVertex)-1);
     if (s_ng.vertex_offset + s_ng.queued_bytes > HW_VB_BYTES) s_ng.vertex_offset = 0;
     if (s_ng.index_offset + s_ng.queued_index_bytes > HW_IB_BYTES) s_ng.index_offset = 0;
@@ -1210,7 +1210,7 @@ static void ng_flush_draws(void)
     copy = SDL_BeginGPUCopyPass(ng_cmd());
     src.transfer_buffer = s_ng.vertex_transfer; dst.buffer = s_ng.vertices; dst.size = s_ng.queued_bytes;
     dst.offset = s_ng.vertex_offset;
-    /* RE-SoT: only the first run after wrapping needs fresh backing storage. */
+    /* POPSoT: only the first run after wrapping needs fresh backing storage. */
     if (s_ng.queued_bytes) SDL_UploadToGPUBuffer(copy,&src,&dst,s_ng.vertex_offset == 0);
     if (s_ng.queued_index_bytes) {
         src.offset = s_ng.queued_bytes;
@@ -1222,9 +1222,9 @@ static void ng_flush_draws(void)
         NgDraw *draw = &s_ng.queued[i];
         SDL_GPUGraphicsPipeline *pipeline = ng_pipeline(&draw->key,1);
         SDL_GPUBufferBinding vb = {s_ng.vertices,s_ng.vertex_offset};
-        uint32_t sampler_count = draw->key.shader >= 5 ? 1 : 8; /* RE-SoT */
+        uint32_t sampler_count = draw->key.shader >= 5 ? 1 : 8; /* POPSoT */
         int new_samplers,reference_pipeline=0;
-        /* RE-SoT: preserve output with the reference program until a direct
+        /* POPSoT: preserve output with the reference program until a direct
          * program's PSO is ready. Both use the original immutable snapshots. */
         if(!pipeline && (draw->key.translated_vs || draw->key.specialized_ps)) {
             NgPipelineKey reference=draw->key;
@@ -1234,7 +1234,7 @@ static void ng_flush_draws(void)
         }
         if (!pipeline) { SDL_AddAtomicInt(&s_ngc.skipped,1); continue; }
         s_ng.reference_draws+=reference_pipeline;
-        /* RE-SoT: SDL 3.4.18's D3D12 descriptor writer checks only the
+        /* POPSoT: SDL 3.4.18's D3D12 descriptor writer checks only the
          * current index, not index+table size, against its 2048-sampler heap.
          * One-slot host blits followed by eight-slot guest draws can cross
          * that boundary. Bound each D3D12 submission to 1536 sampler
@@ -1280,7 +1280,7 @@ static void ng_flush_draws(void)
         }
         if (pipeline != bound_pipeline) {
             SDL_BindGPUGraphicsPipeline(pass,pipeline);
-            SDL_BindGPUVertexBuffers(pass,0,&vb,1); /* RE-SoT: D3D12 views inherit the selected vertex pitch. */
+            SDL_BindGPUVertexBuffers(pass,0,&vb,1); /* POPSoT: D3D12 views inherit the selected vertex pitch. */
             bound_pipeline = pipeline; bound_textures = NULL;
         }
         if (!bound_dynamic || memcmp(&bound_dynamic->vp,&draw->vp,sizeof draw->vp))
@@ -1295,7 +1295,7 @@ static void ng_flush_draws(void)
             bound_textures = draw;
             s_ng.command_samplers += sampler_count;
         }
-        /* RE-SoT: CPU-transformed vs_main reads only the 64-byte header,
+        /* POPSoT: CPU-transformed vs_main reads only the 64-byte header,
          * not the translated-program register arrays following it. */
         if (!s_ng.vc_valid || memcmp(&s_ng.last_vc,&draw->vc,64)) {
             SDL_PushGPUVertexUniformData(s_ng.cmd,0,&draw->vc,64);
@@ -1306,13 +1306,13 @@ static void ng_flush_draws(void)
             s_ng.last_pc = draw->pc; s_ng.pc_valid = 1;
         }
         if (draw->index_count) {
-            /* RE-SoT: vs_uber's constants (3 KB) and program, pushed when the
+            /* POPSoT: vs_uber's constants (3 KB) and program, pushed when the
              * snapshot changes rather than for every draw. */
             if (s_ng.last_cslot != (int)draw->cslot) {
                 SDL_PushGPUVertexUniformData(s_ng.cmd,1,s_ng.cpool[draw->cslot],sizeof s_ng.cpool[0]);
                 s_ng.last_cslot = (int)draw->cslot;
             }
-            /* RE-SoT: ng_pipeline acquired the worker's ready publication;
+            /* POPSoT: ng_pipeline acquired the worker's ready publication;
              * shader is immutable after that point. Successful translations
              * consume constants only, so omit the interpreter program UBO. */
             if ((reference_pipeline || !draw->key.translated_vs || !draw->key.translated_vs->shader) &&
@@ -1330,16 +1330,16 @@ static void ng_flush_draws(void)
         SDL_EndGPURenderPass(pass);
         if (query) s_ng_visibility.api->resolve(s_ng.cmd,query->query);
     }
-    s_ng.vertex_offset += s_ng.queued_bytes; /* RE-SoT: advance after encoding all run draws. */
+    s_ng.vertex_offset += s_ng.queued_bytes; /* POPSoT: advance after encoding all run draws. */
     s_ng.index_offset += s_ng.queued_index_bytes;
     s_ng.queued_count = s_ng.queued_bytes = s_ng.queued_index_bytes = 0;
-    /* RE-SoT: pool slots are reused by the next run; force fresh pushes. */
+    /* POPSoT: pool slots are reused by the next run; force fresh pushes. */
     s_ng.ccount = s_ng.pcount = 0;
     s_ng.last_cslot = s_ng.last_pslot = -1;
 }
 static void ng_queue_alloc(void);
 static void ng_draw_state(NgSurface *s, SDL_GPUTexture *depth, NgDraw *out);
-static int ng_simple_combiner(void); /* RE-SoT: shared by GPU and CPU vertex paths. */
+static int ng_simple_combiner(void); /* POPSoT: shared by GPU and CPU vertex paths. */
 static void ng_draw(const HwVertex *vertices, uint32_t count)
 {
     NgSurface *s = ng_surface();
@@ -1349,15 +1349,15 @@ static void ng_draw(const HwVertex *vertices, uint32_t count)
     if (!s) return;
     if (bytes > HW_VB_BYTES) ng_fail("oversized vertex batch");
     ng_queue_alloc();
-    /* RE-SoT: align after preceding compact program vertices. */
+    /* POPSoT: align after preceding compact program vertices. */
     s_ng.queued_bytes = (s_ng.queued_bytes + sizeof(HwVertex)-1) & ~(uint32_t)(sizeof(HwVertex)-1);
     if (s_ng.queued_count == NG_DRAW_QUEUE || s_ng.queued_bytes+bytes > HW_VB_BYTES) ng_flush_draws();
     depth = ng_depth(s);
     ng_constants(s,&draw.vc,&draw.pc,draw.textures);
     ng_draw_state(s,depth,&draw);
-    { int simple = ng_simple_combiner(); draw.key.shader = simple ? (simple == 2 ? 8 : 6) : 0; } /* RE-SoT: same fragment specialization on fallback vertices. */
-    if(draw.key.shader==0) draw.key.specialized_ps=ng_specialized_ps(&draw.pc); /* RE-SoT */
-    s_ng.spec_ps_draws+=draw.key.specialized_ps!=0; /* RE-SoT */
+    { int simple = ng_simple_combiner(); draw.key.shader = simple ? (simple == 2 ? 8 : 6) : 0; } /* POPSoT: same fragment specialization on fallback vertices. */
+    if(draw.key.shader==0) draw.key.specialized_ps=ng_specialized_ps(&draw.pc); /* POPSoT */
+    s_ng.spec_ps_draws+=draw.key.specialized_ps!=0; /* POPSoT */
     s_ng.guest_draws++; if (draw.key.shader >= 5) s_ng.simple_draws++;
     draw.offset = s_ng.queued_bytes; draw.count = count;
     memcpy(s_ng.queued_vertices+s_ng.queued_bytes,vertices,bytes);
@@ -1377,7 +1377,7 @@ static void ng_queue_alloc(void)
     if (!s_ng.queued_vertices || !s_ng.queued_indices || !s_ng.queued || !s_ng.cpool || !s_ng.ppool)
         ng_fail("draw queue allocation");
 }
-/* RE-SoT: pipeline key, viewport and scissor of a guest draw (both kinds). */
+/* POPSoT: pipeline key, viewport and scissor of a guest draw (both kinds). */
 static void ng_draw_state(NgSurface *s, SDL_GPUTexture *depth, NgDraw *out)
 {
     NgPipelineKey key = {0};
@@ -1402,7 +1402,7 @@ static void ng_draw_state(NgSurface *s, SDL_GPUTexture *depth, NgDraw *out)
     out->pixel_scale = ((double)ng_px(s->w,s->sc)/s->w)*ng_py(s->h,s->sc)/s->h;
 }
 
-/* RE-SoT: demo evidence (demo-hud-after-err.txt and
+/* POPSoT: demo evidence (demo-hud-after-err.txt and
  * hourglass-ftrace-visible2.txt) has the same exact one-stage states as
  * retail: 08040000/18140000 -> 00010C00/00000C00, final 130C0300/00001C80.
  * Enable the state whitelist for both checked XBEs; never infer an address
@@ -1410,10 +1410,10 @@ static void ng_draw_state(NgSurface *s, SDL_GPUTexture *depth, NgDraw *out)
  * permits same-build A/B tests at identical resolution and pacing. */
 static int ng_simple_combiner(void)
 {
-#if RESOT_RUNTIME_RETAIL || RESOT_RUNTIME_DEMO
+#if POPSOT_RUNTIME_RETAIL || POPSOT_RUNTIME_DEMO
     static int enabled = -1;
-    if (enabled < 0) { const char *e = getenv("RESOT_NATIVE_SIMPLE"); enabled = !(e && *e == '0'); }
-    int eligible = enabled && s_ng.simple_ps && s_ng.simple_alpha_ps && s_gpu.rc_seen && resot_native_simple(
+    if (enabled < 0) { const char *e = getenv("POPSOT_NATIVE_SIMPLE"); enabled = !(e && *e == '0'); }
+    int eligible = enabled && s_ng.simple_ps && s_ng.simple_alpha_ps && s_gpu.rc_seen && popsot_native_simple(
         s_gpu.rc.control,s_gpu.rc.stage_program,s_gpu.rc.color_icw[0],s_gpu.rc.alpha_icw[0],
         s_gpu.rc.color_ocw[0],s_gpu.rc.alpha_ocw[0],s_gpu.rc.final0,s_gpu.rc.final1,
         s_gpu.alpha_test,s_gpu.alpha_func,s_gpu.texs[0].cube);
@@ -1423,7 +1423,7 @@ static int ng_simple_combiner(void)
 #endif
 }
 
-/* RE-SoT: the batch's vertex program runs on the GPU (vs_uber): its distinct
+/* POPSoT: the batch's vertex program runs on the GPU (vs_uber): its distinct
  * vertices go up as their raw input registers (fetch_attr, as the CPU
  * interpreter reads them), the primitive as 16-bit indices. Mirrors
  * hw_draw_program_batch (D3D11). Returns 0 for the interpreter path. */
@@ -1451,12 +1451,12 @@ static int ng_draw_program_batch(void)
     }
     pcount = nv2a_vsh_pack_gpu(&words, &inputs, &ninputs);
     if (!pcount) return 0;
-    if (hw_skip_shadow()) return 1; /* RE-SoT: same effect policy as D3D11/CPU. */
-    /* RE-SoT: use 1/2/4/8 float4 inputs instead of always uploading eight.
+    if (hw_skip_shadow()) return 1; /* POPSoT: same effect policy as D3D11/CPU. */
+    /* POPSoT: use 1/2/4/8 float4 inputs instead of always uploading eight.
      * This removes unused zero stores and cuts CPU/GPU transfer bytes for
      * small programs; formats still use the exact fetch_attr conversion. */
     slots = ninputs <= 1 ? 1 : ninputs <= 2 ? 2 : ninputs <= 4 ? 4 : 8;
-    /* RE-SoT: SDL 3.4.18 D3D12 caches vertex views by buffer/offset and
+    /* POPSoT: SDL 3.4.18 D3D12 caches vertex views by buffer/offset and
      * does not invalidate their stride on pipeline changes. Keep its fixed
      * pitch; Vulkan's input stride belongs to the selected pipeline. */
     if (s_ng.active == 12) slots = 8;
@@ -1511,30 +1511,30 @@ static int ng_draw_program_batch(void)
     ng_draw_state(s,depth,draw);
     draw->key.vertex_stride = stride;
     simple = ng_simple_combiner();
-    draw->key.translated_vs=ng_translated_vs(words,pcount); /* RE-SoT: both targets. */
+    draw->key.translated_vs=ng_translated_vs(words,pcount); /* POPSoT: both targets. */
     s_ng.translated_vsh_draws+=draw->key.translated_vs!=NULL;
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
     {
         static uint32_t checked_generation;
         static uint32_t compact_words[NV2A_VSH_SLOTS * 4];
         static int eligible;
-        static uint32_t compact_count; /* RE-SoT: discard empty interpreter iterations. */
+        static uint32_t compact_count; /* POPSoT: discard empty interpreter iterations. */
         uint32_t generation = nv2a_vsh_program_generation();
         if (generation != checked_generation) {
-            eligible = resot_native_pack_small_vsh(words,pcount,compact_words);
-            if (eligible) compact_count = resot_native_trim_small_vsh(compact_words,pcount);
+            eligible = popsot_native_pack_small_vsh(words,pcount,compact_words);
+            if (eligible) compact_count = popsot_native_trim_small_vsh(compact_words,pcount);
             checked_generation = generation;
         }
-        /* RE-SoT: this variant retains four packed inputs and only the
+        /* POPSoT: this variant retains four packed inputs and only the
          * outputs consumed by the one-stage fragment shaders: d0/fog/t0. */
         draw->key.small_vsh = !draw->key.translated_vs && s_ng.small_vs && eligible && ninputs <= 4 && simple;
-        if (draw->key.small_vsh) { words = compact_words; pcount = compact_count; } /* RE-SoT */
+        if (draw->key.small_vsh) { words = compact_words; pcount = compact_count; } /* POPSoT */
         s_ng.small_vsh_draws += draw->key.small_vsh;
     }
 #endif
-    draw->key.shader = simple ? (simple == 2 ? 7 : 5) : 4; /* RE-SoT: exact opaque fragment specialization. */
-    if(draw->key.shader==4) draw->key.specialized_ps=ng_specialized_ps(&draw->pc); /* RE-SoT */
-    s_ng.spec_ps_draws+=draw->key.specialized_ps!=0; /* RE-SoT */
+    draw->key.shader = simple ? (simple == 2 ? 7 : 5) : 4; /* POPSoT: exact opaque fragment specialization. */
+    if(draw->key.shader==4) draw->key.specialized_ps=ng_specialized_ps(&draw->pc); /* POPSoT */
+    s_ng.spec_ps_draws+=draw->key.specialized_ps!=0; /* POPSoT */
     s_ng.guest_draws++; if (draw->key.shader >= 5) s_ng.simple_draws++;
     draw->vc.fogp[0] = s_gpu.fog_param[0]; draw->vc.fogp[1] = s_gpu.fog_param[1];
     draw->vc.fogp[2] = (float)s_gpu.fog_mode; draw->vc.fogp[3] = s_gpu.fog_enable ? 1.0f : 0.0f;
@@ -1592,10 +1592,10 @@ static int ng_draw_program_batch(void)
             memcpy(s_ng.cpool[s_ng.ccount++], nv2a_vsh_constants(), sizeof s_ng.cpool[0]);
             s_ng.c_gen = cgen;
         }
-        if (!s_ng.pcount || s_ng.p_gen != pgen || s_ng.p_small != draw->key.small_vsh) { /* RE-SoT */
+        if (!s_ng.pcount || s_ng.p_gen != pgen || s_ng.p_small != draw->key.small_vsh) { /* POPSoT */
             memcpy(s_ng.ppool[s_ng.pcount++], words, (size_t)pcount * 16);
             s_ng.p_gen = pgen;
-            s_ng.p_small = draw->key.small_vsh; /* RE-SoT: distinguish the remapped snapshot. */
+            s_ng.p_small = draw->key.small_vsh; /* POPSoT: distinguish the remapped snapshot. */
         }
         draw->cslot = s_ng.ccount - 1; draw->pslot = s_ng.pcount - 1; draw->pcount = pcount;
         draw->offset = s_ng.queued_bytes; draw->count = nv;
@@ -1613,7 +1613,7 @@ static int ng_draw_program_batch(void)
     return 1;
 }
 
-/* RE-SoT: full-screen draws also implement masked/scissored guest clears. */
+/* POPSoT: full-screen draws also implement masked/scissored guest clears. */
 static void ng_blit(SDL_GPUTexture *target_image, SDL_GPUTextureFormat format,
                     SDL_GPUTexture *image, const SDL_GPUViewport *vp, const SDL_Rect *sc,
                     int shader, uint32_t mask, const float *solid, int clear)
@@ -1623,7 +1623,7 @@ static void ng_blit(SDL_GPUTexture *target_image, SDL_GPUTextureFormat format,
     SDL_GPUTextureSamplerBinding tex = {image, s_ng.linear};
     SDL_GPURenderPass *pass;
     SDL_GPUGraphicsPipeline *pipeline;
-    if (ng_sampler_budget(1)) ng_submit(); /* RE-SoT: D3D12 sampler-heap budget. */
+    if (ng_sampler_budget(1)) ng_submit(); /* POPSoT: D3D12 sampler-heap budget. */
     key.shader = shader; key.mask = mask; key.format = format;
     if (shader == 3) { key.blend = 1; key.src = 0x302; key.dst = 0x303; }
     pipeline = ng_pipeline(&key,0);
@@ -1646,7 +1646,7 @@ static void ng_blit(SDL_GPUTexture *target_image, SDL_GPUTextureFormat format,
 }
 static void ng_clear(uint32_t param)
 {
-    ng_flush_draws(); /* RE-SoT: the clear follows all preceding guest draws. */
+    ng_flush_draws(); /* POPSoT: the clear follows all preceding guest draws. */
     NgSurface *s = ng_surface();
     uint32_t x0 = s_gpu.clip_x, y0 = s_gpu.clip_y;
     uint32_t x1 = x0+s_gpu.clip_w, y1 = y0+s_gpu.clip_h;
@@ -1684,7 +1684,7 @@ static void ng_clear(uint32_t param)
 }
 static void ng_compose(void)
 {
-    ng_flush_draws(); /* RE-SoT: snapshot the completed guest surface. */
+    ng_flush_draws(); /* POPSoT: snapshot the completed guest surface. */
     uint32_t bw, bh, w, h, rect[4], serial;
     const uint32_t *pixels;
     RECT client;
@@ -1695,7 +1695,7 @@ static void ng_compose(void)
 #if defined(_WIN32)
     GetClientRect(s_hw.hwnd, &client);
 #else
-    {   /* RE-SoT (Android): the swapchain's size is the window's in pixels. */
+    {   /* POPSoT (Android): the swapchain's size is the window's in pixels. */
         int cw = 0, ch = 0;
         SDL_GetWindowSizeInPixels(s_ng.window, &cw, &ch);
         client.left = client.top = 0; client.right = cw; client.bottom = ch;
@@ -1704,7 +1704,7 @@ static void ng_compose(void)
     if (client.right < 16 || client.bottom < 16) return;
     bw = client.right; bh = client.bottom;
 #if defined(__ANDROID__)
-    /* RE-SoT: without host overlays and letterboxing, preserve the frame at
+    /* POPSoT: without host overlays and letterboxing, preserve the frame at
      * its existing internal resolution, then upscale once in ng_present.
      * The old path upscaled into a full-display intermediate, stored it,
      * and sampled all those pixels again. An exact ordered copy retains
@@ -1724,7 +1724,7 @@ static void ng_compose(void)
                 s_ng.composed=ng_image(fw,fh,0,1,SDL_GPU_TEXTUREUSAGE_COLOR_TARGET|SDL_GPU_TEXTUREUSAGE_SAMPLER,
                                         SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM);
                 s_ng.compose_w=fw; s_ng.compose_h=fh;
-                fprintf(stderr,"[POWER] exact frame snapshot %ux%u, display %ux%u\n",fw,fh,bw,bh); /* RE-SoT: observe use, not assumed power savings. */
+                fprintf(stderr,"[POWER] exact frame snapshot %ux%u, display %ux%u\n",fw,fh,bw,bh); /* POPSoT: observe use, not assumed power savings. */
             }
             from.texture=s_ng.front->color; to.texture=s_ng.composed;
             copy=SDL_BeginGPUCopyPass(ng_cmd());
@@ -1743,7 +1743,7 @@ static void ng_compose(void)
                                  SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM);
         s_ng.compose_w = bw; s_ng.compose_h = bh;
     }
-    /* RE-SoT: combine the background clear with the front-surface draw.
+    /* POPSoT: combine the background clear with the front-surface draw.
      * Tile GPUs otherwise store and reload a full display-sized attachment. */
     if (!s_ng.front) {
     target.texture = s_ng.composed; target.load_op = SDL_GPU_LOADOP_CLEAR;
@@ -1759,7 +1759,7 @@ static void ng_compose(void)
     if (s_ng.front)
         ng_blit(s_ng.composed, SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM, s_ng.front->color, &vp, NULL, 1, 15, NULL, 1);
     if (xbox_FramebufferOverlayGet(&pixels, &w, &h, rect, &serial) && w && h) {
-        /* RE-SoT: movies often issue no FLIP_STALL; guest FPS cannot measure
+        /* POPSoT: movies often issue no FLIP_STALL; guest FPS cannot measure
          * their presenter. Report compositions, not claimed decoded frames. */
         DWORD now = GetTickCount();
         if (!s_ng.movie_log) s_ng.movie_log = now;
@@ -1811,18 +1811,18 @@ static void ng_present(int sync)
     LARGE_INTEGER before, after;
     SDL_GPUPresentMode mode = enabled ? SDL_GPU_PRESENTMODE_VSYNC : SDL_GPU_PRESENTMODE_IMMEDIATE;
     if (!s_hw.pending_present || !s_ng.composed) return;
-    /* RE-SoT: Android may temporarily lose its surface while backgrounded.
+    /* POPSoT: Android may temporarily lose its surface while backgrounded.
      * Defer presentation until it is usable instead of treating that as fatal. */
     if (SDL_GetWindowFlags(s_ng.window) & SDL_WINDOW_MINIMIZED) return;
     QueryPerformanceCounter(&before);
-    /* RE-SoT: with VSync off and no tearing support, mailbox still lets the
+    /* POPSoT: with VSync off and no tearing support, mailbox still lets the
      * game run unthrottled; plain VSync would silently ignore the option. */
     if (!SDL_WindowSupportsGPUPresentMode(s_ng.device,s_ng.window,mode))
         mode = !enabled && SDL_WindowSupportsGPUPresentMode(s_ng.device,s_ng.window,SDL_GPU_PRESENTMODE_MAILBOX)
             ? SDL_GPU_PRESENTMODE_MAILBOX : SDL_GPU_PRESENTMODE_VSYNC;
     if (s_ng.present_mode != (int)mode) {
         ng_submit();
-        /* RE-SoT: SDL's composition/present support queries can fail while an
+        /* POPSoT: SDL's composition/present support queries can fail while an
          * Android surface is being replaced. Retain the last valid mode and
          * retry next frame; SDL rejects unsupported composition before mutation. */
         if (!SDL_WindowSupportsGPUSwapchainComposition(s_ng.device,s_ng.window,SDL_GPU_SWAPCHAINCOMPOSITION_SDR)) return;
@@ -1837,7 +1837,7 @@ static void ng_present(int sync)
         }
         s_ng.present_mode = (int)mode;
     }
-    /* RE-SoT: Vulkan has growing descriptor pools and can submit the guest
+    /* POPSoT: Vulkan has growing descriptor pools and can submit the guest
      * rendering and presentation together. D3D12 must reserve a fresh heap
      * before acquiring an image, or a budget flush could present it early. */
     if (s_ng.active == 12) ng_submit();
@@ -1860,13 +1860,13 @@ static void ng_flip(void)
     if (s_hw.pending_present) nv2a_hw_flush_present();
     EnterCriticalSection(&s_hw.lock);
     {
-        /* RE-SoT: keep new driver-compiled pipelines for the next run; the
+        /* POPSoT: keep new driver-compiled pipelines for the next run; the
          * save is skipped when nothing was created since the last one. */
         static DWORD last_save;
         DWORD t = GetTickCount();
         if (s_ng_cache_save && t - last_save >= 5000) {
             last_save = t;
-            /* RE-SoT: 2.7 MB through Android's FUSE storage; the compiler
+            /* POPSoT: 2.7 MB through Android's FUSE storage; the compiler
              * thread writes it, not the executor holding s_hw.lock. */
             if (s_ngc.running) {
                 SDL_LockMutex(s_ngc.lock);
@@ -1879,7 +1879,7 @@ static void ng_flip(void)
     }
     if (s_ng.largest) s_ng.front = s_ng.largest;
     s_ng.largest = NULL; s_hw.frame++;
-    hw_diag_sample(); /* RE-SoT: native CPU/GPU timings feed the existing F5/F6 UI. */
+    hw_diag_sample(); /* POPSoT: native CPU/GPU timings feed the existing F5/F6 UI. */
     now = GetTickCount();
     if (!last_log) { last_log = now; last_frame = s_hw.frame; last_draws = s_hw.draws; }
     else if (now-last_log >= 5000) {
@@ -1889,19 +1889,19 @@ static void ng_flip(void)
                 frames ? (double)(s_hw.draws-last_draws)/frames : 0,(unsigned long long)s_hw.draws,
                 s_ng.gpu_vsh ? "GPU" : "CPU");
         fprintf(stderr,"[HW native] simple combiners: %llu/%llu guest draws\n",
-            (unsigned long long)s_ng.simple_draws,(unsigned long long)s_ng.guest_draws); /* RE-SoT: verify coverage, not assumed speedup. */
+            (unsigned long long)s_ng.simple_draws,(unsigned long long)s_ng.guest_draws); /* POPSoT: verify coverage, not assumed speedup. */
         fprintf(stderr,"[HW native] small-register programs: %llu/%llu guest draws\n",
-            (unsigned long long)s_ng.small_vsh_draws,(unsigned long long)s_ng.guest_draws); /* RE-SoT: distinguish eligibility from speedup. */
+            (unsigned long long)s_ng.small_vsh_draws,(unsigned long long)s_ng.guest_draws); /* POPSoT: distinguish eligibility from speedup. */
         fprintf(stderr,"[HW native] specialized combiners: %llu/%llu guest draws, %u cached variants\n",
-            (unsigned long long)s_ng.spec_ps_draws,(unsigned long long)s_ng.guest_draws,s_ng.spec_ps_count); /* RE-SoT */
+            (unsigned long long)s_ng.spec_ps_draws,(unsigned long long)s_ng.guest_draws,s_ng.spec_ps_count); /* POPSoT */
         fprintf(stderr,"[HW native] direct vertex programs admitted %llu/%llu guest draws\n",
-            (unsigned long long)s_ng.translated_vsh_draws,(unsigned long long)s_ng.guest_draws); /* RE-SoT: admission is not compilation success. */
+            (unsigned long long)s_ng.translated_vsh_draws,(unsigned long long)s_ng.guest_draws); /* POPSoT: admission is not compilation success. */
         fprintf(stderr,"[HW native] reference pipeline draws while translating: %llu\n",
-            (unsigned long long)s_ng.reference_draws); /* RE-SoT: distinguish temporary fallbacks. */
-        if (s_ngc.async) /* RE-SoT: what background compilation cost in skipped draws. */
+            (unsigned long long)s_ng.reference_draws); /* POPSoT: distinguish temporary fallbacks. */
+        if (s_ngc.async) /* POPSoT: what background compilation cost in skipped draws. */
             fprintf(stderr,"[HW native] background pipelines: %d compiled, %d guest draws skipped while compiling\n",
                     SDL_GetAtomicInt(&s_ngc.compiled),SDL_GetAtomicInt(&s_ngc.skipped));
-        /* RE-SoT: expose the existing F6 timings on Android as well, where
+        /* POPSoT: expose the existing F6 timings on Android as well, where
          * there is no diagnostics panel. Avoid inferring CPU/GPU bottlenecks
          * from FPS alone. Values are the latest half-second sample. */
         {
@@ -1911,7 +1911,7 @@ static void ng_flip(void)
             fprintf(stderr,"[HW native] ms/frame: vertex %.2f draw %.2f executor %.2f present %.2f title %.2f; textures %.1f vertices %.0f\n",
                     timing[8],timing[9],timing[10],timing[11],timing[12],timing[6],timing[7]);
         }
-#if RESOT_RUNTIME_RETAIL
+#if POPSOT_RUNTIME_RETAIL
         fprintf(stderr,"[HW native] visibility: %llu queries, %llu/%llu reports completed\n",
                 (unsigned long long)s_ng_visibility.queries,(unsigned long long)s_ng_visibility.completed,
                 (unsigned long long)s_ng_visibility.reports);
@@ -1925,7 +1925,7 @@ static void ng_flip(void)
 }
 static int ng_readback(uint32_t *dst, uint32_t w, uint32_t h)
 {
-    ng_flush_draws(); /* RE-SoT: publish queued geometry before GPU download. */
+    ng_flush_draws(); /* POPSoT: publish queued geometry before GPU download. */
     SDL_GPUTextureRegion src = {0};
     SDL_GPUTextureTransferInfo out = {0};
     SDL_GPUTransferBufferCreateInfo ci = {0};
@@ -1936,13 +1936,13 @@ static int ng_readback(uint32_t *dst, uint32_t w, uint32_t h)
     uint32_t sw, sh, pitch, x,y;
     if (!s_ng.front || !w || !h) return 0;
     sw = ng_px(s_ng.front->w,s_ng.front->sc); sh = ng_py(s_ng.front->h,s_ng.front->sc);
-    pitch = (sw+63)&~63u; /* RE-SoT: D3D12 texture transfer rows align to 256 bytes. */
+    pitch = (sw+63)&~63u; /* POPSoT: D3D12 texture transfer rows align to 256 bytes. */
     ci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD; ci.size = pitch*sh*4;
     transfer = SDL_CreateGPUTransferBuffer(s_ng.device,&ci);
     if (!transfer) return 0;
     src.texture = s_ng.front->color; src.w = sw; src.h = sh; src.d = 1;
     out.transfer_buffer = transfer; out.pixels_per_row = pitch; out.rows_per_layer = sh;
-    if (s_ng_visibility.pending) ng_submit_encoded(); /* RE-SoT: query fences retain their own ownership. */
+    if (s_ng_visibility.pending) ng_submit_encoded(); /* POPSoT: query fences retain their own ownership. */
     copy = SDL_BeginGPUCopyPass(ng_cmd()); SDL_DownloadFromGPUTexture(copy,&src,&out); SDL_EndGPUCopyPass(copy);
     fence = SDL_SubmitGPUCommandBufferAndAcquireFence(s_ng.cmd);
     s_ng.cmd = NULL; s_ng.vertex_offset = s_ng.index_offset = 0; s_ng.command_samplers = 0;

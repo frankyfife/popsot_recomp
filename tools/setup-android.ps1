@@ -1,5 +1,5 @@
 # Dependencies of the Android build (port/android), in build/deps: the pinned
-# SDL 3.4.18 source with reSOT's query extension (tools/patch-sdl-gpu-query.py),
+# SDL 3.4.18 source with POPSoT's query extension (tools/patch-sdl-gpu-query.py),
 # DXC for the SPIR-V host shaders, and Gradle 9.1.0. The same archives and
 # hashes as tools/setup-native-gpu.ps1, which the Windows native renderers use.
 # The Android SDK, NDK 29.0.14206865, CMake 3.30.3 and a JDK 17+ are not

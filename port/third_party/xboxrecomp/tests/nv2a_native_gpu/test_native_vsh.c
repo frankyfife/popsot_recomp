@@ -1,4 +1,4 @@
-/* RE-SoT: compare generic/small native vertex interpreters by GPU readback,
+/* POPSoT: compare generic/small native vertex interpreters by GPU readback,
  * including compact input layouts and dead writes to omitted registers. */
 #include <SDL3/SDL.h>
 #include <stdint.h>
@@ -7,12 +7,12 @@
 #include <stdlib.h>
 #include "shader_compiler.h"
 #include "nv2a_native_shaders.h"
-#include "../../src/kernel/resot_native_translate.h"
-#include "../../src/kernel/resot_native_vsh.h"
+#include "../../src/kernel/popsot_native_translate.h"
+#include "../../src/kernel/popsot_native_vsh.h"
 
 #define REQUIRE(condition) do { if (!(condition)) { fprintf(stderr,"line %d: %s: %s\n",__LINE__,#condition,SDL_GetError()); return 1; } } while (0)
 
-/* RE-SoT: identical input/output ABI for each translated program. */
+/* POPSoT: identical input/output ABI for each translated program. */
 static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,SDL_GPUShader *vertex,SDL_GPUShader *fragment,int layout)
 {
         SDL_GPUGraphicsPipelineCreateInfo pipeline = {0};
@@ -88,13 +88,13 @@ int main(int argc, char **argv)
     target = SDL_CreateGPUTexture(device,&texture_info); REQUIRE(target);
     constants[1][0]=0.23f; constants[1][1]=0.51f; constants[1][2]=0.81f; constants[1][3]=0.67f;
     constants[2][0]=0.4f; constants[2][1]=0.6f; constants[2][2]=0.8f; constants[2][3]=0.5f;
-    /* RE-SoT: relative palette reads, negated nonidentity swizzles and partial
+    /* POPSoT: relative palette reads, negated nonidentity swizzles and partial
      * writes exercise translation paths absent from the original identity probe. */
     constants[3][0]=1.1f; constants[3][1]=0.2f; constants[3][2]=0.4f; constants[3][3]=0.8f;
     for (unsigned mac = 0; mac <= 13; mac++) for (unsigned ilu = 0; ilu <= 7; ilu++) {
         unsigned layout = (mac + ilu) & 3, stride = 16u << layout;
         uint32_t instructions[5][4] = {
-            /* RE-SoT: dead MAC R6 plus live paired ILU R1; pruning MAC
+            /* POPSoT: dead MAC R6 plus live paired ILU R1; pruning MAC
              * must turn the standalone ILU's explicit destination into R1. */
             {1 | (1u<<4) | (15u<<7) | (15u<<11) | (6u<<15), 1u<<8, 3 | (27u<<6), 3 | (27u<<6)},
             {1 | (15u<<7) | (7u<<15), 1u<<8, 3 | (27u<<6), 0},
@@ -123,26 +123,26 @@ int main(int argc, char **argv)
         for (unsigned index = 0; index < 3; index++) memcpy(mapped+128+index*stride,positions[index],16);
         SDL_UnmapGPUTransferBuffer(device,upload);
         uint32_t compact[5][4];
-        if (mac) REQUIRE(!resot_native_small_vsh(&instructions[0][0],5));
-        REQUIRE(resot_native_pack_small_vsh(&instructions[0][0],5,&compact[0][0]));
+        if (mac) REQUIRE(!popsot_native_small_vsh(&instructions[0][0],5));
+        REQUIRE(popsot_native_pack_small_vsh(&instructions[0][0],5,&compact[0][0]));
         if(operand_mode!=2) REQUIRE(!(compact[0][0] & 15));
         REQUIRE(!(compact[0][0] & (15u<<7)));
         if(operand_mode!=2) REQUIRE(((compact[0][0] >> 15) & 15) == 1);
-        REQUIRE(resot_native_small_vsh(&compact[0][0],5));
-        /* RE-SoT: with MAC disabled R7 is unread; compare the shortened
+        REQUIRE(popsot_native_small_vsh(&compact[0][0],5));
+        /* POPSoT: with MAC disabled R7 is unread; compare the shortened
          * program against the original on the GPU. */
-        uint32_t compact_count = resot_native_trim_small_vsh(&compact[0][0],5);
+        uint32_t compact_count = popsot_native_trim_small_vsh(&compact[0][0],5);
         REQUIRE(compact_count <= 5);
         if (!mac) REQUIRE(compact_count < 5);
         instructions[3][2] ^= 4u<<2;
-        REQUIRE(!resot_native_small_vsh(&instructions[0][0],5));
+        REQUIRE(!popsot_native_small_vsh(&instructions[0][0],5));
         instructions[3][2] ^= 4u<<2;
         copy = SDL_BeginGPUCopyPass(command); REQUIRE(copy);
         SDL_UploadToGPUBuffer(copy,&source,&destination,true); SDL_EndGPUCopyPass(copy);
         if(!dx) {
-            char *source=resot_translate_vertex(ng_translated_vertex_head,&instructions[0][0],5);
+            char *source=popsot_translate_vertex(ng_translated_vertex_head,&instructions[0][0],5);
             size_t bytes=0;
-            uint32_t *code=resot_compile_vertex(source,&bytes);
+            uint32_t *code=popsot_compile_vertex(source,&bytes);
             REQUIRE(source && code); free(source);
             shader.code=(const unsigned char*)code; shader.code_size=bytes; shader.entrypoint="main";
             shader.stage=SDL_GPU_SHADERSTAGE_VERTEX; shader.num_uniform_buffers=2;

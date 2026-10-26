@@ -201,7 +201,7 @@ def write_if_changed(path, text):
     return True
 
 
-# RE-SoT: generated chunks sorted into folders by what the code does.
+# POPSoT: generated chunks sorted into folders by what the code does.
 UNSORTED_FOLDER = "unsorted"
 
 
@@ -3232,8 +3232,8 @@ class BatchTranslator:
 
         generated_files = [header_path]
         if folders is not None:
-            # RE-SoT: one folder per kind of code, as a folders file decides
-            # (reSOT's tools/sort-functions.py), instead of recomp_NNNN.c in
+            # POPSoT: one folder per kind of code, as a folders file decides
+            # (POPSoT's tools/sort-functions.py), instead of recomp_NNNN.c in
             # address order.
             chunks = _write_folder_chunks(
                 getattr(self, 'title', None), translations, output_dir,

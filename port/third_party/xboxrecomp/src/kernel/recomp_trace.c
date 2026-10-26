@@ -268,7 +268,7 @@ void recomp_debug_service(uint32_t service, uint32_t arg_va)
     fprintf(stderr, "[GUEST] %.*s", (int)length, (const char *)(mem + buffer_va));
     if (length && ((const char *)(mem + buffer_va))[length - 1] != '\n')
         fputc('\n', stderr);
-    /* RE-SoT: a title's own assertion says what it found wrong, not how it
+    /* POPSoT: a title's own assertion says what it found wrong, not how it
      * got there. The first line of one also gets the recent indirect-call
      * targets and the return addresses on the guest stack, which between
      * them name the virtual call whose answer was refused. */

@@ -1,16 +1,16 @@
-"""Build reSOT's high-resolution menu font and button atlases (texture pack).
+"""Build POPSoT's high-resolution menu font and button atlases (texture pack).
 
     python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures
 
 The retail menus draw text from one 512x128 font atlas and button prompts from
 one 512x256 atlas (VALIDATION.md, 2026-10-22). This writes both again at
-SCALE times the size, as texture pack files <key>.tga (resot_texpack.h):
+SCALE times the size, as texture pack files <key>.tga (popsot_texpack.h):
 
 - Font: every glyph is rendered from the game's own vector font,
   MEDIA/AtlantisMF.ttf on the disc, into the rectangle the game samples
-  (tools/hd-ui/font_rects.json, measured with RESOT_FONT_PROBE and
+  (tools/hd-ui/font_rects.json, measured with POPSOT_FONT_PROBE and
   RECOMP_TRACE_ALLVTX), centred on the original glyph's ink.
-- Buttons: the icons come from tools/hd-ui/buttons.svg (drawn for reSOT); the
+- Buttons: the icons come from tools/hd-ui/buttons.svg (drawn for POPSoT); the
   controller line drawing is traced from the user's own atlas into SVG paths
   (iso-contours of the cubic-interpolated alpha), so nothing of the game is
   stored in the repository.
@@ -19,12 +19,12 @@ SCALE times the size, as texture pack files <key>.tga (resot_texpack.h):
   sand tanks and the ring come from the PC version's PoP Texture Studio pack
   (Evgesha.JK beside the GOG game), which redrew them at 8x to 16x. Its
   records are keyed by Jade texture key (the HUD is group 0B007Bxx), ours by
-  picture, so each HUD texture of the user's level dump (RESOT_TEXTURE_DUMP=1
-  in a fight, e.g. with RESOT_START_LEVEL=6101_couloir) is paired with the
+  picture, so each HUD texture of the user's level dump (POPSOT_TEXTURE_DUMP=1
+  in a fight, e.g. with POPSOT_START_LEVEL=6101_couloir) is paired with the
   record whose smallest stored level, scaled to the original size, differs
   least, and only when the next best differs at least twice as much.
 
-Inputs are the two original atlases as written by RESOT_TEXTURE_DUMP=1
+Inputs are the two original atlases as written by POPSOT_TEXTURE_DUMP=1
 (<pack>/dump/<key>_512x128_fmt06.tga and <key>_512x256_fmt06.tga). Both are
 stored upside down, as the game samples them; the files written here keep
 that orientation. Needs Pillow, NumPy, SciPy and ImageMagick (librsvg) for the
@@ -68,7 +68,7 @@ def read_tga(path):
 
 
 def write_tga(img, path):
-    """32-bit BGRA, top-left origin, as resot_texpack.h reads it."""
+    """32-bit BGRA, top-left origin, as popsot_texpack.h reads it."""
     img = img.convert("RGBA")
     w, h = img.size
     hdr = bytearray(18)
@@ -443,7 +443,7 @@ def find_magick():
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--game", type=Path, required=True, help="xbox-retail game folder (MEDIA/AtlantisMF.ttf)")
-    ap.add_argument("--pack", type=Path, required=True, help="texture pack folder (with dump/ from RESOT_TEXTURE_DUMP=1)")
+    ap.add_argument("--pack", type=Path, required=True, help="texture pack folder (with dump/ from POPSOT_TEXTURE_DUMP=1)")
     ap.add_argument("--scale", type=int, default=8)
     ap.add_argument("--preview", type=Path, help="also write upright previews into this folder")
     ap.add_argument("--hud-pack", type=Path, help="the PC version's PoP Texture Studio pack (Evgesha.JK) for the HUD")
@@ -453,7 +453,7 @@ def main():
     button_src = dump / (BUTTON_KEY + "_512x256_fmt06.tga")
     for p in (font_src, button_src):
         if not p.exists():
-            raise SystemExit("%s is missing: run the game once with RESOT_TEXTURE_DUMP=1 up to the main menu" % p)
+            raise SystemExit("%s is missing: run the game once with POPSOT_TEXTURE_DUMP=1 up to the main menu" % p)
     ttf = a.game / "MEDIA" / "AtlantisMF.ttf"
     rects = json.loads((HERE / "font_rects.json").read_text(encoding="utf-8"))
     font, missing = build_font(read_tga(font_src), ttf, rects, a.scale)
@@ -467,7 +467,7 @@ def main():
     for key, img, jade in hud:
         print("HUD: %s <- %08X %dx%d" % (key, jade, img.width, img.height))
     if a.hud_pack and not hud:
-        print("HUD: no match (run a level with RESOT_TEXTURE_DUMP=1 first)")
+        print("HUD: no match (run a level with POPSOT_TEXTURE_DUMP=1 first)")
     if a.preview:
         a.preview.mkdir(parents=True, exist_ok=True)
         for name, img in [("font", font), ("buttons", buttons)] + [("hud_" + k, i) for k, i, _ in hud]:

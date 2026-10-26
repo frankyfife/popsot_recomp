@@ -1,5 +1,5 @@
 /**
- * reSOT - the Android launcher's native half (libresot_launcher.so).
+ * POPSoT - the Android launcher's native half (libpopsot_launcher.so).
  *
  *   identify(dir)   what a folder holds: the demo or the retail game, told
  *                   apart by default.xbe's SHA-256 (target.h of both targets)
@@ -19,13 +19,13 @@
 #include "host_files.h"
 #include "sha256.h"
 
-#if !defined(RESOT_DEMO_XBE_SHA256) || !defined(RESOT_RETAIL_XBE_SHA256)
+#if !defined(POPSOT_DEMO_XBE_SHA256) || !defined(POPSOT_RETAIL_XBE_SHA256)
 #error "CMakeLists.txt passes both targets' XBE hashes (source/<target>/target.h)"
 #endif
 
 static int path_kind(const char *dir, const char *name)
 {
-    return resot_path_kind(dir, name, NULL, 0);
+    return popsot_path_kind(dir, name, NULL, 0);
 }
 
 static int game_files_present(const char *dir)
@@ -73,7 +73,7 @@ static jobjectArray strings(JNIEnv *env, const char *kind, const char *exact,
     return out;
 }
 
-JNIEXPORT jobjectArray JNICALL Java_com_fulger_resot_Native_identify(JNIEnv *env, jclass cls, jstring jdir)
+JNIEXPORT jobjectArray JNICALL Java_com_fulger_popsot_Native_identify(JNIEnv *env, jclass cls, jstring jdir)
 {
     const char *dir = (*env)->GetStringUTFChars(env, jdir, NULL);
     char xbe[2048], hex[65], name[41] = {0};
@@ -83,16 +83,16 @@ JNIEXPORT jobjectArray JNICALL Java_com_fulger_resot_Native_identify(JNIEnv *env
     if (!game_files_present(dir)) {
         result = strings(env, "", "0", "", "");
     } else {
-        if (resot_path_kind(dir, "default.xbe", xbe, sizeof xbe) == 1 && resot_sha256_file(xbe, hex)) {
-            if (!strcmp(hex, RESOT_DEMO_XBE_SHA256))
+        if (popsot_path_kind(dir, "default.xbe", xbe, sizeof xbe) == 1 && popsot_sha256_file(xbe, hex)) {
+            if (!strcmp(hex, POPSOT_DEMO_XBE_SHA256))
                 result = strings(env, "demo", "1", "E3 2003 demo  •  2003-07-18", "");
-            else if (!strcmp(hex, RESOT_RETAIL_XBE_SHA256))
+            else if (!strcmp(hex, POPSOT_RETAIL_XBE_SHA256))
                 result = strings(env, "retail", "1", "NTSC retail  •  2003-10-20", "");
             else if (xbe_title(xbe, &title_id, name) && strstr(name, "Prince of Persia"))
                 result = strings(env, title_id == 0x5553001Du ? "retail" : "demo", "0",
                                  title_id == 0x5553001Du ? "Retail  •  other revision"
                                                          : "Demo  •  other revision",
-                                 "A default.xbe here is not the build reSOT supports; the game will not start.");
+                                 "A default.xbe here is not the build POPSoT supports; the game will not start.");
             else
                 result = strings(env, "", "0", "",
                                  "A folder holds a default.xbe that is not Prince of Persia: The Sands of Time.");

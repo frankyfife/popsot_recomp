@@ -1,6 +1,6 @@
 # POPSoT Recomp
 
-A continuation of reSOT (FulGerNet's static recompilation of the game), with
+A continuation of POPSoT (FulGerNet's static recompilation of the game), with
 its own launcher, fixes and options.
 
 Static recompilation of the original Xbox builds of
@@ -76,17 +76,17 @@ The goal is both games fully playable from the user's own disc files, with
 the generated code readable enough to be replaced by hand-written source
 function by function. Retail and the remaining accuracy and validation work are still ahead.
 
-reSOT does not contain the game. You supply the files from discs you own.
+POPSoT does not contain the game. You supply the files from discs you own.
 The lifted C in `source/<target>/gen` is published with the project
 ([AGENTS.md](AGENTS.md)); game data, executables and extracted assets are not.
 
 ## How it works
 
-An Xbox executable is 32-bit x86 code. reSOT lifts every routine of
+An Xbox executable is 32-bit x86 code. POPSoT lifts every routine of
 `default.xbe` to C with [xboxrecomp](https://github.com/sp00nznet/xboxrecomp)
 (vendored and patched under `port/third_party/xboxrecomp`, one runtime for
 both targets that is compiled for one of them per build tree, the per-target
-fixes chosen with `RESOT_RUNTIME_DEMO` / `RESOT_RUNTIME_RETAIL`) and links the
+fixes chosen with `POPSOT_RUNTIME_DEMO` / `POPSOT_RUNTIME_RETAIL`) and links the
 result against that Windows replacement for the console:
 
 ```text
@@ -135,7 +135,7 @@ For players: double-click the target's executable in its portable folder.
 Keep your game data beside it (demo and retail in separate folders), or
 select the data folder when asked. `default.xbe` is a build input and is
 embedded in the compiled EXE; it is not required beside the player EXE.
-Space / controller A skips videos; F5 toggles the FPS / Current WOW panel;
+Space / controller A skips videos;
 F6 toggles the diagnostics panel (copyable with Ctrl+Shift+C); F9 captures
 the next frame for diagnosis (`logs/capture/`, Direct3D 11); F7 opens
 `Port Options` for graphics and controls, also available in the game's main menu. See the [Windows instructions](port/windows/README.md#play-popsot-launcher)
@@ -144,7 +144,7 @@ for the folder contents and packaging from a local build.
 | Platform | Instructions |
 | --- | --- |
 | Windows 10/11 x64 (Direct3D 11, XInput, XAudio2; MSVC, CMake) | [port/windows/README.md](port/windows/README.md): requirements, build, run, controls |
-| Android 10+ arm64 (Vulkan via SDL GPU, SDL3 input and audio; NDK, Gradle): one app, `com.fulger.resot`, for both games, installed from their ISOs | [port/android/README.md](port/android/README.md): game files, touch controls, build |
+| Android 10+ arm64 (Vulkan via SDL GPU, SDL3 input and audio; NDK, Gradle): one app, `com.fulger.popsot`, for both games, installed from their ISOs | [port/android/README.md](port/android/README.md): game files, touch controls, build |
 
 In short, on Windows:
 
@@ -215,7 +215,7 @@ see [VALIDATION.md](docs/VALIDATION.md).
 | Native D3D12 (optional in F7; restart required; SDL GPU, no 11On12) | 🟡 GPU vertex programs; 20-second Windows menu check with non-silent audio and no recorded crash (2026-10-20); native GPU readbacks pass; broader gameplay/performance validation pending | 🟡 GPU vertex programs; 20-second Windows menu check with non-silent audio and no recorded crash (2026-10-20); native visibility and vertex-program GPU tests pass; full gameplay/performance validation pending |
 | Native Vulkan (optional in F7; restart required; SDL GPU, no DXVK) | 🟡 GPU vertex programs; 20-second Windows menu check with non-silent audio and no recorded crash (2026-10-20); Android menu/gameplay observations below; broader validation pending | 🟡 vertex programs on the GPU (`vs_uber`, 2026-10-19): scripted run to the first courtyard, menu executor 4.6–6.7 ms (CPU interpreter 16.2–16.6 ms), courtyard 66–124 FPS, snapshots correct by eye; retail light-map borders and cycled texture lifetime pass host Vulkan/D3D12 GPU readbacks; simple combiner shaders plus reduced native vertex-interpreter operand work measured about 27-28 FPS at 480p on the connected phone (was 16.9 generic, then 24.7 fragment-only; 2026-10-19); 30 FPS minimum remains unmet; broader gameplay/performance validation pending |
 | In-level rendering | 🟡 projected shadows; cube-map upload/sampling implemented and host GPU test passed, game appearance unverified; first-level flickering/distortion traced to ordered GPU fences: gone for the user with them off (2026-10-17), now the demo default; no stencil | 🟡 substantial retail gameplay reported without crashes (2026-10-19); black garden panels traced to missing white light-map borders and corrected, confirmed by the user; forming sand-tank ring aligned in GPU readback; other scenes and console accuracy remain unverified |
-| Wide picture (Hor+) | 🟡 16:9 by default (`RESOT_ASPECT`); fills a 16:9 monitor with `-Fullscreen` or F11; culling widened to the new sides; pause backdrop expanded; HUD at its 4:3 proportions and anchored to the screen's left edge, confirmed by the user (2026-10-18); the menu garden is not modelled past its 4:3 edge | 🟡 16:9 by default; demo's projection and culling hooks ported to the retail addresses, projected-UI policy on (menu backdrop full width); dialog text wider than its box at 16:9; health bar anchored to the left edge in first-level readbacks (2026-10-18), tutorial text unchanged |
+| Wide picture (Hor+) | 🟡 16:9 by default (`POPSOT_ASPECT`); fills a 16:9 monitor with `-Fullscreen` or F11; culling widened to the new sides; pause backdrop expanded; HUD at its 4:3 proportions and anchored to the screen's left edge, confirmed by the user (2026-10-18); the menu garden is not modelled past its 4:3 edge | 🟡 16:9 by default; demo's projection and culling hooks ported to the retail addresses, projected-UI policy on (menu backdrop full width); dialog text wider than its box at 16:9; health bar anchored to the left edge in first-level readbacks (2026-10-18), tutorial text unchanged |
 | Frame rate | 🟡 120+ FPS reported by the user (2026-10-18); first-use shader stalls moved off the executor (hourglass room: lowest 80 fps, was 7); batches reused across frames (garden 93-100 fps at ~880 draws, was 67-78); title and executor still run in lockstep; broader performance validation incomplete | 🟡 latest user session: 302 timing windows, median 146.3 FPS, minimum 48.6 (not frame percentiles); P8/ARGB upload conversion optimized, native pipeline lookup and texture reuse improved (2026-10-19); matched-scene and Android performance comparison pending |
 | Controller / keyboard | 🟢 verified by the user (2026-10-18) | 🟢 verified by the user (2026-10-18) |
 | Audio | 🟡 audio corrected, confirmed by the user (2026-10-18); bath-fight stutter fixed, user confirmed. Android Sand Birds crash (2026-10-20): APU idle-trap overwrite corrected; APU/IRQL tests pass, device retest records about 260 s of audio and a regular exit without a crash; user confirms the fix | 🟡 audio corrected, confirmed by the user (2026-10-18). Android making-of audio loss (2026-10-20): dispatch timeout bypasses and callback lock leak corrected; APU/IRQL tests pass, user confirms audio persists through the video and return to the menu; broader audio validation incomplete |
@@ -240,7 +240,7 @@ unachieved. See [VALIDATION.md](docs/VALIDATION.md).
 ## Repository layout
 
 ```text
-reSOT/
+POPSoT/
   source/                one folder per Xbox executable (the game side)
     xbox-demo/           target.h (addresses of that XBE), seed_functions.json,
                          target_hooks.c, gen/ (lifted C by folder: main, engine,
@@ -251,7 +251,7 @@ reSOT/
     windows/res/         neutral icon, version resource (app.rc.in)
     android/             Android app: native host (src/), NDK CMakeLists.txt, Gradle project, launcher, touch controls (app/)
     game/                hand-written overrides the lifted code calls
-    third_party/xboxrecomp/      recompiler (tools/) and Xbox runtime (src/) for both targets, patched; changes marked RE-SoT
+    third_party/xboxrecomp/      recompiler (tools/) and Xbox runtime (src/) for both targets, patched; changes marked POPSoT
     third_party/extract-xiso/    extract-xiso 2.7.1, unchanged (not built on Windows any more)
   launcher/              POPSoT Launcher (Qt 6): ISO installation, settings, Play
   tools/                 recomp.ps1, build-android.ps1, run.ps1, shortcut.ps1, seed-scan.py, sort-functions.py, xbe-dis.py, check-hlsl.py
@@ -272,7 +272,7 @@ what you actually observed in `docs/VALIDATION.md`.
 
 ## Licence
 
-reSOT's own files are MIT. `port/third_party/xboxrecomp` is MIT with
+POPSoT's own files are MIT. `port/third_party/xboxrecomp` is MIT with
 LGPL-2.1-or-later parts taken from xemu; `port/third_party/extract-xiso` is
 under its own BSD-style licence. The game, its assets and the C
 generated from its executables belong to their owners and are not covered.

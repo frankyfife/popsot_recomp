@@ -31,13 +31,13 @@ void xbox_SetVSync(int enabled) { }
 static int test_glow=-1,test_quality=-1;
 void xbox_SetPostProcessing(int enabled) { test_glow=enabled; }
 void xbox_SetPostProcessingQuality(int quality) { test_quality=quality; }
-void resot_console_logs_set(int enabled) { }
-void resot_host_draw_text(uint32_t *p,int w,int h,int x,int y,const char *t,uint32_t c) { }
+void popsot_console_logs_set(int enabled) { }
+void popsot_host_draw_text(uint32_t *p,int w,int h,int x,int y,const char *t,uint32_t c) { }
 int nv2a_hw_backend(void) { return 11; }
 void xbox_FramebufferSetOptionsCallbacks(int (*a)(const uint32_t**,uint32_t*,uint32_t*),int (*b)(void*,unsigned,uintptr_t,intptr_t)) { }
 void xbox_InputSetHostFilter(void (*fn)(void*,unsigned)) { }
-int resot_diag_panel(const uint32_t **p,uint32_t *w,uint32_t *h) { return 0; }
-int resot_diag_event(void *w,unsigned m,uintptr_t wp,intptr_t lp) { return 0; }
+int popsot_diag_panel(const uint32_t **p,uint32_t *w,uint32_t *h) { return 0; }
+int popsot_diag_event(void *w,unsigned m,uintptr_t wp,intptr_t lp) { return 0; }
 static uint8_t memory[512];
 static uintptr_t g_xbox_mem_offset;
 static uint32_t g_eax,g_esp;
@@ -46,40 +46,40 @@ static uint32_t g_eax,g_esp;
 main = r'''
 int main(void) {
     char text[96],path[MAX_PATH];
-    assert(resot_log_level("[VIDEO] initialized")==0);
-    assert(resot_log_level("WARNING: fallback")==1);
-    assert(resot_log_level("[CRASH] access violation")==2);
-    assert(resot_log_level("pipeline FAILED")==2);
+    assert(popsot_log_level("[VIDEO] initialized")==0);
+    assert(popsot_log_level("WARNING: fallback")==1);
+    assert(popsot_log_level("[CRASH] access violation")==2);
+    assert(popsot_log_level("pipeline FAILED")==2);
     _putenv_s("RECOMP_PAD_SCRIPT",""); _putenv_s("RECOMP_PAD_LIVE","");
     GetFullPathNameA("look-test.ini",MAX_PATH,path,NULL);
     strcpy(s_path,path);
-    assert(resot_look_percent(-1)==25 && resot_look_percent(999)==200);
-    assert(resot_look_percent(112)==100 && resot_look_percent(113)==125);
+    assert(popsot_look_percent(-1)==25 && popsot_look_percent(999)==200);
+    assert(popsot_look_percent(112)==100 && popsot_look_percent(113)==125);
     s_look_sensitivity=100;
-    resot_native_label(RESOT_NATIVE_CONTROLS,0,text,sizeof text);
+    popsot_native_label(POPSOT_NATIVE_CONTROLS,0,text,sizeof text);
     assert(!strcmp(text,"Look sensitivity: 100%"));
-    for(int i=0;i<8;i++)resot_native_activate(RESOT_NATIVE_CONTROLS,0);
+    for(int i=0;i<8;i++)popsot_native_activate(POPSOT_NATIVE_CONTROLS,0);
     assert(s_look_sensitivity==100);
     assert(GetPrivateProfileIntA("Controls","LookSensitivityPercent",0,s_path)==100);
     s_look_sensitivity=200;
-    float axes[]={1.0f,-0.5f};resot_scale_look(axes);
+    float axes[]={1.0f,-0.5f};popsot_scale_look(axes);
     assert(axes[0]==2.0f && axes[1]==-1.0f);
-    s_look_sensitivity=25;axes[0]=1.0f;axes[1]=0;resot_scale_look(axes);
+    s_look_sensitivity=25;axes[0]=1.0f;axes[1]=0;popsot_scale_look(axes);
     assert(axes[0]==0.25f && axes[1]==0);
-    s_look_sensitivity=100;axes[0]=0.5f;axes[1]=-1;resot_scale_look(axes);
+    s_look_sensitivity=100;axes[0]=0.5f;axes[1]=-1;popsot_scale_look(axes);
     assert(axes[0]==0.5f && axes[1]==-1);
     assert(s_texture_glow==0);
-    resot_native_label(RESOT_NATIVE_GRAPHICS,2,text,sizeof text);
+    popsot_native_label(POPSOT_NATIVE_GRAPHICS,2,text,sizeof text);
     assert(!strcmp(text,"Texture glow effect: Off"));
-    resot_native_activate(RESOT_NATIVE_GRAPHICS,2); assert(test_glow==1);
-    resot_native_activate(RESOT_NATIVE_GRAPHICS,2); assert(test_glow==0);
+    popsot_native_activate(POPSOT_NATIVE_GRAPHICS,2); assert(test_glow==1);
+    popsot_native_activate(POPSOT_NATIVE_GRAPHICS,2); assert(test_glow==0);
     assert(GetPrivateProfileIntA("Graphics","TextureGlowEffect",99,s_path)==0);
     s_post_quality=3; /* Exercise the full cycle independently of platform defaults. */
     for(int i=0;i<4;i++) {
-        resot_native_activate(RESOT_NATIVE_GRAPHICS,4);
+        popsot_native_activate(POPSOT_NATIVE_GRAPHICS,4);
         assert(test_quality==i);
         assert(GetPrivateProfileIntA("Graphics","PostProcessingQuality",99,s_path)==i);
-        resot_native_label(RESOT_NATIVE_GRAPHICS,4,text,sizeof text);
+        popsot_native_label(POPSOT_NATIVE_GRAPHICS,4,text,sizeof text);
         assert(strstr(text,s_quality_names[i]));
     }
     native_layout();
@@ -130,8 +130,8 @@ for target, normalizer, right, left in [('demo','000C05D0','000C08B2','000C08A3'
         options = 'port/windows/src/options.c' if host=='windows' else 'port/android/src/options_android.c'
         host_stubs=stubs
         if host=='android':
-            host_stubs='\n'.join(line for line in stubs.splitlines() if not line.startswith(('int resot_diag_panel(', 'int resot_diag_event(')))
-            host_stubs+='\nconst char *resot_android_data_dir(void) { return "."; }\n'
+            host_stubs='\n'.join(line for line in stubs.splitlines() if not line.startswith(('int popsot_diag_panel(', 'int popsot_diag_event(')))
+            host_stubs+='\nconst char *popsot_android_data_dir(void) { return "."; }\n'
         unit = '#include <windows.h>\n#include <assert.h>\n#include "'+(root/options).as_posix()+'"\n'
         unit += '#include "'+(root/'port/game/log_level.h').as_posix()+'"\n'
         unit += host_stubs + texts + layout + stubgen + function(source,'sub_'+normalizer)

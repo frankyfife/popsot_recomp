@@ -1,8 +1,8 @@
-# reSOT native GPU query extension
+# POPSoT native GPU query extension
 
 SDL GPU 3.4.18 does not expose occlusion queries in its public API. These
 MIT-licensed additions compile inside the pinned SDL D3D12/Vulkan driver
-translation units and expose a small versioned ABI. reSOT never guesses a
+translation units and expose a small versioned ABI. POPSoT never guesses a
 private SDL structure layout across the DLL boundary.
 
 `tools/setup-native-gpu.ps1` downloads and SHA-256-checks the official SDL
@@ -10,11 +10,11 @@ private SDL structure layout across the DLL boundary.
 shared SDL3.dll in ignored `build/deps/sdl-query-build/`. The source archive
 and SDK remain ignored. The additions and patching tool are published here;
 the upstream zlib licence remains in the source tree and accompanies the
-DLL. `SDL3-RESOT.txt` identifies the DLL as an altered build. This is not an
+DLL. `SDL3-POPSOT.txt` identifies the DLL as an altered build. This is not an
 unmodified upstream SDL binary.
 
-The exports `RESOT_GetD3D12QueryAPI(1)` and `RESOT_GetVulkanQueryAPI(1)` return
-the table in `resot_gpu_query.h`. A mismatched ABI is rejected. D3D12 uses
+The exports `POPSOT_GetD3D12QueryAPI(1)` and `POPSOT_GetVulkanQueryAPI(1)` return
+the table in `popsot_gpu_query.h`. A mismatched ABI is rejected. D3D12 uses
 `ID3D12QueryHeap` and `ResolveQueryData` into readback memory. Vulkan uses
 precise `VkQueryPool` occlusion counters; the patch enables
 `occlusionQueryPrecise` when supported, and rejects unavailable capability.
@@ -28,10 +28,10 @@ supersampling normalization, asynchronous polling, FIFO immutable snapshots,
 and resource retirement. Native retail initialization checks ABI and actual
 query allocation; missing support produces an explicit D3D11 fallback.
 
-`resot_pipeline_cache_vulkan.inc` adds a persistent `VkPipelineCache`: SDL
+`popsot_pipeline_cache_vulkan.inc` adds a persistent `VkPipelineCache`: SDL
 3.4.18 creates Vulkan graphics pipelines without one, and Adreno took up to a
-second per pipeline on every run. `RESOT_SetVulkanPipelineCachePath(path)`
-(before creating the device) names the file; `RESOT_SaveVulkanPipelineCache`
+second per pipeline on every run. `POPSOT_SetVulkanPipelineCachePath(path)`
+(before creating the device) names the file; `POPSOT_SaveVulkanPipelineCache`
 writes it when pipelines were created since the last save. The driver
 validates the data and ignores another device's.
 

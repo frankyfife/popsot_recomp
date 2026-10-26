@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-# RE-SoT: exercise the real VP trap latch with each target's runtime.
+# POPSoT: exercise the real VP trap latch with each target's runtime.
 project(apu_frontend_test C)
 set(CMAKE_C_STANDARD 11)
-option(RESOT_TEST_DEMO "Exercise the demo runtime" OFF)
-if(RESOT_TEST_DEMO)
-    add_compile_definitions(RESOT_RUNTIME_DEMO=1)
+option(POPSOT_TEST_DEMO "Exercise the demo runtime" OFF)
+if(POPSOT_TEST_DEMO)
+    add_compile_definitions(POPSOT_RUNTIME_DEMO=1)
 endif()
 add_subdirectory(../.. runtime)
 add_executable(apu_frontend_test test_main.c)

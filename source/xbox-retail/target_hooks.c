@@ -836,7 +836,7 @@ static void text_dump(void)
  *
  * The main menu (init 0x002345D0) opens its page at 0x00234B3D (Start New
  * Game, Load Saved Game, Options, Xbox Live, Extra Features), with eax =
- * [0x00767530], and closes it at 0x00234D86. "reSOT Options" is added there
+ * [0x00767530], and closes it at 0x00234D86. "Port Options" is added there
  * before the close; the pages are built when the next page opens
  * (0x00234DC8, return 0x00234DCD), and again for each new main menu.
  * RESOT_HIDDEN_MENUS=0 disables them. */
@@ -904,7 +904,7 @@ enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T
        T_LEVELS = 80, T_PART = 81, T_LV = 88, T_CHEATS = 140, T_CHEAT = 141,
        T_DEBUG = 150, T_DBG = 151, T_PROTO = 160, T_PRO = 161, T_SOUND = 165, T_SND = 166 };
 static const char *const s_static_texts[] = {
-    "reSOT Options", "Graphics", "Controls",
+    "Port Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
     "Joystick: move and fight", "Joystick: actions", "Joystick: menus and camera",
     "Reset all bindings",
@@ -912,7 +912,7 @@ static const char *const s_static_texts[] = {
 /* RE-SoT: the same pages in German when the game's text is German
  * (RESOT_TEXT_LANGUAGE), in the font's Latin-1. */
 static const char *const s_static_texts_de[] = {
-    "reSOT-Optionen", "Grafik", "Steuerung",
+    "Port-Optionen", "Grafik", "Steuerung",
     "Tastatur: Bewegen und K" "\xE4" "mpfen", "Tastatur: Aktionen", "Tastatur: Men" "\xFC" "s und Kamera",
     "Controller: Bewegen und K" "\xE4" "mpfen", "Controller: Aktionen", "Controller: Men" "\xFC" "s und Kamera",
     "Alle Belegungen zur" "\xFC" "cksetzen",
@@ -1373,7 +1373,7 @@ static void native_build_and_bind(void)
 
 /* RE-SoT: the pause menu builds its pages the same way; its first page
  * "Pause" (text 0B00411F) opens at return 0x001A323E and closes at
- * 0x001A3441, and "Optionen" opens next (0x001A3470). "reSOT Options" goes
+ * 0x001A3441, and "Optionen" opens next (0x001A3470). "Port Options" goes
  * to the end of the pause page and its pages are built into the pause menu,
  * so the cheats and the Debug page are at hand in play. The level select
  * stays in the main menu: started from the pause menu, the map change

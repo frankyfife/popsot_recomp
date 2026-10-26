@@ -201,7 +201,7 @@ static void copy_all(HWND window)
     if (!out) { ReleaseSRWLockExclusive(&s_lock); if (mem) GlobalFree(mem); return; }
     GetLocalTime(&t);
     used += (size_t)snprintf(out + used, size - used,
-        "reSOT diagnostics, %s, %04u-%02u-%02u %02u:%02u:%02u\r\n",
+        "POPSoT Recomp diagnostics, %s, %04u-%02u-%02u %02u:%02u:%02u\r\n",
         RESOT_TARGET_ID, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
     for (i = 0; i < s_line_count && used < size; i++)
         used += (size_t)snprintf(out + used, size - used, "%s\r\n", s_lines[i]);
@@ -287,7 +287,7 @@ int resot_diag_panel(const uint32_t **pixels, uint32_t *width, uint32_t *height)
         sample();
         for (n = 0; n < (size_t)PW * PH; n++) s_bits[n] = 0xC0151C29u;
         SelectObject(s_dc, s_title_font);
-        text(16, 8, 400, "reSOT Diagnostics", RGB(245, 248, 255));
+        text(16, 8, 400, "POPSoT Recomp Diagnostics", RGB(245, 248, 255));
         SelectObject(s_dc, s_font);
         box(COPY_X, COPY_Y, COPY_W, COPY_H, RGB(46, 72, 99));
         text(COPY_X + 17, COPY_Y + 3, COPY_W - 10, "Copy", RGB(235, 242, 251));

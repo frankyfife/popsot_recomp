@@ -82,8 +82,8 @@ void resot_console_logs_set(int enabled)
         s_console_output=CreateFileA("CONOUT$",GENERIC_READ|GENERIC_WRITE,
             FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,0,NULL);
         if(s_console_output==INVALID_HANDLE_VALUE) { s_console_output=NULL;return; }
-        SetConsoleTitleA("reSOT - Console logs");
-        resot_console_write("reSOT - Console logs\r\n");
+        SetConsoleTitleA("POPSoT Recomp - Console logs");
+        resot_console_write("POPSoT Recomp - Console logs\r\n");
         resot_console_write(s_console_source_status[0]);
         resot_console_write(s_console_source_status[1]);
         window=GetConsoleWindow();

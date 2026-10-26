@@ -95,50 +95,38 @@ function(resot_add_target id exe_name)
     set_source_files_properties("${guest_resource}" PROPERTIES OBJECT_DEPENDS "${guest_xbe}")
     add_executable(${exe_name} WIN32
         port/windows/src/main.c
-        port/windows/src/launcher.c
         port/windows/src/scene.c
         port/windows/src/options.c
         port/windows/src/diag.c
         port/game/recomp_manual.c
-        port/third_party/extract-xiso/extract-xiso.c
         "${guest_resource}"
         ${hooks}
         ${gen})
     target_link_libraries(${exe_name} PRIVATE
         xboxrecomp d3d11 dxgi dxguid xinput winmm dbghelp bcrypt ole32 shell32 uuid
         msimg32 windowscodecs)
-    # The launcher tells the demo from the retail game in any folder: it
-    # needs both targets' default.xbe hashes, from their target.h.
-    foreach(other xbox-demo xbox-retail)
-        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/source/${other}/target.h" other_facts)
-        string(REGEX MATCH "#define[ \t]+RESOT_XBE_SHA256[ \t]+\"([A-Fa-f0-9]+)\"" other_match "${other_facts}")
-        string(TOUPPER "${CMAKE_MATCH_1}" other_hash)
-        string(REPLACE "xbox-" "" other_short "${other}")
-        string(TOUPPER "${other_short}" other_short)
-        set_property(SOURCE port/windows/src/launcher.c APPEND PROPERTY COMPILE_DEFINITIONS
-            "RESOT_${other_short}_XBE_SHA256=\"${other_hash}\"")
-        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/source/${other}/target.h")
-    endforeach()
-    # extract-xiso (port/third_party/extract-xiso) is built unchanged into the
-    # executable; the launcher runs it in a child copy (launcher.h), so its
-    # exit() and chdir() never touch the game process.
-    set_source_files_properties(port/third_party/extract-xiso/extract-xiso.c PROPERTIES
-        COMPILE_DEFINITIONS "main=resot_extract_xiso_main;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS"
-        COMPILE_OPTIONS "$<$<C_COMPILER_ID:MSVC>:/w>")
-    # The launcher's title face, when present (see docs/LICENSING.md).
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/res/AtlantisMF.ttf")
-        target_compile_definitions(${exe_name} PRIVATE RESOT_HAVE_LAUNCHER_FONT)
-    endif()
     target_include_directories(${exe_name} PRIVATE
         ${dir} ${dir}/gen ${XBOXRECOMP_DIR}/include)
     if(RESOT_ASPECT)
         target_compile_definitions(${exe_name} PRIVATE "RESOT_DEFAULT_ASPECT=\"${RESOT_ASPECT}\"")
     endif()
-    # Icon and version resource of the executable.
-    target_sources(${exe_name} PRIVATE port/windows/res/resot.rc)
-    set_source_files_properties(port/windows/res/resot.rc PROPERTIES
-        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/default-options.ini")
+    # Icon and version resource of the executable. The icon is the PC
+    # version's (tools/extract-icon.py writes bin/pop.ico from the player's
+    # POP.EXE; not kept in the repository), else the neutral app.ico.
+    set(app_icon "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/res/app.ico")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/bin/pop.ico")
+        set(app_icon "${CMAKE_CURRENT_SOURCE_DIR}/bin/pop.ico")
+    endif()
+    set(app_resource "${CMAKE_CURRENT_BINARY_DIR}/${id}-app.rc")
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/res/app.rc.in" app_rc)
+    string(REPLACE "@APP_ICON@" "${app_icon}" app_rc "${app_rc}")
+    string(REPLACE "@DEFAULT_OPTIONS@" "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/default-options.ini" app_rc "${app_rc}")
+    file(GENERATE OUTPUT "${app_resource}" CONTENT "${app_rc}")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/res/app.rc.in")
+    target_sources(${exe_name} PRIVATE "${app_resource}")
+    set_source_files_properties("${app_resource}" PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/port/windows/default-options.ini;${app_icon}")
     set(out "${exe_name}")
     if(RESOT_ABI_CHECK)
         set(out "${exe_name}-abi")

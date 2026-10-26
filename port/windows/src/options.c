@@ -1,5 +1,5 @@
 /* Portable host options: graphics settings and input bindings, kept in
- * resot-options.ini and changed from the game's own menu (the reSOT Options
+ * popsot-options.ini and changed from the game's own menu (the Port Options
  * pages in source/<target>/target_hooks.c). The runtime supplies window
  * events and controller state before its keyboard merge; the F6 overlay is
  * the diagnostics panel in diag.c. F7 opens the portable options panel. */
@@ -242,8 +242,8 @@ static int save_config(void)
     snprintf(value,sizeof value,"%d",s_console_logs);
     ok &= WritePrivateProfileStringA("Diagnostics","ConsoleLogs",value,s_path);
     if (!ok) fprintf(stderr,"[OPTIONS] could not save %s (read-only folder?)\n",s_path);
-    snprintf(s_status,sizeof s_status,"%s",ok ? "Saved to resot-options.ini." :
-             "Could not save resot-options.ini. Folder may be read-only.");
+    snprintf(s_status,sizeof s_status,"%s",ok ? "Saved to popsot-options.ini." :
+             "Could not save popsot-options.ini. Folder may be read-only.");
     mark_dirty();
     return ok;
 }
@@ -514,7 +514,7 @@ static int panel(const uint32_t **pixels,uint32_t *width,uint32_t *height)
     if(InterlockedExchange(&s_dirty,0)) {
         char label[120];
         for(n=0;n<(size_t)PW*PH;n++)s_bits[n]=0xC0151C29u;
-        SelectObject(s_dc,s_title_font);text(18,10,440,"reSOT Options",RGB(245,248,255));
+        SelectObject(s_dc,s_title_font);text(18,10,440,"Port Options",RGB(245,248,255));
         SelectObject(s_dc,s_font);text(PW-29,10,24,"X",RGB(200,210,227));
         text(18,36,470,s_capture>=0?"Waiting for a new binding...":"F7 / Esc closes this menu",RGB(147,170,199));
         SaveDC(s_dc);IntersectClipRect(s_dc,12,BODY_TOP,PW-25,BODY_BOTTOM);
@@ -798,6 +798,11 @@ void resot_native_reset_bindings(void)
     ReleaseSRWLockExclusive(&s_lock);
 }
 
+/* The settings file beside the executable; the reSOT builds called it
+ * resot-options.ini (moved over by resot_options_prepare_config). */
+#define OPTIONS_INI     "popsot-options.ini"
+#define OPTIONS_OLD_INI "resot-options.ini"
+
 void resot_options_prepare_config(void)
 {
     char path[1024], *slash;
@@ -810,8 +815,14 @@ void resot_options_prepare_config(void)
     if(!resource || !n || n>=sizeof path)return;
     slash=strrchr(path,'\\');if(!slash)return;
     slash[1]=0;
-    if(strlen(path)+strlen("resot-options.ini")>=sizeof path)return;
-    strcat(path,"resot-options.ini");
+    if(strlen(path)+strlen(OPTIONS_OLD_INI)>=sizeof path)return;
+    {   /* the settings of the reSOT builds move to the new name once */
+        char old[1024];
+        snprintf(old,sizeof old,"%s" OPTIONS_OLD_INI,path);
+        strcat(path,OPTIONS_INI);
+        if(GetFileAttributesA(path)==INVALID_FILE_ATTRIBUTES && GetFileAttributesA(old)!=INVALID_FILE_ATTRIBUTES)
+            MoveFileA(old,path);
+    }
     loaded=LoadResource(module,resource);data=loaded?LockResource(loaded):NULL;
     size=SizeofResource(module,resource);
     if(!data || !size)return;
@@ -833,8 +844,8 @@ void resot_options_init(void)
     if(s_walk_deflection<1000)s_walk_deflection=1000;if(s_walk_deflection>32767)s_walk_deflection=32767;
     GetModuleFileNameA(NULL,s_path,sizeof s_path);
     slash=strrchr(s_path,'\\');if(slash)slash[1]=0;else s_path[0]=0;
-    if(strlen(s_path)+strlen("resot-options.ini")>=sizeof s_path)return;
-    strcat(s_path,"resot-options.ini");
+    if(strlen(s_path)+strlen(OPTIONS_INI)>=sizeof s_path)return;
+    strcat(s_path,OPTIONS_INI);
     s_look_sensitivity=resot_look_percent((int)GetPrivateProfileIntA("Controls","LookSensitivityPercent",200,s_path));
     GetPrivateProfileStringA("Graphics","Renderer","d3d11",name,sizeof name,s_path);
     env=getenv("RESOT_RENDERER");

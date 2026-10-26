@@ -10,6 +10,7 @@
 
 #define COBJMACROS
 #include <windows.h>
+#include <shellapi.h>
 #include <dbghelp.h>
 #include <bcrypt.h>
 #include <io.h>
@@ -20,7 +21,6 @@
 #include <string.h>
 #include <math.h>
 #include "options.h"
-#include "launcher.h"
 #include "console_logs.h"
 
 /* xboxrecomp runtime headers */
@@ -80,6 +80,22 @@ static const char *resot_game_dir(void)
     if (env && *env) {
         if (GetFullPathNameA(env, MAX_PATH, local, NULL) >= MAX_PATH) return env;
         return local;
+    }
+    {   /* where POPSoT Launcher installed the game ([Launcher] GameDir) */
+        char ini[MAX_PATH], dir[MAX_PATH];
+        DWORD n = GetModuleFileNameA(NULL, ini, MAX_PATH);
+        char *slash = n && n < MAX_PATH ? strrchr(ini, '\\') : NULL;
+        if (slash && (size_t)(slash - ini) + sizeof "\\popsot-options.ini" < MAX_PATH) {
+            strcpy(slash, "\\popsot-options.ini");
+            if (GetPrivateProfileStringA("Launcher", "GameDir", "", dir, MAX_PATH, ini) && dir[0]) {
+                char probe[MAX_PATH];
+                snprintf(probe, sizeof probe, "%s\\prince.bf", dir);
+                if (GetFileAttributesA(probe) != INVALID_FILE_ATTRIBUTES
+                        && GetFullPathNameA(dir, MAX_PATH, local, NULL) < MAX_PATH)
+                    return local;
+                local[0] = 0;
+            }
+        }
     }
     if (!local[0]) {
         DWORD n = GetModuleFileNameA(NULL, local, MAX_PATH);
@@ -739,11 +755,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     (void)lpCmdLine;
     (void)nCmdShow;
 
-    /* A child copy of this executable that only runs extract-xiso for the
-     * launcher's ISO installation (launcher.c): no game, no logs. */
-    if (__argc >= 2 && __argv && __argv[1] && strcmp(__argv[1], RESOT_XISO_SWITCH) == 0)
-        return resot_xiso_child(__argc - 1, __argv + 1);
-
     /* Resolve an explicit relative asset path before changing directory.
      * Caches and diagnostics belong to this application, independent of the
      * directory from which Explorer/a shortcut/the terminal launched it. */
@@ -765,33 +776,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         }
     }
 
-    /* The title screen: what is installed in the game folder, Start Demo /
-     * Start Game, or the game's installation from its Xbox ISO when there
-     * are no game files. Before any runtime default below is put into the
-     * environment, so that handing over to the other target's executable
-     * passes none of this target's settings. run.ps1 (RESOT_LAUNCHER_CONFIGURED)
-     * and that hand-over (RESOT_SKIP_LAUNCHER) go straight to the game. */
+    /* The game files. Installing them from the game's Xbox ISO is the
+     * launcher's job (popsot-launcher.exe beside this executable, launcher/);
+     * started without them, this executable hands over to it, or says where
+     * it looked when there is none. */
     {
-        int flags = getenv("RESOT_LAUNCHER_CONFIGURED")
-                 || (getenv("RESOT_SKIP_LAUNCHER") && *getenv("RESOT_SKIP_LAUNCHER"))
-                  ? RESOT_LAUNCHER_NO_SCREEN : 0;
-        _putenv_s("RESOT_SKIP_LAUNCHER", "");
-        for (;;) {
-            const char *missing;
-            if (resot_launcher_run(RESOT_TARGET_ID, s_game_dir, sizeof s_game_dir, flags)
-                    != RESOT_LAUNCH_HERE)
-                return 0;
-            /* What this target needs in particular (retail: shaders.bin). */
-            if (!(missing = resot_missing_game_file())) break;
-            {
-                char message[768];
-                snprintf(message, sizeof message,
-                    "This folder does not contain the supported %s game files.\n\n%s\n\nMissing: %s\n\n"
-                    "Choose the game's Xbox ISO to install them.",
-                    RESOT_TARGET_ID, resot_game_dir(), missing);
-                MessageBoxA(NULL, message, "reSOT - Game files", MB_ICONWARNING);
+        const char *missing = resot_missing_game_file();
+        if (missing) {
+            char launcher[MAX_PATH], message[900];
+            DWORD n = GetModuleFileNameA(NULL, launcher, sizeof launcher);
+            char *slash = n && n < sizeof launcher ? strrchr(launcher, '\\') : NULL;
+            if (slash && (size_t)(slash - launcher) + sizeof "\\popsot-launcher.exe" < sizeof launcher) {
+                strcpy(slash, "\\popsot-launcher.exe");
+                if (!getenv("POPSOT_FROM_LAUNCHER")
+                        && GetFileAttributesA(launcher) != INVALID_FILE_ATTRIBUTES
+                        && (INT_PTR)ShellExecuteA(NULL, "open", launcher, NULL, NULL, SW_SHOWNORMAL) > 32)
+                    return 0;
             }
-            flags = RESOT_LAUNCHER_ASK_ISO;
+            snprintf(message, sizeof message,
+                "The game files were not found.\n\n%s\n\nMissing: %s\n\n"
+                "Install the game with POPSoT Launcher (popsot-launcher.exe) from your Xbox ISO.",
+                resot_game_dir(), missing);
+            MessageBoxA(NULL, message, "POPSoT Recomp - Game files", MB_ICONWARNING);
+            return 0;
         }
     }
 
@@ -893,7 +900,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
      * large disc assets are external; default.xbe is a build-time input. */
     if (!load_embedded_xbe(&xbe_data, &xbe_size)) {
         MessageBoxA(NULL, "The compiled game image is missing or damaged. Rebuild or replace this executable.",
-                    "reSOT - Invalid executable", MB_ICONERROR);
+                    "POPSoT Recomp - Invalid executable", MB_ICONERROR);
         return 1;
     }
     /* The game folder was checked by the launcher above. */

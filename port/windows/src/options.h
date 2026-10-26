@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /* Initialize once before starting the framebuffer window. Settings are
- * portable: resot-options.ini is kept beside the executable. */
+ * portable: popsot-options.ini is kept beside the executable. */
 void resot_options_init(void);
 /* Create the bundled INI only when absent, before the Windows launcher. */
 void resot_options_prepare_config(void);
@@ -20,7 +20,7 @@ int resot_diag_event(void *window, unsigned message, uintptr_t wp, intptr_t lp);
  * Graphics (items 0-4: FPS limit, VSync, texture glow, resolution, post processing quality) and
  * Controls (item 0: Look sensitivity), and the keyboard and joystick
  * bindings (item = action, 0-24). Activating a setting cycles it; a binding waits for the next key or
- * joystick input. Everything is saved to resot-options.ini at once. */
+ * joystick input. Everything is saved to popsot-options.ini at once. */
 enum { RESOT_NATIVE_GRAPHICS, RESOT_NATIVE_KEYS, RESOT_NATIVE_JOY, RESOT_NATIVE_CONTROLS };
 #define RESOT_NATIVE_GRAPHICS_ITEMS 5
 #define RESOT_NATIVE_ACTIONS 25
@@ -41,7 +41,7 @@ void resot_native_activate(int page, int item);
 void resot_native_reset_bindings(void);
 /* Changes whenever a native label may read differently. */
 long resot_native_revision(void);
-/* Free-form values of the target hooks in resot-options.ini (retail: [Menu]
+/* Free-form values of the target hooks in popsot-options.ini (retail: [Menu]
  * camera poses). An empty value removes the key; scripted runs do not write. */
 int resot_options_get_string(const char *section, const char *key, char *out, unsigned size);
 int resot_options_set_string(const char *section, const char *key, const char *value);

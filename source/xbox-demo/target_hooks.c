@@ -501,7 +501,7 @@ static uint32_t s_resot_root;         /* reSOT Options page, built below */
 #define RESOT_TEXT_GROUP 0x0B00FE00u  /* not a key of the demo's BF: injected */
 static MenuEntry s_entries[] = {
     { "Load Map", 0x0B00449Cu, 4u, 0x0BCu, 0, 0, 0 },  /* nine levels */
-    { "reSOT Options", RESOT_TEXT_GROUP, 0u, 0, 0, 0, &s_resot_root },
+    { "Port Options", RESOT_TEXT_GROUP, 0u, 0, 0, 0, &s_resot_root },
 };
 #define MENU_ENTRIES ((int)(sizeof s_entries / sizeof s_entries[0]))
 static uint32_t s_bind_edx, s_menu_vars;
@@ -703,7 +703,7 @@ extern void sub_0023FCA0(void);
 enum { T_ROOT, T_GRAPHICS, T_CONTROLS, T_KEY0, T_KEY1, T_KEY2, T_JOY0, T_JOY1, T_JOY2,
        T_RESET, T_GFX = 10, T_LOOK = 15, T_KEYS = 20, T_JOYS = 50 };
 static const char *const s_static_texts[] = {
-    "reSOT Options", "Graphics", "Controls",
+    "Port Options", "Graphics", "Controls",
     "Keyboard: move and fight", "Keyboard: actions", "Keyboard: menus and camera",
     "Joystick: move and fight", "Joystick: actions", "Joystick: menus and camera",
     "Reset all bindings",

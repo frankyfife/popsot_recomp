@@ -1,7 +1,25 @@
 # POPSoT Recomp
 
-A continuation of POPSoT (FulGerNet's static recompilation of the game), with
+**Prince of Persia: The Sands of Time, the Xbox version, as a native Windows
+game.** A continuation of FulGerNet's static recompilation of the game, with
 its own launcher, fixes and options.
+
+## What it does better, especially on Windows
+
+| | |
+| --- | --- |
+| **The Xbox game, natively** | The console version recompiled to x64 code, not the 2003 PC port: its water that moves on its own, its soft focus and glow, its menus. |
+| **Up to 2160p, 16:9** | Internal resolution up to 4.5x (2160p), widescreen Hor+ with the interface kept at 4:3, effects at full resolution on Ultra without shimmer (mip chains), the soft focus adjustable from off to the Xbox's 100 %. |
+| **Sharp interface** | Menu font and button prompts rendered again at 8x from the game's own font, fitted to the original glyphs. |
+| **5.1 surround and room reverb** | Discrete 5.1 through XAudio2 and the Xbox's own I3DL2 room reverb per area; the console's DirectSound mix without dropouts. |
+| **German, complete** | German texts and film subtitles from the USA disc; German speech and the German bonus films from your European disc, added by the launcher. Hint texts with correct German verbs and button prompts. |
+| **Launcher with installation** | `popsot-launcher.exe`: installs the game once from your own disc images (USA required, European optional), checks the executable by its hash, needs no other tools; settings on tabs, then Play. |
+| **Port Options in the game** | Graphics, sound, full keyboard and pad rebinding, a level select for every area plus the POP1 bonus and the credits, cheats (invulnerability, infinite sand, one-hit kills, no portal enemies, next sword), the PS2 prototype's life regeneration and HUD switch, and a debug page (free camera, world freeze, game speed, main-menu camera). |
+| **Main-menu camera** | The PC version's improved title-screen view, or your own placed with the free camera, so the wide picture shows no empty set edges. |
+| **Renderers and pacing** | Direct3D 11 by default, Direct3D 12 and Vulkan experimental; frame limit 30/60/120/unlimited, VSync. |
+| **Diagnostics** | F6 panel (frame time, renderer, audio), F9 captures a frame with all its render targets for bug reports. |
+
+Your own discs are needed; no game files are included.
 
 Static recompilation of the original Xbox builds of
 **Prince of Persia: The Sands of Time** into native Windows executables

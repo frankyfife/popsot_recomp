@@ -88,6 +88,22 @@ static const char *resot_game_dir(void)
         slash = strrchr(local, '\\');
         if (!slash) { local[0] = 0; return "."; }
         *slash = 0;
+        /* RE-SoT: started from a source checkout's bin\ (a double click,
+         * without run.ps1): the game files are in ..\Assets\<target>, where
+         * run.ps1 points RESOT_ASSET_DIR, so use them rather than offering
+         * to install the game again (user report 2026-10-26). */
+        {
+            char probe[MAX_PATH], dev[MAX_PATH];
+            snprintf(probe, sizeof probe, "%s\\prince.bf", local);
+            if (GetFileAttributesA(probe) == INVALID_FILE_ATTRIBUTES) {
+                snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s\\prince.bf", local, RESOT_TARGET_ID);
+                if (GetFileAttributesA(probe) != INVALID_FILE_ATTRIBUTES) {
+                    snprintf(probe, sizeof probe, "%s\\..\\Assets\\%s", local, RESOT_TARGET_ID);
+                    if (GetFullPathNameA(probe, MAX_PATH, dev, NULL) < MAX_PATH)
+                        snprintf(local, MAX_PATH, "%s", dev);
+                }
+            }
+        }
     }
     return local;
 }

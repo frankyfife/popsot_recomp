@@ -103,7 +103,8 @@ answering the doorbell and the interrupt, and makes the frames up afterwards
 It now runs for retail too. Menu, 6101 and the map change after it, 110 s:
 one dip of -62 dB left (none of digital silence; 8 to 25 before), 1875
 frames every 10 s, queue 5, never dry, front end waited for at most 44 ms
-per 10 s, 60 fps.
+per 10 s, 60 fps. **Confirmed by the user (2026-10-26): the dropouts are
+gone.**
 
 ## 2026-10-26: soft-focus strength (the wide halo around the trousers)
 

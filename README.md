@@ -11,7 +11,7 @@ its own launcher, fixes and options.
 | **The Xbox game, natively** | The console version recompiled to x64 code, not the 2003 PC port: its water that moves on its own, its soft focus and glow, its menus. |
 | **Up to 2160p, 16:9** | Internal resolution up to 4.5x (2160p), widescreen Hor+ with the interface kept at 4:3, effects at full resolution on Ultra without shimmer (mip chains), the soft focus adjustable from off to the Xbox's 100 %. |
 | **Sharp interface** | Menu font and button prompts rendered again at 8x from the game's own font, fitted to the original glyphs. |
-| **5.1 surround and room reverb** | Discrete 5.1 through XAudio2 and the Xbox's own I3DL2 room reverb per area; the dropouts of earlier builds fixed. |
+| **5.1 surround and room reverb** | Discrete 5.1 through XAudio2 and the Xbox's own I3DL2 room reverb per area; without dropouts (confirmed by the player, 2026-10-26). |
 | **German, complete** | German texts and film subtitles from the USA disc; German speech and the German bonus films from your European disc, added by the launcher. Hint texts with correct German verbs and button prompts. |
 | **Launcher with installation** | `popsot-launcher.exe`: installs the game once from your own disc images (USA required, European optional), checks the executable by its hash, needs no other tools; settings on tabs, then Play. |
 | **Port Options in the game** | Graphics, sound, full keyboard and pad rebinding, a level select for every area plus the POP1 bonus and the credits, cheats (invulnerability, infinite sand, one-hit kills, no portal enemies, next sword), the PS2 prototype's life regeneration and HUD switch, and a debug page (free camera, world freeze, game speed, main-menu camera). |

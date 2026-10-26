@@ -602,7 +602,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
                 xa2_get_stats(&queued, &dropped, &starved);
                 xbox_DiagAudio(v, 6);
                 fprintf(stderr, "[APU] device output peak %.4f (1 = full scale; -1 = no meter);"
-                                " voices 2D %d 3D %d multipass %d, streaming %d, locked %d\n",
+                                " voices 2D %d 3D %d multipass %d, streaming %d, skipped while locked (total) %d\n",
                         device, v[0], v[1], v[2], v[3], v[4]);
                 fprintf(stderr, "[APU] output over %.0f s: %d frames, %d not silent, peak %d/32767;"
                                 " XAudio2 queue %d, %d dropped, %d starved;"

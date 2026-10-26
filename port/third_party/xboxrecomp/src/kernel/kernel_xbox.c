@@ -10,6 +10,7 @@
  */
 
 #include "kernel.h"
+#include <stdlib.h>
 #include <string.h>
 
 /* ============================================================================
@@ -155,9 +156,14 @@ NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
 
     case XC_AUDIO:
         /* Stereo PCM matches the two-channel host output. 1 means mono;
-         * advertising AC3 requires an encoded-output path. */
+         * advertising AC3 requires an encoded-output path.
+         * RECOMP_XC_AUDIO overrides it: 2 (XC_AUDIO_FLAGS_SURROUND) makes
+         * DirectSound pan into all six speaker mixbins, which a 5.1 host
+         * output takes directly (RE-SoT sets it for its 5.1 option; with
+         * stereo the title's 3D panning left the rear mixbins empty). */
         if (ValueLength >= sizeof(ULONG)) {
-            *(PULONG)Value = 0x00000000;
+            const char *e = getenv("RECOMP_XC_AUDIO");
+            *(PULONG)Value = e && *e ? (ULONG)strtoul(e, NULL, 0) : 0x00000000;
             if (Type) *Type = 4; /* REG_DWORD */
             if (ResultLength) *ResultLength = sizeof(ULONG);
         }

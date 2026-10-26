@@ -875,6 +875,9 @@ void resot_options_init(void)
     GetPrivateProfileStringA("Audio","Speakers","stereo",name,sizeof name,s_path);
     if((env=getenv("RESOT_SPEAKERS"))&&*env)snprintf(name,sizeof name,"%s",env);
     s_speakers=s_speakers_saved=!strcmp(name,"5.1")||!strcmp(name,"6")?6:2;
+    /* the title asks the console's audio setting at start: surround, so its
+     * DirectSound pans into the rear mixbins too (kernel_xbox.c) */
+    if(s_speakers==6 && !getenv("RECOMP_XC_AUDIO")) _putenv_s("RECOMP_XC_AUDIO","2");
     s_reverb=GetPrivateProfileIntA("Audio","Reverb",1,s_path)!=0;
     if((env=getenv("RESOT_REVERB"))&&*env)s_reverb=*env!='0';
     xa2_configure(s_speakers,s_reverb);

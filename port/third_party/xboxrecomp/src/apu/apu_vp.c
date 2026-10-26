@@ -1215,37 +1215,49 @@ void mcpx_apu_vp_frame(MCPXAPUState *d,
     memset(d->vp.sample_buf, 0, sizeof(d->vp.sample_buf));
 
     /* RE-SoT: do not generate another idle request until DirectSound has
-     * serviced the current one and released FECTL (both XBE ISRs above). */
-    if ((d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) !=
-            NV_PAPU_FECTL_FEMETHMODE_FREE_RUNNING)
-        return;
+     * serviced the current one and released FECTL (both XBE ISRs above).
+     * Only the idle requests wait: the voices are still mixed. Skipping the
+     * whole frame while a request was pending silenced every voice for 5 to
+     * 27 ms each time a short sound ended, which in a level with many one-shot
+     * 3D sounds was audible as stutter and dropouts (user report 2026-10-26;
+     * none in the menu, whose music loops). */
+    bool trapped = (d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) !=
+                   NV_PAPU_FECTL_FEMETHMODE_FREE_RUNNING;
 
     for (int list = 0; list < 3; list++) {
         hwaddr top, current, next;
+        uint32_t cur, nxt;
         top = voice_list_regs[list].top;
         current = voice_list_regs[list].current;
         next = voice_list_regs[list].next;
 
-        d->regs[current] = d->regs[top];
+        /* the cursors in the registers belong to a pending request: once
+         * one is trapped, the scan goes on with local ones */
+        cur = d->regs[top];
+        if (!trapped)
+            d->regs[current] = cur;
 
-        for (int i = 0; d->regs[current] != 0xFFFF; i++) {
+        for (int i = 0; cur != 0xFFFF; i++) {
             if (i >= MCPX_HW_MAX_VOICES) {
                 DPRINTF("Voice list contains invalid entry!\n");
                 break;
             }
 
-            uint16_t v = (uint16_t)d->regs[current];
-            d->regs[next] = voice_get_mask(d, v, NV_PAVS_VOICE_TAR_PITCH_LINK,
-                               NV_PAVS_VOICE_TAR_PITCH_LINK_NEXT_VOICE_HANDLE);
+            uint16_t v = (uint16_t)cur;
+            nxt = voice_get_mask(d, v, NV_PAVS_VOICE_TAR_PITCH_LINK,
+                                 NV_PAVS_VOICE_TAR_PITCH_LINK_NEXT_VOICE_HANDLE);
+            if (!trapped)
+                d->regs[next] = nxt;
 
             if (!voice_get_mask(d, v, NV_PAVS_VOICE_PAR_STATE,
                                 NV_PAVS_VOICE_PAR_STATE_ACTIVE_VOICE)) {
-                fe_method(d, SE2FE_IDLE_VOICE, v);
-                /* RE-SoT: preserve the first trap, its current/next cursors
-                 * and handle. Continuing the scan overwrote the request. */
-                if ((d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) ==
-                        NV_PAPU_FECTL_FEMETHMODE_TRAPPED)
-                    goto vp_done;
+                if (!trapped) {
+                    fe_method(d, SE2FE_IDLE_VOICE, v);
+                    /* RE-SoT: preserve the first trap, its current/next
+                     * cursors and handle; the rest of the scan only mixes. */
+                    trapped = (d->regs[NV_PAPU_FECTL] & NV_PAPU_FECTL_FEMETHMODE) ==
+                              NV_PAPU_FECTL_FEMETHMODE_TRAPPED;
+                }
             } else {
                 /* RE-SoT: xemu's voice_work_dispatch waits while DirectSound
                  * holds a voice locked (NV1BA0_PIO_VOICE_LOCK) to rewrite its
@@ -1264,13 +1276,14 @@ void mcpx_apu_vp_frame(MCPXAPUState *d,
                 else
                     locked++;
             }
-            d->regs[current] = d->regs[next];
+            cur = nxt;
+            if (!trapped)
+                d->regs[current] = cur;
         }
     }
 
-vp_done: /* RE-SoT: a trapped scan still finishes this sub-frame's mix. */
     s_vp_diag[0] = active[0]; s_vp_diag[1] = active[1]; s_vp_diag[2] = active[2];
-    s_vp_diag[3] = streams; s_vp_diag[4] = locked;
+    s_vp_diag[3] = streams; s_vp_diag[4] += locked;   /* skipped while locked, running total */
     s_vp_diag[5]++;
 
     /* VP monitor output */

@@ -1,5 +1,46 @@
 # Validation log
 
+## 2026-10-26: audio dropouts, 5.1 without rear channels, the halo at 4K
+
+**Dropouts (user: stutters, hangs, drops out).** A recording before the host
+output (RECOMP_APU_WAV, 110 s, menu then 6101) was clean in the menu and had
+25 gaps of exact digital silence (1-5 frames of 256 samples) between audible
+frames in the level; no repeated frames, no jumps at frame boundaries, and
+XAudio2 never starved. Cause: mcpx_apu_vp_frame returned before mixing any
+voice while the front end waited for DirectSound to service an idle-voice
+request (FECTL trapped), so every short sound that ended silenced all voices
+until the guest's ISR answered. Now only further idle requests wait; the
+voices are mixed, and the trapped request keeps its cursors (the scan goes on
+with local ones). Same scene after: 10 gaps, single frames between sounds
+(the recording is before the reverb, so a frame without any voice is real
+silence). Voices skipped because DirectSound held them locked: 0 in 100 s
+(the 10-second line now counts them as a running total). The user still
+hears stutter (tested on a build before or after this is not certain); in
+these runs the level ran at a steady 60 fps with no hitch over 24 ms.
+
+**5.1 without rear channels.** The user's output (LG TV SSCR2) is set to 6
+channels, and the INI held Speakers=5.1, but the kernel told the title the
+console was set to stereo (XC_AUDIO 0), so its DirectSound panned 3D voices
+into the front crosstalk mixbins only. Mixbin levels in 6101
+(RECOMP_APU_BINSTAT): with XC_AUDIO 2 (XC_AUDIO_FLAGS_SURROUND) the rear
+crosstalk bins 8/9 carry -28 to -59 dBFS, with 0 they are silent; the
+direct bins 3-5 stay unused either way. The 5.1 option now sets
+RECOMP_XC_AUDIO=2 before the title starts (kernel_xbox.c reads it), and the
+5.1 mix already puts bins 8/9 on the rear speakers. In the user's session
+log the speaker setting was saved during the session (12:55) and the
+session started in stereo, so the "(nach Neustart)" note was right there.
+
+**The halo ("Doppelbild" around the ladder and the trousers).** The option
+labelled Texture glow effect switches the frame's last full-screen
+composite: the 160x120 soft-focus copy laid over at 41 % (blend 302/303).
+Same scene at 16:9 Ultra: with it the white trousers have a soft halo, with
+RESOT_TEXTURE_GLOW=0 they are crisp; RECOMP_HW_SOFT_FOCUS=0 (the tap
+sharpening) does not change the halo. The levels of that chain line up with
+the frame within a quarter texel (brightness profiles of the 160x120 and
+80x60 levels against the frame, three captures). The halo is the Xbox's own
+look; over a sharp 4K image it reads as a second image. The user's INI has
+it on (default off).
+
 ## 2026-10-26: silent levels after the level select, solved
 
 **Cause.** The level select built the ChangeMap key from the world list's

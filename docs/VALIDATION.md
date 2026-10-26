@@ -1,5 +1,28 @@
 # Validation log
 
+## 2026-10-26: speaker setting not kept; HD font chopped and thin (user report)
+
+**5.1 not kept.** Switching reSOT Options > Sound > Speakers to 5.1 showed
+"(nach Neustart)", but after the restart (Alt+F4, start again) the entry read
+Stereo. `resot_options_audio_activate` (port/windows/src/options.c) changed
+the value in memory and never called `save_config()`, which every other
+reSOT menu setting does at once; the speaker layout is only read at start.
+It now saves at once (room reverb too). Not yet confirmed in game: scripted
+pad runs deliberately save nothing.
+
+**Round letters chopped, font too thin.** At FONT_SIZE 19 the TTF's letters
+are wider and lower than the atlas's (ink boxes in HD texels at 8x: O
+136 x 117 against the original's 128 x 128 less the bilinear edge, H 150 x
+111 against 128 x 120). The rectangle the game samples fits the original,
+so round letters (0, O, C, G, Q, o, c, 6, @) lost their sides: up to 8 % of
+the 0's ink. tools/hd-ui.py now fits each letter to the original's
+proportions (glyph_fit: medians over letters and digits, x 0.85, y 1.04
+with the stroke) and narrows a letter further only where it would still
+not fit its rectangle, instead of clipping it. The weight is in between the
+two earlier states: FONT_STROKE 0.25 original pixels (0.5 was too bold on
+2026-10-25, 0 too thin now). The atlas is generated locally as before
+(`python tools/hd-ui.py --game Assets/xbox-retail --pack bin/textures`).
+
 ## 2026-10-25: grainy, restless picture: mip chains for render targets
 
 User report: the picture is grainy and restless, also on smooth surfaces

@@ -152,10 +152,17 @@ void resot_options_audio_label(int item, char *out, unsigned size)
         snprintf(out,size,de?"Raumhall: %s":"Room reverb: %s",s_reverb?(de?"An":"On"):(de?"Aus":"Off"));
 }
 
+static int save_config(void);
+
 void resot_options_audio_activate(int item)
 {
+    AcquireSRWLockExclusive(&s_lock);
     if (item==0) s_speakers=s_speakers==6?2:6;
     else { s_reverb=!s_reverb; xa2_set_reverb(s_reverb); }
+    /* saved at once, as the other reSOT menu settings: the speaker layout
+     * only takes effect at the next start, so it has to reach the file */
+    save_config();
+    ReleaseSRWLockExclusive(&s_lock);
     fprintf(stderr,"[OPTIONS] audio: speakers %s (%s), reverb %s\n",s_speakers==6?"5.1":"stereo",
             s_speakers!=s_speakers_saved?"after a restart":"in use",s_reverb?"on":"off");
     mark_dirty();

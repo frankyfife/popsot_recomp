@@ -49,9 +49,11 @@ HERE = ROOT / "tools" / "hd-ui"
 FONT_KEY = "61ae24597fbff11f"      # retail 512x128 menu font atlas
 BUTTON_KEY = "961c13f4b5867590"    # retail 512x256 button atlas
 FONT_SIZE = 19                     # AtlantisMF size of the original glyphs
-FONT_STROKE = 0.0                  # extra stroke, original pixels. 0.5 fits the atlas best
+FONT_STROKE = 0.25                 # extra stroke, original pixels. 0.5 fits the atlas best
                                    # (mean correlation 0.89), but looks too bold at 4K
-                                   # (user, 2026-10-25); the plain TTF weight is used.
+                                   # (user, 2026-10-25); the plain weight looked too thin
+                                   # (user, 2026-10-26), so half of it.
+FIT_BLUR = 1.0                     # original pixels the bilinear edge adds to an ink box
 FALLBACK_BELOW = 0.6               # glyphs whose TTF shape differs keep the traced original
 EDGE_GAP = 2                       # HD texels around a glyph's rectangle no other glyph may ink
 BUTTON_REACH = 1                   # original texels the HD buttons may reach past the original ink
@@ -100,6 +102,7 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
     missing = []
     fallback = []
     areas = glyph_areas(rects, out_a.shape, scale)
+    fit_x, fit_y = glyph_fit(A, font, rects, scale, stroke)
     for code, (u0, u1, v0, v1) in sorted(rects.items(), key=lambda kv: int(kv[0])):
         c = int(code)
         # the game's text bytes are Windows-1252 (0x80..0x9F: Euro sign, S/Z
@@ -122,7 +125,19 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
         if not bbox:
             missing.append(ch)
             continue
-        g = g.crop(bbox).transpose(Image.FLIP_TOP_BOTTOM)
+        g = g.crop(bbox)
+        # the TTF at FONT_SIZE draws wider and lower letters than the atlas
+        # (an O 136 x 117 HD texels against the original's 128 x 128): bring
+        # them to the original's proportions, and narrower still where the
+        # letter would not fit the rectangle the game samples, rather than
+        # cutting its sides off (round letters looked chopped, user report
+        # 2026-10-26)
+        room = (u1 - u0) * scale - 2
+        w = g.width * fit_x
+        if w > room:
+            w = room
+        g = g.resize((max(int(round(w)), 1), max(int(round(g.height * fit_y)), 1)), Image.LANCZOS)
+        g = g.transpose(Image.FLIP_TOP_BOTTOM)
         gx = int(round(cx * scale - g.width / 2.0))
         gy = int(round(cy * scale - g.height / 2.0))
         # only where this glyph may ink (glyph_areas), so no neighbour's
@@ -156,6 +171,32 @@ def build_font(atlas, ttf, rects, scale, size=None, stroke=None):
     out = Image.fromarray(out_a)
     white = Image.new("L", out.size, 255)
     return Image.merge("RGBA", (white, white, white, out)), missing + ["traced:" + ",".join(fallback)] if fallback else missing
+
+
+def glyph_fit(A, font, rects, scale, stroke):
+    """How much wider (x) and taller (y) the original glyphs are than the
+    TTF's at FONT_SIZE: the median over the letters and digits of the
+    original ink box (less the bilinear edge) over the TTF's ink box."""
+    rx, ry = [], []
+    for code, (u0, u1, v0, v1) in rects.items():
+        c = int(code)
+        if not (48 <= c <= 57 or 65 <= c <= 90 or 97 <= c <= 122):
+            continue
+        x0, x1 = int(round(u0 - 0.5)), int(round(u1))
+        y0, y1 = int(round(v0 - 0.5)), int(round(v1))
+        ys, xs = np.nonzero(A[y0:y1, x0:x1] > 0.25)
+        if not len(xs):
+            continue
+        size = font.size
+        g = Image.new("L", (size * 3, size * 3), 0)
+        ImageDraw.Draw(g).text((size, size), chr(c), font=font, fill=255,
+                               stroke_width=int(round(stroke)), stroke_fill=255)
+        bb = g.getbbox()
+        if not bb:
+            continue
+        rx.append((xs.max() - xs.min() + 1 - FIT_BLUR) * scale / (bb[2] - bb[0]))
+        ry.append((ys.max() - ys.min() + 1 - FIT_BLUR) * scale / (bb[3] - bb[1]))
+    return float(np.median(rx)), float(np.median(ry))
 
 
 def glyph_areas(rects, shape, scale):

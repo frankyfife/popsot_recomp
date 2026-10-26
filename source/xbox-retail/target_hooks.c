@@ -972,11 +972,14 @@ static int s_cheat[CHEATS];
 static long s_cheat_revision;
 static int s_sword_pending;
 static const char *const s_cheat_names[CHEATS] = {
-    "Invulnerable", "Infinite sand", "One-hit kills", "No enemies (prototype)",
-    "Endless enemies (prototype)" };
+    "Invulnerable", "Infinite sand", "One-hit kills", "No portal enemies",
+    "Endless portal enemies" };
+/* "Portal": the prototype's spawner switches stop or repeat the sand
+ * creatures that spawn points send; guards placed in a level stay (user
+ * report 2026-10-26: no effect on the ramparts' guards in 0102). */
 static const char *const s_cheat_names_de[CHEATS] = {
-    "Unverwundbar", "Unendlich Sand", "Ein Treffer t" "\xF6" "tet", "Keine Gegner (Prototyp)",
-    "Endlose Gegner (Prototyp)" };
+    "Unverwundbar", "Unendlich Sand", "Ein Treffer t" "\xF6" "tet", "Keine Portal-Gegner",
+    "Endlose Portal-Gegner" };
 static void cheat_sword_label(char *out, unsigned size);
 
 /* RE-SoT: the reSOT Prototype page (below, after the cheats). */

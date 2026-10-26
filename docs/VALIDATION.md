@@ -1,5 +1,25 @@
 # Validation log
 
+## 2026-10-26: cheats that seemed not to work; the special maps
+
+The user found "no enemies" and the sword change without effect. Their run
+of 14:25 (logs/history) shows both did run: "No enemies" set the spawner
+switch at 0x01 in 0102 (the ramparts), and the sword entry logged "sword 2
+of 4". The prototype's switch only drops the spawn requests of spawn points
+(Spawn_WP__MSG, 0x001CAE51), i.e. sand creatures from portals; the ramparts'
+guards are placed in the level and stay. With RESOT_CHEATS=nospawn the
+level select's 6101 has no enemy on the stairs where one stands otherwise.
+The entries are now called "No portal enemies" / "Keine Portal-Gegner"
+(and "Endless portal enemies"). The sword change calls the prince's own
+fn_SetWeapon; a sword whose model the level has not loaded does not show.
+
+Special maps from the level select, user report: magic_corridor (map
+30000865) shows only the Prince's head and a little level, Magic_Fountain
+(300003DC) drops into the void, WhiteRoom (2B00784A) loads an empty room.
+All three keys come from the sound bank table, so they are the game's own
+map keys; the worlds look like development test maps without a start for
+check point -1. Not examined further.
+
 ## 2026-10-26: the remaining stutter: frames sent as silence while the front end waits
 
 The user still heard stutter everywhere, menu included, and sent a screen

@@ -304,8 +304,6 @@ ref 0x00033CB3 0x0041F634           # bank name format "0x%08x" of the map key
 ref 0x0009AEF1 0x0046B1C8           # sound bank table: count
 ref 0x0009AF02 0x0046B1C4           # sound bank table: entries (0x30 bytes, name first)
 value 0x0B0041D2                    # text group with "Special Load Map" (index 8)
-value 0xFF0003DC                    # level select: world-list stream (prince.bf)
-value 0xFF000865                    # level select: world-list stream (prince.bf)
 value 0xFF012246                    # level select: world-list stream (prince.bf)
 value 0xFF012249                    # level select: world-list stream (prince.bf)
 value 0xFF012456                    # level select: world-list stream (prince.bf)
@@ -333,7 +331,6 @@ value 0xFF0B59EC                    # level select: world-list stream (prince.bf
 value 0xFF0B5C22                    # level select: world-list stream (prince.bf)
 value 0xFF0B64B5                    # level select: world-list stream (prince.bf)
 value 0xFF0B66FB                    # level select: world-list stream (prince.bf)
-value 0xFF0B784A                    # level select: world-list stream (prince.bf)
 value 0xFF0BA848                    # level select: world-list stream (prince.bf)
 value 0xFF0D06E2                    # level select: world-list stream (prince.bf)
 value 0xFF0D0A1E                    # level select: world-list stream (prince.bf)

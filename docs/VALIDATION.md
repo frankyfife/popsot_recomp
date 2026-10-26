@@ -18,7 +18,23 @@ Special maps from the level select, user report: magic_corridor (map
 (300003DC) drops into the void, WhiteRoom (2B00784A) loads an empty room.
 All three keys come from the sound bank table, so they are the game's own
 map keys; the worlds look like development test maps without a start for
-check point -1. Not examined further.
+check point -1. They are no longer in the level select (user's decision).
+POP1 stays: it loads the classic-style dungeon (POP1_Sec1-4, PrinceCostume02).
+
+Sword change, checked: RESOT_SWORD_TEST=<seconds> requests the sword entry
+once by itself. In the level select's 6101 (which merges Prince_Sword02 and
+Prince_Sword03) the straight sword on the Prince's back becomes the curved
+one ("sword 2 of 4"). The retail fn_SetWeapon (0x0026CE80) takes only the
+prince and steps the index itself; the PC version's takes the sword and the
+index. A sword whose world the level has not merged (early levels load only
+Prince_Sword01) does not show.
+
+Menu camera, checked: with RESOT_CAM_TRACE=1 the camera shown in the main
+menu ("[CAM] shown") is the PC pose (-82.927 2.869 -2.608, yaw -2.9409,
+pitch 0.1740) in mode pc and the game's (-83.589 1.389 -2.662) in mode
+original; the pictures differ (palace visible through the palms). The user
+still finds the position wrong; the PC pose is the one from their popfix.ini
+of 2026-10-25.
 
 ## 2026-10-26: the remaining stutter: frames sent as silence while the front end waits
 

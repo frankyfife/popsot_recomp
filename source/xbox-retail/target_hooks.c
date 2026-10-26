@@ -923,9 +923,11 @@ static uint32_t s_text_va;
  * Load entry (P_SpecialLoad, docs/TECHNICAL.md:188), which the PC main menu
  * still carries hidden; the retail XBE keeps only the caption (text group
  * 0x0B0041D2, index 8) and no page. Here it is a native page set: one world
- * list per area of the game, the first room of each, and the hidden ones
- * (the POP1 bonus, the developers' WhiteRoom test room, the magic corridor
- * and fountain worlds, the credits map). A world list's map key is
+ * list per area of the game, the first room of each, and two hidden ones
+ * (the POP1 bonus and the credits map). The developers' WhiteRoom, magic
+ * corridor and magic fountain worlds were dropped: test maps without a start
+ * (an empty room, a head and a scrap of level, a fall into the void; user
+ * report 2026-10-26). A world list's map key is
  * 0x0T00LLLL for the bigfile stream FF0TLLLL (the credits: FF0BA848 holds
  * "MenuCredits", key 0x0B00A848); the room is the world list's last world
  * (read from Assets/xbox-retail/prince.bf). */
@@ -952,9 +954,7 @@ static const Level s_levels[] = {
     { 0xFF01268Au, "8101_TowerBase" },       { 0xFF01268Eu, "8102_TowerEntrance" },
     { 0xFF0F4E2Cu, "8201_UpperHighLevel" },  { 0xFF0B66FBu, "9101_FarahRoom" },
 
-    { 0xFF0124B6u, "POP1" },                 { 0xFF0B784Au, "WhiteRoom" },
-    { 0xFF000865u, "magic_corridor" },       { 0xFF0003DCu, "Magic_Fountain" },
-    { 0xFF0BA848u, "MenuCredits" },
+    { 0xFF0124B6u, "POP1" },                 { 0xFF0BA848u, "MenuCredits" },
 };
 #define LEVELS ((int)(sizeof s_levels / sizeof s_levels[0]))
 #define LEVEL_PARTS 4
@@ -1842,6 +1842,15 @@ static void cheats_tick(void)
         }
         was[i] = down;
     }
+    {   /* RESOT_SWORD_TEST=<seconds>: the sword entry, by itself, once */
+        static double at = -1.0;
+        if (at < 0.0) { const char *e = getenv("RESOT_SWORD_TEST"); at = e ? (double)clock() / CLOCKS_PER_SEC + atof(e) : 0.0; }
+        if (at > 0.0 && (double)clock() / CLOCKS_PER_SEC >= at) {
+            at = 0.0;
+            s_sword_pending = 1;
+            fprintf(stderr, "[CHEAT] sword test: requested (in play %d)\n", cheat_in_play());
+        }
+    }
     if (s_sword_pending && cheat_in_play()) {
         s_sword_pending = 0;
         cheat_next_sword();
@@ -2173,6 +2182,13 @@ void sub_002FDD00_enter(void)
         return;
     if (!s_fc.on) {
         menucam_apply(g_eax);
+        if (getenv("RESOT_CAM_TRACE")) {
+            static unsigned n;
+            if (n++ % 30 == 0)
+                fprintf(stderr, "[CAM] shown pos %.3f %.3f %.3f K %.3f %.3f %.3f\n",
+                        GMEMF(g_eax + CAM_POS), GMEMF(g_eax + CAM_POS + 4), GMEMF(g_eax + CAM_POS + 8),
+                        GMEMF(g_eax + CAM_ROW_K), GMEMF(g_eax + CAM_ROW_K + 4), GMEMF(g_eax + CAM_ROW_K + 8));
+        }
         return;
     }
     cam = g_eax;

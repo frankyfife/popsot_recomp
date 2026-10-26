@@ -313,9 +313,10 @@ the dump on (`RESOT_TEXTURE_DUMP=1`, `RESOT_START_LEVEL=6101_couloir`, with
 
 The main menu has the developers' "Special Load Map" again ("Spezielle
 Karte laden"). It lists one entry per area of the game and the hidden
-worlds (the original Prince of Persia bonus, the developers' WhiteRoom,
-the credits map) and starts the chosen one directly, like popsot-fixes'
-Special Load on PC. It is meant for testing: the Prince keeps whatever the
+worlds (the original Prince of Persia bonus and the credits map) and starts
+the chosen one directly, like popsot-fixes' Special Load on PC. The
+developers' test maps (WhiteRoom, magic corridor, magic fountain) are left
+out: they have no start and do not play. It is meant for testing: the Prince keeps whatever the
 menu had (sword, sand tanks), not what the story would have given him by
 then. `RESOT_HIDDEN_MENUS=0` hides it together with "reSOT Options".
 

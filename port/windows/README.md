@@ -398,6 +398,15 @@ starts at that speed and `RESOT_TIMER_DIAG=1` logs the game clock against
 the wall clock. The level select stays in the main menu only: started from
 the pause menu, a map change ended on the "Spielende" page.
 
+### Soft focus strength
+
+The menu entry formerly called texture glow switches the title's soft-focus
+overlay (a blurred 160x120 copy of the frame laid over it). reSOT Options >
+Graphics > Soft focus cycles Off, 25 %, 50 %, 75 % and 100 % (the Xbox's own
+strength); the INI keeps `[Graphics] TextureGlowEffect` as the switch and
+`SoftFocusStrength=1..100` as the strength (`RESOT_SOFT_FOCUS_STRENGTH`
+overrides it). Direct3D 11 only for now.
+
 ### Post processing quality and texture glow
 
 `Texture glow effect` uses `[Graphics] TextureGlowEffect=1` by default on

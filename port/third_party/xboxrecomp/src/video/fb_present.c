@@ -360,6 +360,22 @@ int xbox_FramebufferPostProcessing(void)
     return InterlockedCompareExchange(&s_post_processing, 0, 0) != 0;
 }
 
+/* RE-SoT: how strongly the composite switched above is laid over, percent of
+ * the title's own (1..100). At 4K over a sharp image the 160x120 copy reads
+ * as a wide halo where the title raises it (user report 2026-10-26). */
+static volatile LONG s_soft_focus_strength = 100;
+
+void xbox_SetSoftFocusStrength(int percent)
+{
+    if (percent < 1 || percent > 100) percent = 100;
+    InterlockedExchange(&s_soft_focus_strength, percent);
+}
+
+int xbox_FramebufferSoftFocusStrength(void)
+{
+    return (int)InterlockedCompareExchange(&s_soft_focus_strength, 0, 0);
+}
+
 void xbox_SetFrameLimit(int fps)
 {
     if (fps != 30 && fps != 60 && fps != 120) fps = 0;

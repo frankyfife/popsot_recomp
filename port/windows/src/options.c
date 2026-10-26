@@ -97,6 +97,9 @@ static uint32_t *s_bits;
 static HFONT s_font, s_title_font;
 static int s_keys[ACTIONS], s_joy[ACTIONS], s_fps = 0, s_resolution=3;
 static int s_vsync=0, s_texture_glow=0, s_capture = -1, s_capture_tab;
+/* RE-SoT: strength of the soft-focus overlay that s_texture_glow switches,
+ * percent of the title's own (100 = Xbox). */
+static int s_soft_strength=100;
 static int s_console_logs;
 extern void resot_console_logs_set(int);
 static int s_renderer; /* 0 (default): D3D11, 1: native D3D12, 2: native Vulkan; restart. */
@@ -122,6 +125,7 @@ extern void xbox_SetFrameLimit(int);
 extern void xbox_SetRenderScalePercent(int);
 extern void xbox_SetVSync(int);
 extern void xbox_SetPostProcessing(int);
+extern void xbox_SetSoftFocusStrength(int);
 extern void xbox_SetPostProcessingQuality(int);
 extern void xbox_SetSoftFocus(int);
 static int s_post_quality=1, s_soft_focus=1;
@@ -218,6 +222,8 @@ static int save_config(void)
     ok &= WritePrivateProfileStringA("Graphics","PostProcessingQuality",value,s_path);
     snprintf(value,sizeof value,"%d",s_texture_glow);
     ok &= WritePrivateProfileStringA("Graphics","TextureGlowEffect",value,s_path);
+    snprintf(value,sizeof value,"%d",s_soft_strength);
+    ok &= WritePrivateProfileStringA("Graphics","SoftFocusStrength",value,s_path);
     snprintf(value,sizeof value,"%d",s_soft_focus);
     ok &= WritePrivateProfileStringA("Graphics","SoftFocus",value,s_path);
     snprintf(value,sizeof value,"%d",s_scales[s_resolution]);
@@ -707,7 +713,8 @@ void resot_native_label(int page, int item, char *out, unsigned size)
         switch (item) {
         case 0: snprintf(out,size,"FPS-Limit: %s",cap==3?"Keins":s_cap_names[cap]); break;
         case 1: snprintf(out,size,"VSync: %s",s_vsync?"An":"Aus"); break;
-        case 2: snprintf(out,size,"Textur-Gl" "\xFC" "hen: %s",s_texture_glow?"An":"Aus"); break;
+        case 2: if (!s_texture_glow) snprintf(out,size,"Weichzeichner: Aus");
+                else snprintf(out,size,"Weichzeichner: %d%%%s",s_soft_strength,s_soft_strength==100?" (Xbox)":""); break;
         case 4: snprintf(out,size,"Nachbearbeitung: %s",s_post_quality?s_quality_names_de[s_post_quality]:"Eigene"); break;
         default: snprintf(out,size,"Aufl" "\xF6" "sung: %s",s_native_sizes[s_resolution]); break;
         }
@@ -717,7 +724,8 @@ void resot_native_label(int page, int item, char *out, unsigned size)
         switch (item) {
         case 0: snprintf(out,size,"FPS limit: %s",s_cap_names[s_fps==30?0:s_fps==60?1:s_fps==120?2:3]); break;
         case 1: snprintf(out,size,"VSync: %s",s_vsync?"On":"Off"); break;
-        case 2: snprintf(out,size,"Texture glow effect: %s",s_texture_glow?"On":"Off"); break;
+        case 2: if (!s_texture_glow) snprintf(out,size,"Soft focus: Off");
+                else snprintf(out,size,"Soft focus: %d%%%s",s_soft_strength,s_soft_strength==100?" (Xbox)":""); break;
         case 4: snprintf(out,size,"Post processing: %s",s_post_quality?s_quality_names[s_post_quality]:"Custom"); break;
         default: snprintf(out,size,"Resolution: %s",s_native_sizes[s_resolution]); break;
         }
@@ -761,7 +769,11 @@ void resot_native_activate(int page, int item)
         switch (item) {
         case 0: s_fps=s_fps==30?60:s_fps==60?120:s_fps==120?0:30; xbox_SetFrameLimit(s_fps); break;
         case 1: s_vsync=!s_vsync; xbox_SetVSync(s_vsync); break;
-        case 2: s_texture_glow=!s_texture_glow; xbox_SetPostProcessing(s_texture_glow); break;
+        case 2:   /* Off, 25, 50, 75, 100 % (the title's own strength) */
+            if (!s_texture_glow) { s_texture_glow=1; s_soft_strength=25; }
+            else if (s_soft_strength<100) s_soft_strength=(s_soft_strength/25+1)*25;
+            else s_texture_glow=0;
+            xbox_SetPostProcessing(s_texture_glow); xbox_SetSoftFocusStrength(s_soft_strength); break;
         case 3: s_resolution=(s_resolution+1)%7; resize=1; break;
         case 4: s_post_quality=s_post_quality>=4?1:s_post_quality+1; xbox_SetPostProcessingQuality(s_post_quality); break;
         }
@@ -848,6 +860,9 @@ void resot_options_init(void)
     xbox_SetPostProcessingQuality(s_post_quality);
     s_texture_glow=GetPrivateProfileIntA("Graphics","TextureGlowEffect",0,s_path)!=0;
     if((env=getenv("RESOT_TEXTURE_GLOW"))&&*env)s_texture_glow=*env!='0';
+    s_soft_strength=(int)GetPrivateProfileIntA("Graphics","SoftFocusStrength",100,s_path);
+    if((env=getenv("RESOT_SOFT_FOCUS_STRENGTH"))&&*env)s_soft_strength=atoi(env);
+    if(s_soft_strength<1||s_soft_strength>100)s_soft_strength=100;
     env=getenv("RECOMP_HW_SOFT_FOCUS");
     s_soft_focus=GetPrivateProfileIntA("Graphics","SoftFocus",1,s_path)!=0;
     xbox_SetSoftFocus(env&&*env?*env!='0':s_soft_focus);
@@ -884,6 +899,7 @@ void resot_options_init(void)
     xbox_SetFrameLimit(s_fps);
     xbox_SetVSync(s_vsync);
     xbox_SetPostProcessing(s_texture_glow);
+    xbox_SetSoftFocusStrength(s_soft_strength);
     xbox_FramebufferSetOptionsCallbacks(panel,event);
     xbox_InputSetHostFilter(input);
 }

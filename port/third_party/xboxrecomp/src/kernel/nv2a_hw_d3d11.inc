@@ -696,6 +696,8 @@ static const char s_hw_hlsl[] =
 "    else if (f == 0x204) ok = v > r; else if (f == 0x205) ok = v != r;\n"
 "    else if (f == 0x206) ok = v >= r;\n"
 "    if (!ok) discard; }\n"
+/* RE-SoT: misc.w, when set, scales the soft-focus overlay's opacity. */
+"  if (misc.w != 0) o.a *= asfloat(misc.w);\n"
 "  return o; }\n";
 
 /* RE-SoT: native mobile fast path for the observed one-stage texture *
@@ -1942,6 +1944,26 @@ static HwSurface *hw_bind_draw_state(const HwVsp *prog)
     hw_color4(s_gpu.fog_color, pc.fogc);       /* FOG_COLOR has R in bits 0-7 */
     { float r = pc.fogc[2]; pc.fogc[2] = pc.fogc[0]; pc.fogc[0] = r; }
     pc.misc[0] = (uint32_t)s_gpu.rc_seen;
+    {   /* RE-SoT: the soft-focus overlay (hw_postprocess_candidate) at the
+         * user's strength: its opacity comes from the combiner, so it is
+         * scaled in the pixel shader (misc.w). */
+        extern int xbox_FramebufferSoftFocusStrength(void);
+        int percent = xbox_FramebufferSoftFocusStrength();
+        const Texture *t0 = &s_gpu.texs[0];
+        static int logged;
+        if (!logged && s_gpu.blend_enable && s_gpu.blend_sfactor == 0x302 && s_gpu.blend_dfactor == 0x303
+                && t0->valid && t0->width == 160 && t0->height == 120) {
+            logged = 1;
+            fprintf(stderr, "  [HW] soft focus overlay: prim %u clip %ux%u fmt %02X, strength %d%%\n",
+                    (unsigned)s_gpu.prim, s_gpu.clip_w, s_gpu.clip_h, t0->color, percent);
+        }
+        if (percent < 100 && s_gpu.prim == NV_PRIM_QUADS && s_gpu.clip_w == 640 && s_gpu.clip_h == 480
+                && s_gpu.blend_enable && s_gpu.blend_sfactor == 0x302 && s_gpu.blend_dfactor == 0x303
+                && t0->valid && t0->width == 160 && t0->height == 120 && t0->color == 0x12) {
+            float f = (float)percent / 100.0f;
+            memcpy(&pc.misc[3], &f, sizeof f);
+        }
+    }
     for (st = 0; st < 4; st++) {
         const Texture *t = &s_gpu.texs[st];
         uint32_t mode = (s_gpu.rc.stage_program >> (st * 5)) & 0x1F;

@@ -1,5 +1,24 @@
 # Validation log
 
+## 2026-10-26: soft-focus strength (the wide halo around the trousers)
+
+The user kept the overlay on and found its halo too wide-reaching (F9
+captures c_flip10574 and c_flip14497). The frame trace shows how the title
+draws it: colour = the 160x120 copy times the diffuse colour, opacity = the
+diffuse alpha (combiner s0 tex0 * v0, alpha from v0.a; blend 302/303). The
+title sets that opacity per place: a fit of after = (1 - a) * before + c *
+copy gives a = 0.41 in c_flip10574 and 0.82 in c_flip14497, where the
+blurred copy almost replaces the picture and the bright trousers spread
+far. That is the title's own value, but over a sharp 4K image it reads as a
+halo. The option now has a strength: reSOT Options > Graphics > Weichzeichner
+(Soft focus) cycles Off, 25, 50, 75, 100 % (100 = Xbox), saved as
+[Graphics] SoftFocusStrength (RESOT_SOFT_FOCUS_STRENGTH overrides);
+TextureGlowEffect stays the on/off switch. The D3D11 renderer scales the
+overlay's opacity in the pixel shader (misc.w) for that one draw. Same
+scene, 6101 at 16:9 Ultra: at 1 % the Prince is as crisp as with the
+overlay off, at 100 % the halo is back. Not done: the native D3D12/Vulkan
+backends ignore the strength.
+
 ## 2026-10-26: audio dropouts, 5.1 without rear channels, the halo at 4K
 
 **Dropouts (user: stutters, hangs, drops out).** A recording before the host

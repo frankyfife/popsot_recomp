@@ -507,6 +507,18 @@ void xa2_get_stats(int *queued, int *dropped, int *starved)
     *queued = g_xa2_queued;
     *dropped = g_xa2_dropped;
     *starved = g_xa2_starved;
+    if (g_xa2) {
+        /* RE-SoT: the engine's own glitches (a processing pass that was late
+         * and played silence), which the queue counts above cannot see. */
+        static UINT32 last_glitches;
+        XAUDIO2_PERFORMANCE_DATA pd;
+        IXAudio2_GetPerformanceData(g_xa2, &pd);
+        fprintf(stderr, "[XA2] engine glitches %u (+%u), latency %u samples, CPU %llu of %llu cycles, %u active voices\n",
+                pd.GlitchesSinceEngineStarted, pd.GlitchesSinceEngineStarted - last_glitches,
+                pd.CurrentLatencyInSamples, (unsigned long long)pd.AudioCyclesSinceLastQuery,
+                (unsigned long long)pd.TotalCyclesSinceLastQuery, pd.ActiveSourceVoiceCount);
+        last_glitches = pd.GlitchesSinceEngineStarted;
+    }
 }
 
 #else /* !_WIN32 -- POSIX stubs (no audio output yet) */

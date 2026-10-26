@@ -686,7 +686,7 @@ void mcpx_apu_monitor_frame(MCPXAPUState *d)
  * old limit of one frame the time held was never produced, the XAudio2
  * queue lost those frames for good and ran dry. Sixteen frames is the queue's
  * own maximum (XA2_QUEUE_MAX); a longer stall starts the clock again. */
-#if RESOT_RUNTIME_DEMO
+#if RESOT_RUNTIME_DEMO || RESOT_RUNTIME_RETAIL   /* retail too, see the frame thread */
 #define APU_CATCH_UP_US (16 * EP_FRAME_US)
 #else
 #define APU_CATCH_UP_US EP_FRAME_US
@@ -781,8 +781,11 @@ static void *mcpx_apu_frame_thread(void *arg)
             continue;
         }
 
-#if RESOT_RUNTIME_DEMO
-        /* RE-SoT: DirectSound halts or traps the front end while it edits
+#if RESOT_RUNTIME_DEMO || RESOT_RUNTIME_RETAIL
+        /* RE-SoT (retail too, 2026-10-26: the same gaps, a few a second in the
+         * menu and in play, recorded at the sound card's output; this branch
+         * was built for the demo only).
+         * DirectSound halts or traps the front end while it edits
          * the voice lists, and releases it within a few milliseconds. This
          * thread used to keep the clock running meanwhile and send the
          * frame out as silence: the bath fight in xbox-demo

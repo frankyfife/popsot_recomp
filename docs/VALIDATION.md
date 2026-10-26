@@ -1,5 +1,27 @@
 # Validation log
 
+## 2026-10-26: the remaining stutter: frames sent as silence while the front end waits
+
+The user still heard stutter everywhere, menu included, and sent a screen
+recording (14:22). Its audio has hard cuts mid-waveform, 10 to 115 ms, a
+few a second in places. The XAudio2 engine reported no glitch
+(IXAudio2_GetPerformanceData, now in the 10-second line) and the queue never
+ran dry. A WASAPI loopback recording of the default endpoint (6 channels,
+44.1 kHz float, a small capture tool built for this, not in the repository)
+lined up with the recording before XAudio2 (RECOMP_APU_WAV): every cut at
+the endpoint was a frame of exact digital silence in what the APU produced.
+
+Cause: the frame thread sends a frame out as silence whenever DirectSound
+holds or traps the front end (FECTL), which it does for a few milliseconds
+around every voice change. The demo had exactly this (five gaps a second in
+the bath fight) and got a branch that waits for the front end, keeps
+answering the doorbell and the interrupt, and makes the frames up afterwards
+(APU_CATCH_UP_US 16 frames); that branch was compiled for the demo only.
+It now runs for retail too. Menu, 6101 and the map change after it, 110 s:
+one dip of -62 dB left (none of digital silence; 8 to 25 before), 1875
+frames every 10 s, queue 5, never dry, front end waited for at most 44 ms
+per 10 s, 60 fps.
+
 ## 2026-10-26: soft-focus strength (the wide halo around the trousers)
 
 The user kept the overlay on and found its halo too wide-reaching (F9

@@ -46,14 +46,14 @@ docs; the old logo images are gone (the Android launcher draws without one).
 Builds use -DPOPSOT_TARGET=<target> (tools/recomp.ps1 passes it). The one
 mention left is the MIT copyright line of the original authors in LICENSE,
 which the licence requires to be kept; the project's own line was added
-beside it. The settings move from resot-options.ini was dropped again (the
+beside it. The one-time move of the old settings file was dropped again (the
 user's file had already moved).
 
 The F5 info panel (FPS, world, renderer) is no longer reachable on Windows:
 its key and its Debug page entry are gone; F6 shows the same and more.
 
 Checked: retail builds, 359 XBE claims hold, the level select's 6101 loads
-with sound, both reSOT-era menus bind all their choices; the launcher
+with sound, both menus bind all their choices; the launcher
 builds and starts the game with POPSOT_ASSET_DIR. The demo was not built
 (no build tree in this checkout).
 

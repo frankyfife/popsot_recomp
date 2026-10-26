@@ -1589,6 +1589,34 @@ void sub_00039B20(void)
 #define MAP_CHANGE_STATE 0x00758C8Cu
 extern void sub_0025CF40(void);
 typedef void (*GuestFn)(void);
+
+/* The map key ChangeMap wants is not the world list's key: its top byte
+ * carries more than the world list's stream (0101: world list FF02B526, map
+ * 2200B526 as New Game passes it; 6101: FF023E88, map 22013E88; 1101:
+ * FF0D138E, 4D00138E). The world loader names each map's sound bank after
+ * the map key ("0x%08x", 0x0041F634; the switch at 0x00033CA1), so with a
+ * key built from the stream alone the level loaded without its bank and
+ * stayed silent. The sound bank table (0x46B1C4, count 0x46B1C8, 0x30-byte
+ * entries, name first) lists every map key; the one with the world list's
+ * low 16 bits and stream nibble is the map. */
+static uint32_t level_map_key(uint32_t stream)
+{
+    uint32_t tab = GMEM32(0x0046B1C4u), cnt = GMEM32(0x0046B1C8u), i, j;
+    uint32_t key = ((stream & 0xF0000u) << 8) | (stream & 0xFFFFu);
+    for (i = 0; tab && i < cnt && i < 4096; i++) {
+        char name[11];
+        uint32_t k;
+        for (j = 0; j < 10; j++)
+            name[j] = (char)(GMEM32(tab + i * 0x30u + j) & 0xFFu);
+        name[10] = 0;
+        if (name[0] != '0' || name[1] != 'x')
+            continue;
+        k = (uint32_t)strtoul(name + 2, NULL, 16);
+        if ((k & 0xFFFFu) == (stream & 0xFFFFu) && ((k >> 24) & 0x0Fu) == ((stream >> 16) & 0x0Fu))
+            return k;
+    }
+    return key;
+}
 extern GuestFn recomp_lookup(uint32_t xbox_va);
 static void level_pending(void)
 {
@@ -1634,7 +1662,7 @@ static void level_pending(void)
     regs_load(&saved);
     regs_save(&saved);
     g_esp -= 0x40;
-    args[0] = ((lv->stream & 0xF0000u) << 8) | (lv->stream & 0xFFFFu);
+    args[0] = level_map_key(lv->stream);
     args[1] = 0xFFFFFFFFu;
     g_eax = GMEM32(MAP_CHANGE_EAX);
     GMEM32(MAP_CHANGE_STATE) = 0;

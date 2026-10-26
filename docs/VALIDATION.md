@@ -1,5 +1,36 @@
 # Validation log
 
+## 2026-10-26: silent levels after the level select, solved
+
+**Cause.** The level select built the ChangeMap key from the world list's
+stream alone ((stream & 0xF0000) << 8 | low 16 bits). The game's map keys
+carry more in their top bytes: 0101 is 2200B526 (as New Game passes it),
+6101 22013E88, 1101 4D00138E, 8101 4100268A, for world lists FF02B526,
+FF023E88, FF0D138E and FF01268A. The world loader names each map's sound
+bank after the map key: when a level's worlds are merged in (0x00033C40),
+it compares the current bank [0x431018] with the map key (0x00033CA1),
+formats the new name with "0x%08x" (0x0041F634) and loads it through
+sndldbnk.c (0x0009CD90 -> 0x0009C450, which looks the name up in the bank
+table, 0x0009AEF0). With the stream-built key the name did not exist, the
+lookup returned nothing, no bank was loaded and no sound ever started.
+
+How it was found: a temporary trace of the sound library's bank functions
+(sndldbnk.c, CASyncBankLoader.cpp, by their source names in the lifted
+code) showed the bank loader getting a name that resolved to nothing for
+the level select and to a bank object with New Game's key bit, and the
+runtime bank table (0x46B1C4, 565 entries of 0x30 bytes, name first) lists
+every map key by name. The user's hint to use "Spezielle Karte laden" as
+the reference led to the menu's load path (MenuStartDemoE3_bhv_LoadGame,
+0x00114B30), which takes its key from the save or the special-map list,
+never from a world list.
+
+**Fix.** `level_map_key` (target_hooks.c) takes the key from the bank
+table: the name whose low 16 bits and stream nibble match the world list.
+Results (level select, 75-100 s runs): 6101 peaks 0.16-0.39 with up to 10
+3D voices, and it now starts in the corridor with the enemies instead of
+the bare room it started in before; 1101 0.22, 8101 0.15. Before: 0.0000
+in all of them.
+
 ## 2026-10-26: speaker setting not kept; HD font chopped and thin (user report)
 
 **5.1 not kept.** Switching reSOT Options > Sound > Speakers to 5.1 showed

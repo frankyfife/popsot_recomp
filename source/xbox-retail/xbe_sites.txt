@@ -299,6 +299,10 @@ ret 0x00143312 sub_0025CF40
 value 0x0B00A848                    # credits map (bigfile stream FF0BA848, "MenuCredits")
 value 0xCC00008E                    # universe object (bigfile header)
 value 0x000F0000                    # type nibble of a world-list stream key
+ref 0x00033CA1 0x00431018           # map sound bank: current bank against the map key
+ref 0x00033CB3 0x0041F634           # bank name format "0x%08x" of the map key
+ref 0x0009AEF1 0x0046B1C8           # sound bank table: count
+ref 0x0009AF02 0x0046B1C4           # sound bank table: entries (0x30 bytes, name first)
 value 0x0B0041D2                    # text group with "Special Load Map" (index 8)
 value 0xFF0003DC                    # level select: world-list stream (prince.bf)
 value 0xFF000865                    # level select: world-list stream (prince.bf)

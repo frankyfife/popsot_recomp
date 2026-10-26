@@ -1,12 +1,7 @@
-<p align="center">
-  <img src="docs/media/reSOT.png" alt="reSOT" width="192">
-</p>
+# POPSoT Recomp
 
-<p align="center">
-  <a href="https://www.buymeacoffee.com/fulger" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" height="37" width="170" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;"></a>
-</p>
-
-# reSOT
+A continuation of reSOT (FulGerNet's static recompilation of the game), with
+its own launcher, fixes and options.
 
 Static recompilation of the original Xbox builds of
 **Prince of Persia: The Sands of Time** into native Windows executables
@@ -143,7 +138,7 @@ embedded in the compiled EXE; it is not required beside the player EXE.
 Space / controller A skips videos; F5 toggles the FPS / Current WOW panel;
 F6 toggles the diagnostics panel (copyable with Ctrl+Shift+C); F9 captures
 the next frame for diagnosis (`logs/capture/`, Direct3D 11); F7 opens
-`reSOT Options` for graphics and controls, also available in the game's main menu. See the [Windows instructions](port/windows/README.md#play-portable-folder)
+`Port Options` for graphics and controls, also available in the game's main menu. See the [Windows instructions](port/windows/README.md#play-popsot-launcher)
 for the folder contents and packaging from a local build.
 
 | Platform | Instructions |
@@ -252,12 +247,13 @@ reSOT/
                          render, sound, ai, scripts, xdk/..., see gen/README.md)
     xbox-retail/         the same for the retail build
   port/                  what replaces the console
-    windows/src/         Windows host: entry point, launcher (title screen, ISO install), crash report, profiler
-    windows/res/         icon, version resource, launcher face (AtlantisMF.ttf, see docs/LICENSING.md)
+    windows/src/         Windows host: entry point, options, crash report, profiler
+    windows/res/         neutral icon, version resource (app.rc.in)
     android/             Android app: native host (src/), NDK CMakeLists.txt, Gradle project, launcher, touch controls (app/)
     game/                hand-written overrides the lifted code calls
     third_party/xboxrecomp/      recompiler (tools/) and Xbox runtime (src/) for both targets, patched; changes marked RE-SoT
-    third_party/extract-xiso/    extract-xiso 2.7.1, unchanged: the launcher's ISO installation
+    third_party/extract-xiso/    extract-xiso 2.7.1, unchanged (not built on Windows any more)
+  launcher/              POPSoT Launcher (Qt 6): ISO installation, settings, Play
   tools/                 recomp.ps1, build-android.ps1, run.ps1, shortcut.ps1, seed-scan.py, sort-functions.py, xbe-dis.py, check-hlsl.py
   docs/                  RECOMP.md, VALIDATION.md, LICENSING.md, history/, media/ (logo, screenshots)
   research/              analysis databases and Ghidra notes (ignored)

@@ -36,6 +36,32 @@ original; the pictures differ (palace visible through the palms). The user
 still finds the position wrong; the PC pose is the one from their popfix.ini
 of 2026-10-25.
 
+## 2026-10-26: POPSoT Launcher (Qt), the new name
+
+The user asked for a plain launcher like FuturamaPC's, the ISO installation
+with the USA disc required and the European one optional (German), no
+animation, no GitHub links, the PC version's icon, and "Port Options"
+instead of "reSOT Options"; name chosen: POPSoT Recomp. See
+port/windows/README.md "Play: POPSoT Launcher".
+
+Checks (Y:\xbox games, the user's images):
+- `--check-iso`: the USA XISO is recognised (default.xbe 753C58B1...); the
+  USA redump image (.iso.old) holds another default.xbe (E033B6D8..., title
+  0x5553001D) and is named as another revision; the European disc is
+  recognised as having the German speech; The Two Thrones (title 0x55530058,
+  also with SOUND/SOUNDX4) is refused.
+- `--install` USA + European into a test folder: 180 files, 2.78 GB; every
+  file the game uses, the German SOUNDX/soundx0 included, is byte-identical
+  to Assets\xbox-retail (whose German speech tools/german-speech.py wrote);
+  only saves, the cache and the two dashboard update XBEs differed (the
+  latter are now skipped).
+- sot-xbox-retail.exe started on that folder (RESOT_ASSET_DIR, as Play does)
+  reports it as its game folder and runs; resot-options.ini was moved to
+  popsot-options.ini on the first start.
+- The window: Windows 11 style (dark), the PC icon in the title bar and the
+  header, the tabs, German texts. The wizard's pages and Play were not
+  clicked through here.
+
 ## 2026-10-26: the remaining stutter: frames sent as silence while the front end waits
 
 The user still heard stutter everywhere, menu included, and sent a screen

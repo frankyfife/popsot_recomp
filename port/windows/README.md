@@ -1,4 +1,4 @@
-# reSOT on Windows
+# POPSoT Recomp on Windows
 
 Version 0.2.0 bundles [the supplied Windows defaults](default-options.ini):
 D3D11, unlimited FPS, VSync/glow/logs off, 720p (150%), post-processing Low
@@ -28,39 +28,52 @@ and native renderer optimizations also compile into these executables;
 Android-specific host changes and intentional backend differences are
 listed there.
 
-## Play (portable folder)
+## Play: POPSoT Launcher
 
-Double-click `sot-xbox-demo.exe` or `sot-xbox-retail.exe`. Keep that target's
-`prince.bf`, `video/` and `sound/` beside the executable;
-retail also needs `shaders.bin`, `MEDIA/`, `POP1/` and `POP2/`. Use your own
-supported Xbox disc files, as listed in the main README. The executable
-embeds its checked Xbox image during compilation, so `default.xbe` is needed
-to build, not to play. Its embedded copy is also verified before starting.
-Demo and retail need separate folders.
+`popsot-launcher.exe` (beside `sot-xbox-retail.exe` in `bin\`, source in
+[launcher/](../../launcher), Qt 6 Widgets) is the way in, after the
+FuturamaPC launcher: a plain window in the system's light or dark Windows
+style, no animation, no links. It shows the PC version's icon (see below),
+the installation, the settings of `popsot-options.ini` on tabs (Game,
+Graphics, Audio, Controls, Advanced), Save and Play, in German or English.
 
-The executable opens on the reSOT screen: the logo, a link to the GitHub
-repository, the installed games and two buttons, Start Demo and Start Game.
-It looks for games beside the executable, in the folders remembered in
-`resot-options.ini` (`[Launcher] DemoDir`, `RetailDir`, relative to the
-executable when inside its folder) and in every folder beside the
-executable, and tells the demo from the retail game by `default.xbe`'s
-SHA-256 or, without it, by the files only one of them has. Each button is
-enabled when its game is installed somewhere and its executable is available
-(this one, or the other target's beside it, `sot-xbox-demo.exe` <->
-`sot-xbox-retail.exe`, which is then started on that folder); under it are
-the build found and its folder. With the demo and the retail game both
-installed, both buttons work from either executable. Enter starts the
-focused button (at first, this executable's game), the arrow keys move
-between buttons, Esc closes.
+First start, or "Install from ISO...": a setup wizard asks for
 
-Without any game, a file dialog asks for the game's Xbox ISO. The launcher
-runs extract-xiso (`port/third_party/extract-xiso`, built into the
-executable and run in a child copy of it) to extract it into a folder named
-after the ISO beside the executable, without the disc's `$SystemUpdate`;
-the screen shows its progress and can cancel it. `Install from ISO...`
-installs another disc, for example the other game. `run.ps1`
-(`RESOT_LAUNCHER_CONFIGURED`) and `RESOT_ASSET_DIR` with
-`RESOT_SKIP_LAUNCHER=1` go straight to the game.
+1. the image of the **USA disc** (NTSC retail, required): its `default.xbe`
+   must have the SHA-256 the port is built for (753C58B1...); another
+   revision of the game is named as such;
+2. the image of the **European disc** (PAL, optional): its German speech
+   (`SOUND/SOUNDX4`) replaces the English set in `SOUND/SOUNDX` and
+   `soundx0` (the English archives are kept in `SOUND/original-english`),
+   and its five German bonus films (`CINE_90n4`) go to `VIDEO`. Without it
+   the speech stays English; the Game tab can add it later or restore the
+   English speech. Texts and film subtitles in German need only the USA
+   disc;
+3. the game folder (default: `Game` beside the launcher; in a source
+   checkout `Assets\xbox-retail` when the game is already there).
+
+The launcher reads the images itself (XDVDFS: bare XISO and redump layouts,
+`launcher/src/xiso.cpp`), copies every file except the dashboard update,
+and remembers the folder as `[Launcher] GameDir`. Play saves the settings and
+starts `sot-xbox-retail.exe` with `RESOT_ASSET_DIR` set to that folder.
+
+Without the launcher: `sot-xbox-retail.exe` finds the game through
+`RESOT_ASSET_DIR`, `[Launcher] GameDir`, the files beside it, or a source
+checkout's `..\Assets\xbox-retail`; without game files it starts the
+launcher beside it, or says that it needs it. `tools/run.ps1` is unchanged.
+
+Command line (tests, scripts): `popsot-launcher --check-iso <image>` and
+`popsot-launcher --install <USA image> <European image or -> <folder>`.
+
+Build: `.\tools\build-launcher.ps1` (Qt 6.8 for MSVC 64 bit, by default
+`D:\Qt\6.8.3\msvc2022_64`, or `-QtDir`); it puts the Qt runtime beside the
+launcher with windeployqt. The icon of both executables is the PC
+version's: `python tools\extract-icon.py "<PC game folder>\POP.EXE"
+bin\pop.ico` writes it from the player's own copy (not in the repository);
+without it the builds use the neutral `port/windows/res/app.ico`.
+
+The settings file was `resot-options.ini`; the first start moves it to
+`popsot-options.ini`.
 
 The app starts full screen with graphics, audio, keyboard and controller
 enabled. Space or controller A skips a Bink video, including videos whose
@@ -86,13 +99,13 @@ threads at raised IRQL and IRQL transitions per second; the current world;
 and the last lines of this run's log. Ctrl+Shift+C or the Copy button puts
 all of it, with the last 80 log lines, on the clipboard.
 
-F7 opens/closes the restored `reSOT Options` overlay (demo and retail);
+F7 opens/closes the restored `Port Options` overlay (demo and retail);
 Esc or its X button also closes it. Expand Graphics or Controls to edit
 settings. Double-click a binding to change it, right-click to clear it;
 scroll to reach the remaining actions. The overlay captures game input
 while open. F6 remains assigned to diagnostics; while options are open,
 the options surface takes display priority. The same settings remain in
-the game's main menu under `reSOT Options`:
+the game's main menu under `Port Options`:
  Graphics has the FPS limiter (30/60/120/None; 60 by default), VSync, post-processing
 and internal rendering resolution (240p, 360p, 480p, 720p, 1080p, 1440p);
 each choice cycles its value. Resolution changes from either menu or F7 preserve the current
@@ -109,7 +122,7 @@ restores the defaults. A joystick binding is taken only after every pad
 input has been released, so the press that opened the row is never bound;
 from the game's menu, Back cancels it and an untouched one lapses after
 8 seconds (pressing B to leave the page used to bind B). The game's own
-timing can still limit FPS. Settings are saved in `resot-options.ini`
+timing can still limit FPS. Settings are saved in `popsot-options.ini`
 beside the executable, except in runs with `RECOMP_PAD_SCRIPT` or
 `RECOMP_PAD_LIVE`: their scripted presses can reach these pages, so their
 changes last only for that run.
@@ -318,7 +331,7 @@ the chosen one directly, like popsot-fixes' Special Load on PC. The
 developers' test maps (WhiteRoom, magic corridor, magic fountain) are left
 out: they have no start and do not play. It is meant for testing: the Prince keeps whatever the
 menu had (sword, sand tanks), not what the story would have given him by
-then. `RESOT_HIDDEN_MENUS=0` hides it together with "reSOT Options".
+then. `RESOT_HIDDEN_MENUS=0` hides it together with "Port Options".
 
 ### Free camera (retail)
 
@@ -336,7 +349,7 @@ invulnerable, infinite sand and one-hit kills (Farah is never killed by a
 hit), and the prototype's two spawner switches, which retail still tests
 but never sets: "No enemies" (spawners drop their spawn requests) and
 "Endless enemies" (a spawner that has sent all its enemies starts again).
-"reSOT Options" is also in the pause menu now, so the "Cheats" page
+"Port Options" is also in the pause menu now, so the "Cheats" page
 is at hand in play; its last entry gives the next of the four swords once
 the menu is closed. In play, Ctrl+F1, Ctrl+F2 and Ctrl+F3 switch the first
 three and Ctrl+F4 gives the next sword. They are not saved and start off.
@@ -353,9 +366,9 @@ and the button symbols lose the brackets fifteen hints put around them.
 
 ### Sound: 5.1 and room reverb
 
-"reSOT Options" -> "Sound" (Windows): "Speakers" Stereo (default) or 5.1,
+"Port Options" -> "Sound" (Windows): "Speakers" Stereo (default) or 5.1,
 used from the next start, and "Room reverb" On (default) / Off, at once.
-Saved in `resot-options.ini` (`[Audio] Speakers=stereo|5.1`, `Reverb=1|0`);
+Saved in `popsot-options.ini` (`[Audio] Speakers=stereo|5.1`, `Reverb=1|0`);
 `RESOT_SPEAKERS` and `RESOT_REVERB` override them for one run. The reverb
 is the Xbox's I3DL2 room reverb: the game sends a copy of its sounds to it
 and sets the room (the DSP that ran it on the Xbox is not emulated; the
@@ -372,9 +385,9 @@ picture and flight end the PC port has in its `popfix.ini`, so the scene
 starts like there (same world, same coordinates; the picture can still
 differ slightly). In the main menu the free camera (Back or F8) places your
 own: X stores the menu picture, B the end of the New Game flight, both in
-`resot-options.ini` (`[Menu] CameraStart` / `CameraEnd`, `x y z yaw
+`popsot-options.ini` (`[Menu] CameraStart` / `CameraEnd`, `x y z yaw
 pitch`; `CameraMode=own`). New Game flies from the picture to the end at
-the game's pace. "reSOT Options" -> "Debug" -> "Menu camera" switches PC
+the game's pace. "Port Options" -> "Debug" -> "Menu camera" switches PC
 port, original and own. `[Menu] CameraForward` / `CameraUp` / `CameraSide`
 move the camera when a mode has no picture (defaults 3.5 / 6.25 / 0);
 `RESOT_MENU_CAMERA=0` (or `pc`, `own`, `original`) overrides the mode for
@@ -382,7 +395,7 @@ one run.
 
 ### Prototype page (retail)
 
-"reSOT Options" -> "Prototype": switches the PS2 prototype used that
+"Port Options" -> "Prototype": switches the PS2 prototype used that
 retail still reads but never sets. "Life regeneration" gives one life point
 per second; "Hide interface" hides the life bar and the hints. Not saved;
 `RESOT_PROTO=regen,nohud` switches them on at start.
@@ -390,7 +403,7 @@ per second; "Hide interface" hides the life bar and the hints. Not saved;
 ### Debug page (retail)
 ### Debug page (retail)
 
-"reSOT Options" -> "Debug", in the main and the pause menu: the F5 info
+"Port Options" -> "Debug", in the main and the pause menu: the F5 info
 panel, the free camera, the world freeze, the game speed and the main-menu
 camera (100 %, 50 %,
 25 %, through a clock factor the game reads but never writes; the scripts'
@@ -402,7 +415,7 @@ the pause menu, a map change ended on the "Spielende" page.
 ### Soft focus strength
 
 The menu entry formerly called texture glow switches the title's soft-focus
-overlay (a blurred 160x120 copy of the frame laid over it). reSOT Options >
+overlay (a blurred 160x120 copy of the frame laid over it). Port Options >
 Graphics > Soft focus cycles Off, 25 %, 50 %, 75 % and 100 % (the Xbox's own
 strength); the INI keeps `[Graphics] TextureGlowEffect` as the switch and
 `SoftFocusStrength=1..100` as the strength (`RESOT_SOFT_FOCUS_STRENGTH`
@@ -436,7 +449,7 @@ The F7-only `Console logs` switch is saved as `[Diagnostics] ConsoleLogs=1`.
 Error messages are red; warnings are yellow. The original file logs remain
 in `logs/<target>-err.txt` and `logs/<target>-out.txt`.
 
-The in-game reSOT Options post-processing selector offers Low/Mid/High/Ultra.
+The in-game Port Options post-processing selector offers Low/Mid/High/Ultra.
 Off remains available through `[Graphics] PostProcessingQuality=0` in the INI
 and, on Windows, through F7. An existing Off setting is shown as Custom in
 the in-game menu and is preserved until the quality selector is changed.
